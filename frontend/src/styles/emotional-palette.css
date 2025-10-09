@@ -1,0 +1,229 @@
+/**
+ * 🌿 EMOTIONAL PALETTE
+ * Palette inspirée par la vision UX sage green, beige, ivory, lavender
+ * Pour une expérience familiale, chaleureuse et intemporelle
+ */
+
+:root {
+  /* ========================================
+     🎨 PALETTE ÉMOTIONNELLE & NATURELLE
+     ======================================== */
+  
+  /* Fond principal - Douceur et neutralité */
+  --emotional-bg-primary: #F7F6F2;
+  --emotional-bg-secondary: #FEFEFE;
+  --emotional-bg-tertiary: #EEEDEA;
+  
+  /* Accent - Confiance et modernité */
+  --emotional-accent: #6C63FF;
+  --emotional-accent-light: #8B84FF;
+  --emotional-accent-dark: #5650D9;
+  
+  /* Vert sauge - Nature / Famille */
+  --emotional-sage: #A3B18A;
+  --emotional-sage-light: #C8D5B9;
+  --emotional-sage-dark: #7D8F6A;
+  --emotional-sage-bg: #F0F4ED;
+  
+  /* Beige clair - Chaleur humaine */
+  --emotional-beige: #EDE8E3;
+  --emotional-beige-light: #F5F1ED;
+  --emotional-beige-dark: #D9D4CF;
+  
+  /* Brun doux - Stabilité et ancrage */
+  --emotional-brown: #3A5A40;
+  --emotional-brown-light: #5A7A60;
+  --emotional-brown-dark: #2A4A30;
+  
+  /* Gris doux - Lisibilité et équilibre */
+  --emotional-gray: #DAD7CD;
+  --emotional-gray-light: #E8E5DB;
+  --emotional-gray-dark: #C0BDB3;
+  
+  /* Lavande - Douceur et spiritualité */
+  --emotional-lavender: #B6A6D8;
+  --emotional-lavender-light: #D4C9E8;
+  --emotional-lavender-dark: #9886C0;
+  --emotional-lavender-bg: #F5F2FA;
+  
+  /* Ivoire - Pureté et élégance */
+  --emotional-ivory: #FFFFF0;
+  --emotional-ivory-dark: #F5F5E6;
+  
+  /* ========================================
+     🎭 COULEURS SÉMANTIQUES (Événements)
+     ======================================== */
+  
+  /* Naissance - Vert doux */
+  --event-birth-bg: #E8F5E9;
+  --event-birth-border: #A3B18A;
+  --event-birth-text: #2E7D32;
+  
+  /* Mariage - Lavande */
+  --event-marriage-bg: #F5F2FA;
+  --event-marriage-border: #B6A6D8;
+  --event-marriage-text: #6A4C93;
+  
+  /* Décès - Gris doux */
+  --event-death-bg: #F5F5F5;
+  --event-death-border: #9E9E9E;
+  --event-death-text: #616161;
+  
+  /* Anniversaire - Rose clair */
+  --event-anniversary-bg: #FCE4EC;
+  --event-anniversary-border: #F48FB1;
+  --event-anniversary-text: #C2185B;
+  
+  /* ========================================
+     🌈 GRADIENTS ÉMOTIONNELS
+     ======================================== */
+  
+  /* Gradient sage (fond hero, headers) */
+  --gradient-sage: linear-gradient(135deg, #C8D5B9 0%, #A3B18A 100%);
+  --gradient-sage-soft: linear-gradient(135deg, #F0F4ED 0%, #E8EDE3 100%);
+  
+  /* Gradient beige (cards chaleureuses) */
+  --gradient-beige: linear-gradient(135deg, #F5F1ED 0%, #EDE8E3 100%);
+  --gradient-beige-warm: linear-gradient(135deg, #EDE8E3 0%, #E3DED9 100%);
+  
+  /* Gradient lavande (sections spirituelles, souvenirs) */
+  --gradient-lavender: linear-gradient(135deg, #D4C9E8 0%, #B6A6D8 100%);
+  --gradient-lavender-soft: linear-gradient(135deg, #F5F2FA 0%, #EDE8F5 100%);
+  
+  /* Gradient ivoire-beige (backgrounds légers) */
+  --gradient-ivory: linear-gradient(135deg, #FFFFF0 0%, #F5F1ED 100%);
+  
+  /* Gradient accent (CTAs, boutons importants) */
+  --gradient-accent: linear-gradient(135deg, #8B84FF 0%, #6C63FF 100%);
+  --gradient-accent-hover: linear-gradient(135deg, #A09AFF 0%, #8B84FF 100%);
+  
+  /* ========================================
+     📝 TEXTE & TYPOGRAPHIE
+     ======================================== */
+  
+  --text-emotional-primary: #2A2A2A;
+  --text-emotional-secondary: #5A5A5A;
+  --text-emotional-tertiary: #8A8A8A;
+  --text-emotional-disabled: #B0B0B0;
+  
+  /* Texte sur fond coloré */
+  --text-on-sage: #2A4A30;
+  --text-on-beige: #3A3A3A;
+  --text-on-lavender: #4A3A5A;
+  --text-on-accent: #FFFFFF;
+  
+  /* ========================================
+     🎯 STATUTS (Vivant/Décédé)
+     ======================================== */
+  
+  /* Vivant - Vert doux et rassurant */
+  --status-alive-bg: #E8F5E9;
+  --status-alive-border: #81C784;
+  --status-alive-text: #2E7D32;
+  --status-alive-dot: #4CAF50;
+  
+  /* Décédé - Gris respectueux */
+  --status-deceased-bg: #F5F5F5;
+  --status-deceased-border: #BDBDBD;
+  --status-deceased-text: #757575;
+  --status-deceased-dot: #9E9E9E;
+  
+  /* ========================================
+     🔘 BOUTONS & INTERACTIVITÉ
+     ======================================== */
+  
+  /* Bouton principal (Ajouter membre, Save) */
+  --btn-primary-bg: var(--emotional-sage);
+  --btn-primary-hover: var(--emotional-sage-dark);
+  --btn-primary-text: #FFFFFF;
+  
+  /* Bouton secondaire (Voir, Modifier) */
+  --btn-secondary-bg: var(--emotional-beige);
+  --btn-secondary-hover: var(--emotional-beige-dark);
+  --btn-secondary-text: var(--text-emotional-primary);
+  
+  /* Bouton accent (Actions importantes) */
+  --btn-accent-bg: var(--emotional-accent);
+  --btn-accent-hover: var(--emotional-accent-dark);
+  --btn-accent-text: #FFFFFF;
+  
+  /* ========================================
+     📦 CARTES & CONTENEURS
+     ======================================== */
+  
+  --card-emotional-bg: #FFFFFF;
+  --card-emotional-border: var(--emotional-gray-light);
+  --card-emotional-shadow: 0 2px 8px rgba(58, 90, 64, 0.06);
+  --card-emotional-shadow-hover: 0 4px 16px rgba(58, 90, 64, 0.12);
+  
+  /* ========================================
+     🎨 OVERLAYS & MODALS
+     ======================================== */
+  
+  --overlay-emotional: rgba(42, 42, 42, 0.4);
+  --modal-emotional-bg: #FFFFFF;
+  --modal-emotional-border: var(--emotional-gray);
+  
+  /* ========================================
+     📱 NAVIGATION
+     ======================================== */
+  
+  --nav-emotional-bg: var(--emotional-bg-primary);
+  --nav-emotional-active: var(--emotional-sage);
+  --nav-emotional-hover: var(--emotional-sage-bg);
+  --nav-emotional-text: var(--text-emotional-secondary);
+  --nav-emotional-text-active: var(--emotional-brown);
+}
+
+/* ========================================
+   🌙 DARK MODE (Optional - pour plus tard)
+   ======================================== */
+[data-theme="dark"] {
+  --emotional-bg-primary: #1E1E1E;
+  --emotional-bg-secondary: #2A2A2A;
+  --emotional-accent: #8B84FF;
+  --text-emotional-primary: #E8E8E8;
+  --text-emotional-secondary: #B0B0B0;
+}
+
+/* ========================================
+   🎭 HELPER CLASSES
+   ======================================== */
+
+/* Fond émotionnel */
+.bg-emotional-sage { background: var(--emotional-sage-bg); }
+.bg-emotional-beige { background: var(--emotional-beige); }
+.bg-emotional-lavender { background: var(--emotional-lavender-bg); }
+.bg-emotional-ivory { background: var(--emotional-ivory); }
+
+/* Texte émotionnel */
+.text-emotional-primary { color: var(--text-emotional-primary); }
+.text-emotional-secondary { color: var(--text-emotional-secondary); }
+.text-emotional-sage { color: var(--emotional-sage-dark); }
+.text-emotional-brown { color: var(--emotional-brown); }
+
+/* Bordure émotionnelle */
+.border-emotional-sage { border-color: var(--emotional-sage); }
+.border-emotional-beige { border-color: var(--emotional-beige-dark); }
+.border-emotional-lavender { border-color: var(--emotional-lavender); }
+
+/* Gradient backgrounds */
+.gradient-sage { background: var(--gradient-sage); }
+.gradient-beige { background: var(--gradient-beige); }
+.gradient-lavender { background: var(--gradient-lavender); }
+.gradient-accent { background: var(--gradient-accent); }
+
+/* Hover effects doux */
+.hover-beige {
+  transition: background-color 0.2s ease;
+}
+.hover-beige:hover {
+  background-color: var(--emotional-beige-light);
+}
+
+.hover-sage {
+  transition: background-color 0.2s ease;
+}
+.hover-sage:hover {
+  background-color: var(--emotional-sage-bg);
+}
