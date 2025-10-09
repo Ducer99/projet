@@ -6,7 +6,6 @@ Application web moderne et élégante pour explorer, partager et préserver l'hi
 
 ---
 
-## ✨ Nouveau Design 2025
 
 L'application a été **complètement redesignée** avec une approche moderne, émotionnelle et accessible inspirée par **Dieter Rams**, **Don Norman**, **Apple** et **Notion**.
 
