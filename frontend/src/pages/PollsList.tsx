@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import {
   Box,
@@ -30,17 +31,26 @@ interface Poll {
   creatorName: string;
   totalVoters: number;
   hasUserVoted: boolean;
+  visibilityType?: string;
 }
 
 const PollsList: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const toast = useToast();
+  const { isAuthenticated } = useAuth();
   const [polls, setPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
   const [showClosed, setShowClosed] = useState(false);
 
   useEffect(() => {
+    console.log('PollsList - isAuthenticated:', isAuthenticated);
+    if (!isAuthenticated) {
+      console.log('User not authenticated, redirecting to login');
+      navigate('/login');
+      return;
+    }
+    console.log('User authenticated, fetching polls');
     fetchPolls();
   }, [showClosed]);
 
@@ -51,8 +61,21 @@ const PollsList: React.FC = () => {
         params: { activeOnly: !showClosed },
       });
       setPolls(response.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching polls:', error);
+      
+      if (error.response?.status === 401) {
+        toast({
+          title: t('common.authError'),
+          description: t('common.pleaseLogin'),
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+        navigate('/login');
+        return;
+      }
+      
       toast({
         title: t('polls.fetchError'),
         status: 'error',
@@ -243,14 +266,24 @@ const PollsList: React.FC = () => {
                     </HStack>
 
                     {/* Question */}
-                    <Heading
-                      size="md"
-                      color={closed ? '#8B8B8B' : '#5A5A5A'}
-                      fontFamily="'Cormorant Garamond', serif"
-                      fontWeight="600"
-                    >
-                      {poll.question}
-                    </Heading>
+                    <HStack align="start">
+                      <Heading
+                        size="md"
+                        color={closed ? '#8B8B8B' : '#5A5A5A'}
+                        fontFamily="'Cormorant Garamond', serif"
+                        fontWeight="600"
+                        flex={1}
+                      >
+                        {poll.question}
+                      </Heading>
+                      {poll.visibilityType && poll.visibilityType !== 'all' && (
+                        <Text fontSize="lg" title={t('polls.targetedTo')}>
+                          {poll.visibilityType === 'lineage' && '🌳'}
+                          {poll.visibilityType === 'generation' && '👨‍👩‍👧‍👦'}
+                          {poll.visibilityType === 'manual' && '👥'}
+                        </Text>
+                      )}
+                    </HStack>
 
                     {/* Meta information */}
                     <HStack

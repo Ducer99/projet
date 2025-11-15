@@ -1,6 +1,6 @@
-import { Box, Container, HStack, Heading, Icon, Button, useColorModeValue } from '@chakra-ui/react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { FaHome, FaUsers, FaCalendar, FaSitemap, FaUserCircle, FaPollH, FaRing } from 'react-icons/fa';
+import { Box, Container, HStack, Heading, Icon, Button, useColorModeValue, Menu, MenuButton, MenuList, MenuItem } from '@chakra-ui/react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { FaHome, FaUsers, FaCalendar, FaSitemap, FaUserCircle, FaRing, FaChevronDown } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -60,27 +60,52 @@ const Header = () => {
               variant={location.pathname === '/dashboard' ? 'solid' : 'ghost'}
               colorScheme={location.pathname === '/dashboard' ? 'purple' : 'gray'}
               size="sm"
-              onClick={() => navigate('/dashboard')}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate('/dashboard');
+              }}
             >
               {t('navigation.home')}
             </Button>
             
-            <Button
-              leftIcon={<Icon as={FaSitemap} />}
-              variant={location.pathname === '/family-tree' ? 'solid' : 'ghost'}
-              colorScheme={location.pathname === '/family-tree' ? 'purple' : 'gray'}
-              size="sm"
-              onClick={() => navigate('/family-tree')}
-            >
-              {t('navigation.tree')}
-            </Button>
+            <Menu>
+              <MenuButton
+                as={Button}
+                leftIcon={<Icon as={FaSitemap} />}
+                rightIcon={<Icon as={FaChevronDown} fontSize="xs" />}
+                variant={location.pathname.startsWith('/family-tree') ? 'solid' : 'ghost'}
+                colorScheme={location.pathname.startsWith('/family-tree') ? 'purple' : 'gray'}
+                size="sm"
+              >
+                {t('navigation.tree')}
+              </MenuButton>
+              <MenuList>
+                <MenuItem
+                  icon={<Icon as={FaSitemap} />}
+                  onClick={() => navigate('/family-tree')}
+                >
+                  {t('navigation.treeStandard', 'Vue Standard')}
+                </MenuItem>
+                <MenuItem
+                  icon={<span style={{ fontSize: '1.2em' }}>🌳</span>}
+                  onClick={() => navigate('/family-tree-organic')}
+                >
+                  {t('navigation.treeOrganic', 'Vue Organique')}
+                </MenuItem>
+              </MenuList>
+            </Menu>
             
             <Button
               leftIcon={<Icon as={FaUsers} />}
               variant={location.pathname === '/persons' ? 'solid' : 'ghost'}
               colorScheme={location.pathname === '/persons' ? 'purple' : 'gray'}
               size="sm"
-              onClick={() => navigate('/persons')}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate('/persons');
+              }}
             >
               {t('navigation.members')}
             </Button>
@@ -90,7 +115,11 @@ const Header = () => {
               variant={location.pathname === '/events' ? 'solid' : 'ghost'}
               colorScheme={location.pathname === '/events' ? 'purple' : 'gray'}
               size="sm"
-              onClick={() => navigate('/events')}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate('/events');
+              }}
             >
               {t('navigation.events')}
             </Button>
@@ -100,19 +129,13 @@ const Header = () => {
               variant={location.pathname === '/weddings' ? 'solid' : 'ghost'}
               colorScheme={location.pathname === '/weddings' ? 'purple' : 'gray'}
               size="sm"
-              onClick={() => navigate('/weddings')}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate('/weddings');
+              }}
             >
               {t('navigation.weddings')}
-            </Button>
-            
-            <Button
-              leftIcon={<Icon as={FaPollH} />}
-              variant={location.pathname.startsWith('/polls') ? 'solid' : 'ghost'}
-              colorScheme={location.pathname.startsWith('/polls') ? 'purple' : 'gray'}
-              size="sm"
-              onClick={() => navigate('/polls')}
-            >
-              {t('navigation.polls')}
             </Button>
             
             <Button
@@ -120,7 +143,11 @@ const Header = () => {
               variant={location.pathname === '/my-profile' ? 'solid' : 'ghost'}
               colorScheme={location.pathname === '/my-profile' ? 'purple' : 'gray'}
               size="sm"
-              onClick={() => navigate('/my-profile')}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate('/my-profile');
+              }}
             >
               {t('navigation.profile')}
             </Button>
@@ -132,6 +159,7 @@ const Header = () => {
               variant="outline"
               colorScheme="red"
               size="sm"
+              type="button"
               onClick={logout}
             >
               {t('navigation.logout')}

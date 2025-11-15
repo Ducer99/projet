@@ -26,6 +26,7 @@ const LanguageSwitcher = () => {
         variant="outline"
         size="sm"
         colorScheme="purple"
+        type="button"
       >
         <HStack spacing={2}>
           <Text fontSize="lg">{currentLanguage.flag}</Text>

@@ -1,0 +1,870 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Box, 
+  Button, 
+  VStack, 
+  HStack, 
+  Text, 
+  Card, 
+  CardBody, 
+  Image, 
+  Badge,
+  Container,
+  Heading,
+  Switch,
+  FormControl,
+  FormLabel,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  useToast,
+  Avatar,
+  Tooltip,
+  Spinner
+} from '@chakra-ui/react';
+import { ChevronLeftIcon, SearchIcon } from '@chakra-ui/icons';
+import { useNavigate } from 'react-router-dom';
+import { buildCompleteFamily } from '../services/familyTreeService';
+import api from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+
+interface Person {
+  personID: number;
+  firstName: string;
+  lastName: string;
+  sex?: string;
+  birthday?: string;
+  birthDate?: string;
+  deathDate?: string;
+  alive?: boolean;
+  fatherID?: number;
+  motherID?: number;
+  photoUrl?: string;
+  activity?: string;
+  cityName?: string;
+  canLogin?: boolean;
+}
+
+interface Union {
+  husbandId: number;
+  wifeId: number;
+  weddingDate?: string;
+  children: Person[];
+}
+
+interface DynamicNode {
+  person: Person;
+  parents: Person[];
+  spouses: Person[];
+  children: Person[];
+  unions: Union[];
+}
+
+const FamilyTreeDynamic: React.FC = () => {
+  const [currentPerson, setCurrentPerson] = useState<DynamicNode | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [persons, setPersons] = useState<Person[]>([]);
+  const [focusHistory, setFocusHistory] = useState<number[]>([]);
+  
+  // 🆕 Nouvelles fonctionnalités transférées
+  const [showFullTree, setShowFullTree] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Person[]>([]);
+  const [totalWeddings, setTotalWeddings] = useState(0);
+  
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const toast = useToast();
+
+  // Charger les données initiales
+  useEffect(() => {
+    loadFamilyData();
+  }, [showFullTree]);
+
+  const loadFamilyData = async () => {
+    setLoading(true);
+    try {
+      // Utiliser le même endpoint que FamilyTreeOrganic avec support toggle
+      if (!user?.familyID) {
+        console.error('❌ familyID non disponible');
+        return;
+      }
+
+      const endpoint = showFullTree
+        ? `/familytree/full/${user.familyID}`
+        : `/familytree/my-branch/${user.idPerson}`;
+
+      const response = await api.get(endpoint);
+      const familyData = response.data;
+      
+      console.log('🔍 Données famille chargées:', familyData);
+      
+      // Extraire personnes et mariages de la réponse API
+      const persons = familyData.persons || [];
+      const weddings = familyData.weddings || [];
+      
+      setTotalWeddings(weddings.length);
+      
+      console.log('🔍 Données extraites:', { 
+        personnes: persons.length, 
+        mariages: weddings.length 
+      });
+      
+      // Construire l'arbre avec buildCompleteFamily
+      const treeData = await buildCompleteFamily(persons, weddings);
+      console.log('🔍 Arbre construit:', treeData);
+      
+      // Extraire toutes les personnes depuis allPersons Map
+      const allPersons: Person[] = Array.from(treeData.allPersons.values());
+      
+      // 🔧 IMPORTANT : Mettre à jour l'état persons AVANT d'appeler focusOnPerson
+      setPersons(allPersons);
+      
+      console.log('🔍 Personnes disponibles:', allPersons.map(p => ({ id: p.personID, nom: `${p.firstName} ${p.lastName}` })));
+      
+      // Si aucune personne disponible, arrêter ici
+      if (allPersons.length === 0) {
+        console.log('⚠️ Aucune personne trouvée dans les données');
+        return;
+      }
+      
+      // Démarrer avec la première personne disponible par défaut
+      let startPersonId = allPersons[0].personID;
+      
+      // Essayer de trouver des personnes spécifiques dans l'ordre de priorité
+      const priorityPersons = [
+        // Recherche par nom
+        allPersons.find(p => 
+          p.firstName?.toUpperCase().includes('RICHARD') && 
+          p.lastName?.toUpperCase().includes('GAMO')
+        ),
+        // Recherche par ID connu
+        allPersons.find(p => p.personID === 30),
+        // Recherche d'autres personnes importantes
+        allPersons.find(p => 
+          p.firstName?.toUpperCase().includes('RUBEN')
+        ),
+        allPersons.find(p => 
+          p.firstName?.toUpperCase().includes('REBECCA')
+        )
+      ];
+      
+      // Utiliser la première personne trouvée dans l'ordre de priorité
+      const foundPerson = priorityPersons.find(p => p !== undefined);
+      if (foundPerson) {
+        startPersonId = foundPerson.personID;
+        console.log('🎯 Personne trouvée pour démarrage:', foundPerson);
+      } else {
+        console.log('⚠️ Aucune personne prioritaire trouvée, démarrage avec:', allPersons[0]);
+      }
+      
+      // 🔧 Focus sur la personne sélectionnée avec les données actualisées
+      // Utiliser setTimeout pour s'assurer que l'état est mis à jour
+      setTimeout(() => {
+        if (allPersons.some(p => p.personID === startPersonId)) {
+          focusOnPersonWithData(startPersonId, allPersons);
+        } else {
+          console.error('❌ Impossible de démarrer - aucune personne valide trouvée');
+        }
+      }, 100);
+      
+    } catch (error) {
+      console.error('❌ Erreur chargement famille:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de charger l\'arbre familial',
+        status: 'error',
+        duration: 5000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const extractPersonsFromNode = (node: any, persons: Person[]) => {
+    if (node.person) {
+      persons.push(node.person);
+    }
+    if (node.children) {
+      node.children.forEach((child: any) => extractPersonsFromNode(child, persons));
+    }
+  };
+
+  // 🆕 Fonction de recherche
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      const response = await api.get(`/familytree/search/${user?.familyID}`, {
+        params: { query: searchQuery },
+      });
+      setSearchResults(response.data);
+    } catch (error: any) {
+      toast({
+        title: 'Erreur de recherche',
+        description: error.response?.data || 'Erreur lors de la recherche',
+        status: 'error',
+        duration: 3000,
+      });
+    }
+  };
+
+  // 🆕 Fonction de focus avec données spécifiques (évite les problèmes d'état)
+  const focusOnPersonWithData = (personId: number, personsData: Person[]) => {
+    setLoading(true);
+    try {
+      const person = personsData.find(p => p.personID === personId);
+      if (!person) {
+        console.error('❌ Personne non trouvée dans les données:', personId);
+        return;
+      }
+
+      // Temporairement remplacer persons pour les calculs
+      const originalPersons = persons;
+      (window as any).tempPersons = personsData;
+      
+      // Construire le nœud dynamique
+      const dynamicNode: DynamicNode = {
+        person: person,
+        parents: personsData.filter(p => 
+          p.personID === person.fatherID || p.personID === person.motherID
+        ),
+        spouses: [], // Sera calculé après
+        children: personsData.filter(p => 
+          p.fatherID === person.personID || p.motherID === person.personID
+        ),
+        unions: []
+      };
+
+      setCurrentPerson(dynamicNode);
+      
+      // Ajouter à l'historique
+      setFocusHistory(prev => [...prev.filter(id => id !== personId), personId]);
+      
+      console.log('🎯 Focus sur:', {
+        nom: `${person.firstName} ${person.lastName}`,
+        parents: dynamicNode.parents.length,
+        enfants: dynamicNode.children.length
+      });
+
+    } catch (error) {
+      console.error('❌ Erreur focus personne avec données:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const focusOnPerson = async (personId: number) => {
+    if (!personId) {
+      console.error('❌ personId manquant');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const person = persons.find(p => p.personID === personId);
+      if (!person) {
+        console.error('❌ Personne non trouvée:', personId);
+        console.log('🔍 Personnes disponibles:', persons.map(p => ({ id: p.personID, nom: `${p.firstName} ${p.lastName}` })));
+        
+        toast({
+          title: 'Personne non trouvée',
+          description: `Impossible de trouver la personne avec l'ID ${personId}`,
+          status: 'warning',
+          duration: 3000,
+        });
+        return;
+      }
+
+      // Construire le nœud dynamique
+      const dynamicNode: DynamicNode = {
+        person: person,
+        parents: getParents(person),
+        spouses: getSpouses(person),
+        children: getChildren(person),
+        unions: getUnions(person)
+      };
+
+      setCurrentPerson(dynamicNode);
+      
+      // Ajouter à l'historique
+      setFocusHistory(prev => [...prev.filter(id => id !== personId), personId]);
+      
+      console.log('🎯 Focus sur:', {
+        nom: `${person.firstName} ${person.lastName}`,
+        parents: dynamicNode.parents.length,
+        épouses: dynamicNode.spouses.length,
+        enfants: dynamicNode.children.length,
+        unions: dynamicNode.unions.length
+      });
+
+    } catch (error) {
+      console.error('❌ Erreur focus personne:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de charger cette personne',
+        status: 'error',
+        duration: 3000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getParents = (person: Person): Person[] => {
+    const parents: Person[] = [];
+    if (person.fatherID) {
+      const father = persons.find(p => p.personID === person.fatherID);
+      if (father) parents.push(father);
+    }
+    if (person.motherID) {
+      const mother = persons.find(p => p.personID === person.motherID);
+      if (mother) parents.push(mother);
+    }
+    return parents;
+  };
+
+  const getSpouses = (person: Person): Person[] => {
+    // Trouver tous les mariages impliquant cette personne
+    const spouses: Person[] = [];
+    persons.forEach(otherPerson => {
+      if (otherPerson.personID !== person.personID) {
+        // Vérifier s'il y a des enfants en commun
+        const commonChildren = getChildrenBetween(person.personID, otherPerson.personID);
+        if (commonChildren.length > 0) {
+          spouses.push(otherPerson);
+        }
+      }
+    });
+    return spouses;
+  };
+
+  const getChildren = (person: Person): Person[] => {
+    return persons.filter(p => 
+      p.fatherID === person.personID || p.motherID === person.personID
+    );
+  };
+
+  const getUnions = (person: Person): Union[] => {
+    const unions: Union[] = [];
+    const spouses = getSpouses(person);
+    
+    spouses.forEach(spouse => {
+      const commonChildren = getChildrenBetween(person.personID, spouse.personID);
+      if (commonChildren.length > 0) {
+        unions.push({
+          husbandId: person.personID,
+          wifeId: spouse.personID,
+          children: commonChildren
+        });
+      }
+    });
+    
+    return unions;
+  };
+
+  const getChildrenBetween = (parent1Id: number, parent2Id: number): Person[] => {
+    return persons.filter(person => 
+      (person.fatherID === parent1Id && person.motherID === parent2Id) ||
+      (person.fatherID === parent2Id && person.motherID === parent1Id)
+    );
+  };
+
+  const goBack = () => {
+    if (focusHistory.length > 1) {
+      const newHistory = [...focusHistory];
+      newHistory.pop(); // Retirer la personne actuelle
+      const previousPersonId = newHistory[newHistory.length - 1];
+      setFocusHistory(newHistory);
+      focusOnPerson(previousPersonId);
+    }
+  };
+
+  const PersonCard: React.FC<{ person: Person; role: string; onClick: () => void }> = ({ person, role, onClick }) => {
+    const birthDate = person.birthDate || person.birthday;
+    const age = birthDate
+      ? Math.floor((new Date().getTime() - new Date(birthDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25))
+      : null;
+    
+    const isAlive = person.alive !== false && !person.deathDate;
+
+    return (
+      <Tooltip
+        label={
+          <VStack align="start" spacing={1}>
+            <Text fontWeight="bold">{person.firstName} {person.lastName}</Text>
+            {birthDate && <Text fontSize="sm">Né(e) le {new Date(birthDate).toLocaleDateString()}</Text>}
+            {age && isAlive && <Text fontSize="sm">Âge: {age} ans</Text>}
+            {person.activity && <Text fontSize="sm">💼 {person.activity}</Text>}
+            {person.cityName && <Text fontSize="sm">📍 {person.cityName}</Text>}
+            {person.fatherID && <Text fontSize="sm">👨 Père ID: {person.fatherID}</Text>}
+            {person.motherID && <Text fontSize="sm">👩 Mère ID: {person.motherID}</Text>}
+            {!isAlive && person.deathDate && (
+              <Text fontSize="sm" color="red.300">
+                Décédé(e) le {new Date(person.deathDate).toLocaleDateString()}
+              </Text>
+            )}
+          </VStack>
+        }
+        placement="top"
+      >
+        <Card 
+          maxW="200px" 
+          cursor="pointer" 
+          onClick={onClick}
+          _hover={{ transform: 'scale(1.05)', shadow: 'lg' }}
+          transition="all 0.2s"
+          border="2px solid"
+          borderColor={role === 'focus' ? 'blue.500' : 'gray.200'}
+          bg={role === 'focus' ? 'blue.50' : person.sex === 'M' ? 'blue.50' : 'pink.50'}
+        >
+          <CardBody textAlign="center" p={4}>
+            <Avatar
+              size="lg"
+              name={`${person.firstName} ${person.lastName}`}
+              src={person.photoUrl}
+              bg={person.sex === 'M' ? 'blue.400' : 'pink.400'}
+              mx="auto"
+              mb={3}
+            />
+            <Text fontSize="sm" fontWeight="bold" mb={2}>
+              {person.firstName} {person.lastName}
+            </Text>
+            
+            <VStack spacing={1}>
+              <Badge colorScheme={role === 'focus' ? 'blue' : role === 'parent' ? 'green' : role === 'spouse' ? 'purple' : 'orange'}>
+                {role === 'focus' ? 'Focus' : role === 'parent' ? 'Parent' : role === 'spouse' ? 'Épouse' : 'Enfant'}
+              </Badge>
+              
+              {age && isAlive && (
+                <Badge colorScheme="green" fontSize="xs">
+                  {age} ans
+                </Badge>
+              )}
+              
+              {!isAlive && (
+                <Badge colorScheme="red" fontSize="xs">
+                  ✝ Décédé(e)
+                </Badge>
+              )}
+              
+              {person.personID === user?.idPerson && (
+                <Badge colorScheme="cyan" fontSize="xs">
+                  Vous
+                </Badge>
+              )}
+            </VStack>
+          </CardBody>
+        </Card>
+      </Tooltip>
+    );
+  };
+
+  if (loading) {
+    return (
+      <Container maxW="container.xl" py={8}>
+        <VStack spacing={4}>
+          <Spinner size="xl" color="blue.500" />
+          <Text>Chargement de l'arbre généalogique dynamique...</Text>
+        </VStack>
+      </Container>
+    );
+  }
+
+  if (!currentPerson) {
+    return (
+      <Container maxW="container.xl" py={8}>
+        <VStack spacing={4}>
+          <Text>Aucune personne sélectionnée</Text>
+          <Button onClick={loadFamilyData}>Recharger</Button>
+        </VStack>
+      </Container>
+    );
+  }
+
+  return (
+    <Container maxW="100%" py={8}>
+      <VStack spacing={6} align="stretch">
+        
+        {/* 🆕 Header avec contrôles avancés */}
+        <Box bg="white" p={6} borderRadius="lg" boxShadow="md">
+          <VStack spacing={4} align="stretch">
+            <Heading size="lg">🌳 Arbre Généalogique Familial - Navigation Interactive</Heading>
+            
+            {/* Contrôles */}
+            <HStack spacing={4} wrap="wrap">
+              <FormControl display="flex" alignItems="center" w="auto">
+                <FormLabel mb={0} fontSize="sm">
+                  {showFullTree ? 'Toute la famille' : 'Ma branche uniquement'}
+                </FormLabel>
+                <Switch
+                  colorScheme="green"
+                  isChecked={showFullTree}
+                  onChange={(e) => setShowFullTree(e.target.checked)}
+                />
+              </FormControl>
+
+              <InputGroup maxW="300px">
+                <InputLeftElement>
+                  <SearchIcon color="gray.400" />
+                </InputLeftElement>
+                <Input
+                  placeholder="Rechercher dans la famille..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                />
+              </InputGroup>
+
+              <Button colorScheme="blue" onClick={handleSearch} size="sm">
+                Rechercher
+              </Button>
+
+              <Button colorScheme="green" onClick={loadFamilyData} size="sm">
+                🔄 Rafraîchir
+              </Button>
+            </HStack>
+
+            {/* 🆕 Statistiques détaillées */}
+            <HStack spacing={4} wrap="wrap">
+              <Tooltip label="Total des personnes dans votre base familiale" placement="top">
+                <Badge colorScheme="blue" fontSize="md" p={2} cursor="help">
+                  📊 {persons.length} PERSONNES
+                </Badge>
+              </Tooltip>
+              <Tooltip label="Nombre de mariages enregistrés" placement="top">
+                <Badge colorScheme="purple" fontSize="md" p={2} cursor="help">
+                  💍 {totalWeddings} mariages
+                </Badge>
+              </Tooltip>
+              <Tooltip label="Personne actuellement en focus" placement="top">
+                <Badge colorScheme="green" fontSize="md" p={2} cursor="help">
+                  🎯 Focus: {currentPerson.person.firstName} {currentPerson.person.lastName}
+                </Badge>
+              </Tooltip>
+              <Tooltip label="Unions multiples de cette personne" placement="top">
+                <Badge colorScheme="orange" fontSize="md" p={2} cursor="help">
+                  👥 {currentPerson.unions.length} union(s)
+                </Badge>
+              </Tooltip>
+            </HStack>
+          </VStack>
+        </Box>
+
+        {/* 🆕 Résultats de recherche */}
+        {searchResults.length > 0 && (
+          <Box bg="yellow.50" p={4} borderRadius="lg" borderWidth={1} borderColor="yellow.200">
+            <Heading size="sm" mb={3}>Résultats de recherche ({searchResults.length})</Heading>
+            <HStack spacing={3} wrap="wrap">
+              {searchResults.map(person => (
+                <Box key={person.personID}>
+                  <PersonCard
+                    person={person}
+                    role="search"
+                    onClick={() => focusOnPerson(person.personID)}
+                  />
+                </Box>
+              ))}
+            </HStack>
+          </Box>
+        )}
+
+        {/* En-tête avec navigation */}
+        <HStack justifyContent="space-between" mb={6}>
+          <VStack align="start">
+            <Text color="gray.600">
+              Navigation familiale centrée sur: {currentPerson.person.firstName} {currentPerson.person.lastName}
+            </Text>
+            <Text fontSize="sm" color="purple.600">
+              🎯 Cliquez sur n'importe quelle personne pour changer le focus
+            </Text>
+          </VStack>
+          
+          <HStack>
+            <Button leftIcon={<ChevronLeftIcon />} onClick={goBack} isDisabled={focusHistory.length <= 1}>
+              Retour
+            </Button>
+            <Button onClick={() => navigate('/dashboard')}>
+              Dashboard
+            </Button>
+            <Button onClick={() => navigate('/persons')}>
+              Liste Membres
+            </Button>
+          </HStack>
+        </HStack>
+
+        {/* 🆕 Vue principale en forme de croix */}
+        <Box
+          bg="gray.50"
+          borderRadius="lg"
+          borderWidth={1}
+          borderColor="gray.200"
+          p={8}
+          overflow="auto"
+          minH="600px"
+        >
+          <VStack spacing={8}>
+            
+            {/* PARENTS (EN HAUT) */}
+            {currentPerson.parents.length > 0 && (
+              <VStack>
+                <Text fontSize="lg" fontWeight="bold" color="green.600">
+                  ↑ PARENTS
+                </Text>
+                <HStack spacing={4}>
+                  {currentPerson.parents.map(parent => (
+                    <PersonCard
+                      key={parent.personID}
+                      person={parent}
+                      role="parent"
+                      onClick={() => focusOnPerson(parent.personID)}
+                    />
+                  ))}
+                </HStack>
+              </VStack>
+            )}
+
+            {/* NIVEAU CENTRAL : ÉPOUSES ← PERSONNE FOCUS → ENFANTS */}
+            <HStack spacing={8} align="start">
+              
+              {/* ÉPOUSES (À GAUCHE) */}
+              {currentPerson.spouses.length > 0 && (
+                <VStack>
+                  <Text fontSize="lg" fontWeight="bold" color="purple.600">
+                    ← ÉPOUSES ({currentPerson.spouses.length})
+                  </Text>
+                  <VStack spacing={3}>
+                    {currentPerson.spouses.map(spouse => (
+                      <PersonCard
+                        key={spouse.personID}
+                        person={spouse}
+                        role="spouse"
+                        onClick={() => focusOnPerson(spouse.personID)}
+                      />
+                    ))}
+                  </VStack>
+                </VStack>
+              )}
+
+              {/* PERSONNE FOCUS (CENTRE) */}
+              <VStack>
+                <Text fontSize="xl" fontWeight="bold" color="blue.600">
+                  ● FOCUS
+                </Text>
+                <PersonCard
+                  person={currentPerson.person}
+                  role="focus"
+                  onClick={() => {}}
+                />
+                
+                {/* Statistiques unions */}
+                {currentPerson.unions.length > 0 && (
+                  <Box mt={2} p={2} bg="blue.50" borderRadius="md" fontSize="sm">
+                    <Text fontWeight="bold">Unions: {currentPerson.unions.length}</Text>
+                    {currentPerson.unions.map((union, index) => {
+                      const spouse = persons.find(p => p.personID === union.wifeId || p.personID === union.husbandId);
+                      if (!spouse || spouse.personID === currentPerson.person.personID) return null;
+                      return (
+                        <Text key={index}>
+                          → {union.children.length} enfant(s) avec {spouse?.firstName}
+                        </Text>
+                      );
+                    })}
+                  </Box>
+                )}
+              </VStack>
+
+              {/* ENFANTS (À DROITE) */}
+              {currentPerson.children.length > 0 && (
+                <VStack>
+                  <Text fontSize="lg" fontWeight="bold" color="orange.600">
+                    ENFANTS ({currentPerson.children.length}) →
+                  </Text>
+                  <VStack spacing={3} maxH="400px" overflowY="auto">
+                    {currentPerson.children.map(child => (
+                      <PersonCard
+                        key={child.personID}
+                        person={child}
+                        role="child"
+                        onClick={() => focusOnPerson(child.personID)}
+                      />
+                    ))}
+                  </VStack>
+                </VStack>
+              )}
+            </HStack>
+          </VStack>
+        </Box>
+
+      {/* Vue principale en forme de croix */}
+      <VStack spacing={8}>
+        
+        {/* PARENTS (EN HAUT) */}
+        {currentPerson.parents.length > 0 && (
+          <VStack>
+            <Text fontSize="lg" fontWeight="bold" color="green.600">
+              ↑ PARENTS
+            </Text>
+            <HStack spacing={4}>
+              {currentPerson.parents.map(parent => (
+                <PersonCard
+                  key={parent.personID}
+                  person={parent}
+                  role="parent"
+                  onClick={() => focusOnPerson(parent.personID)}
+                />
+              ))}
+            </HStack>
+          </VStack>
+        )}
+
+        {/* NIVEAU CENTRAL : ÉPOUSES ← PERSONNE FOCUS → ENFANTS */}
+        <HStack spacing={8} align="start">
+          
+          {/* ÉPOUSES (À GAUCHE) */}
+          {currentPerson.spouses.length > 0 && (
+            <VStack>
+              <Text fontSize="lg" fontWeight="bold" color="purple.600">
+                ← ÉPOUSES ({currentPerson.spouses.length})
+              </Text>
+              <VStack spacing={3}>
+                {currentPerson.spouses.map(spouse => (
+                  <PersonCard
+                    key={spouse.personID}
+                    person={spouse}
+                    role="spouse"
+                    onClick={() => focusOnPerson(spouse.personID)}
+                  />
+                ))}
+              </VStack>
+            </VStack>
+          )}
+
+          {/* PERSONNE FOCUS (CENTRE) */}
+          <VStack>
+            <Text fontSize="xl" fontWeight="bold" color="blue.600">
+              ● FOCUS
+            </Text>
+            <PersonCard
+              person={currentPerson.person}
+              role="focus"
+              onClick={() => {}}
+            />
+            
+            {/* Statistiques unions */}
+            {currentPerson.unions.length > 0 && (
+              <Box mt={2} p={2} bg="blue.50" borderRadius="md" fontSize="sm">
+                <Text fontWeight="bold">Unions: {currentPerson.unions.length}</Text>
+                {currentPerson.unions.map((union, index) => {
+                  const spouse = persons.find(p => p.personID === union.wifeId || p.personID === union.husbandId);
+                  return (
+                    <Text key={index}>
+                      → {union.children.length} enfant(s) avec {spouse?.firstName}
+                    </Text>
+                  );
+                })}
+              </Box>
+            )}
+          </VStack>
+
+          {/* ENFANTS (À DROITE) */}
+          {currentPerson.children.length > 0 && (
+            <VStack>
+              <Text fontSize="lg" fontWeight="bold" color="orange.600">
+                ENFANTS ({currentPerson.children.length}) →
+              </Text>
+              <VStack spacing={3} maxH="400px" overflowY="auto">
+                {currentPerson.children.map(child => (
+                  <PersonCard
+                    key={child.personID}
+                    person={child}
+                    role="child"
+                    onClick={() => focusOnPerson(child.personID)}
+                  />
+                ))}
+              </VStack>
+            </VStack>
+          )}
+        </HStack>
+
+        {/* UNIONS DÉTAILLÉES (EN BAS) */}
+        {currentPerson.unions.length > 1 && (
+          <VStack>
+            <Text fontSize="lg" fontWeight="bold" color="purple.600">
+              ↓ DÉTAIL DES UNIONS MULTIPLES
+            </Text>
+            <HStack spacing={4} wrap="wrap">
+              {currentPerson.unions.map((union, index) => {
+                const spouse = persons.find(p => 
+                  p.personID === union.wifeId || p.personID === union.husbandId
+                );
+                if (!spouse || spouse.personID === currentPerson.person.personID) return null;
+                
+                return (
+                  <Card key={index} p={3} bg="purple.50">
+                    <VStack>
+                      <Text fontWeight="bold" fontSize="sm">
+                        Union {index + 1}
+                      </Text>
+                      <Text fontSize="xs">
+                        {currentPerson.person.firstName} + {spouse.firstName}
+                      </Text>
+                      <Text fontSize="xs" color="green.600">
+                        {union.children.length} enfant(s)
+                      </Text>
+                      <VStack spacing={1}>
+                        {union.children.map(child => (
+                          <Button
+                            key={child.personID}
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => focusOnPerson(child.personID)}
+                          >
+                            {child.firstName}
+                          </Button>
+                        ))}
+                      </VStack>
+                    </VStack>
+                  </Card>
+                );
+              })}
+            </HStack>
+          </VStack>
+        )}
+
+        {/* 🆕 Légende */}
+        <Box bg="white" p={4} borderRadius="lg" boxShadow="sm">
+          <Heading size="sm" mb={3}>Légende</Heading>
+          <HStack spacing={6} wrap="wrap">
+            <HStack>
+              <Box w="20px" h="20px" bg="blue.50" borderWidth={2} borderColor="gray.300" borderRadius="md" />
+              <Text fontSize="sm">Homme</Text>
+            </HStack>
+            <HStack>
+              <Box w="20px" h="20px" bg="pink.50" borderWidth={2} borderColor="gray.300" borderRadius="md" />
+              <Text fontSize="sm">Femme</Text>
+            </HStack>
+            <HStack>
+              <Box w="20px" h="20px" bg="purple.50" borderWidth={2} borderColor="purple.300" borderRadius="md" />
+              <Text fontSize="sm">Épouse</Text>
+            </HStack>
+            <HStack>
+              <Box w="20px" h="20px" bg="blue.50" borderWidth={2} borderColor="blue.500" borderRadius="md" />
+              <Text fontSize="sm">Focus actuel</Text>
+            </HStack>
+            <HStack>
+              <Badge colorScheme="cyan" fontSize="xs">Vous</Badge>
+              <Text fontSize="sm">Votre profil</Text>
+            </HStack>
+          </HStack>
+        </Box>
+        
+      </VStack>
+    </Container>
+  );
+};
+
+export default FamilyTreeDynamic;

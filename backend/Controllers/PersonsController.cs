@@ -195,7 +195,7 @@ namespace FamilyTreeAPI.Controllers
         // POST: api/Persons - Ajouter un membre
         [HttpPost]
         [Authorize]
-        public async Task<ActionResult<Person>> PostPerson(Person person)
+        public async Task<ActionResult<Person>> PostPerson(CreatePersonDto personDto)
         {
             // 🔒 Récupérer l'ID de famille et connexion de l'utilisateur
             var userFamilyId = int.Parse(User.FindFirst("familyId")?.Value ?? "0");
@@ -206,11 +206,62 @@ namespace FamilyTreeAPI.Controllers
                 return Unauthorized(new { message = "Utilisateur non identifié" });
             }
 
-            // 🔒 Forcer le FamilyID pour éviter qu'un utilisateur ajoute des membres à une autre famille
-            person.FamilyID = userFamilyId;
-            
-            // 📝 Enregistrer qui a créé ce membre
-            person.CreatedBy = userConnexionId;
+            // Créer l'objet Person à partir du DTO
+            var person = new Person
+            {
+                FirstName = personDto.FirstName,
+                LastName = personDto.LastName,
+                Sex = personDto.Sex,
+                Birthday = personDto.Birthday,
+                Email = personDto.Email,
+                Activity = personDto.Activity,
+                PhotoUrl = personDto.PhotoUrl,
+                Notes = personDto.Notes,
+                CityID = personDto.CityID,
+                Alive = personDto.Alive,
+                DeathDate = personDto.DeathDate,
+                FamilyID = userFamilyId, // 🔒 Forcer le FamilyID
+                CreatedBy = userConnexionId,
+                // 🕊️ Logique automatique selon statut vital
+                Status = personDto.Alive ? "confirmed" : "deceased",
+                CanLogin = personDto.Alive // Les décédés ne peuvent jamais se connecter
+            };
+
+            // Gestion du père (mode manuel ou dropdown)
+            if (!string.IsNullOrEmpty(personDto.FatherFirstName) || !string.IsNullOrEmpty(personDto.FatherLastName))
+            {
+                // Mode manuel : créer ou trouver un placeholder
+                var father = await FindOrCreateParentPlaceholderForCreate(
+                    personDto.FatherFirstName ?? "",
+                    personDto.FatherLastName ?? "",
+                    "M",
+                    userFamilyId
+                );
+                person.FatherID = father.PersonID;
+            }
+            else if (personDto.FatherID.HasValue)
+            {
+                // Mode dropdown : utiliser l'ID fourni
+                person.FatherID = personDto.FatherID;
+            }
+
+            // Gestion de la mère (mode manuel ou dropdown)
+            if (!string.IsNullOrEmpty(personDto.MotherFirstName) || !string.IsNullOrEmpty(personDto.MotherLastName))
+            {
+                // Mode manuel : créer ou trouver un placeholder
+                var mother = await FindOrCreateParentPlaceholderForCreate(
+                    personDto.MotherFirstName ?? "",
+                    personDto.MotherLastName ?? "",
+                    "F",
+                    userFamilyId
+                );
+                person.MotherID = mother.PersonID;
+            }
+            else if (personDto.MotherID.HasValue)
+            {
+                // Mode dropdown : utiliser l'ID fourni
+                person.MotherID = personDto.MotherID;
+            }
 
             _context.Persons.Add(person);
             await _context.SaveChangesAsync();
@@ -227,18 +278,22 @@ namespace FamilyTreeAPI.Controllers
         // PUT: api/Persons/5 - Modifier un membre
         [HttpPut("{id}")]
         [Authorize]
-        public async Task<IActionResult> PutPerson(int id, Person person)
+        public async Task<IActionResult> PutPerson(int id, UpdatePersonDto personUpdate)
         {
-            if (id != person.PersonID)
-            {
-                return BadRequest();
-            }
-
             // 🔒 Récupérer les infos de l'utilisateur
             var userFamilyId = int.Parse(User.FindFirst("familyId")?.Value ?? "0");
             var userConnexionId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
             var userRole = User.FindFirst("role")?.Value ?? "Member";
             var userPersonId = int.Parse(User.FindFirst("personId")?.Value ?? "0");
+            
+            Console.WriteLine($"🔍 PUT Person {id}: userConnexionId={userConnexionId}, userFamilyId={userFamilyId}, userRole={userRole}, userPersonId={userPersonId}");
+            
+            // Validation des données utilisateur
+            if (userConnexionId == 0 || userFamilyId == 0)
+            {
+                Console.WriteLine($"❌ Session invalide: userConnexionId={userConnexionId}, userFamilyId={userFamilyId}");
+                return StatusCode(401, new { message = "Session invalide. Veuillez vous reconnecter." });
+            }
             
             var existingPerson = await _context.Persons.FindAsync(id);
             
@@ -253,30 +308,116 @@ namespace FamilyTreeAPI.Controllers
                 return Forbid(); // 403 - L'utilisateur ne peut pas modifier des personnes d'une autre famille
             }
 
-            // 🔒 Vérifier les permissions : Admin OU Créateur OU Son propre profil
+            // 🔒 Vérifier les permissions : Admin OU Créateur OU Son propre profil OU Enfant (placeholder/décédé)
             bool isAdmin = userRole == "Admin";
             bool isCreator = existingPerson.CreatedBy == userConnexionId;
             bool isOwnProfile = existingPerson.PersonID == userPersonId;
             
-            if (!isAdmin && !isCreator && !isOwnProfile)
+            Console.WriteLine($"🔐 Vérification permissions pour Person {id}:");
+            Console.WriteLine($"   - Status: {existingPerson.Status}");
+            Console.WriteLine($"   - CreatedBy: {existingPerson.CreatedBy}");
+            Console.WriteLine($"   - isAdmin: {isAdmin}");
+            Console.WriteLine($"   - isCreator: {isCreator}");
+            Console.WriteLine($"   - isOwnProfile: {isOwnProfile}");
+            
+            // 👨‍👩‍👦 Nouvelle règle : Si c'est un placeholder ou décédé, l'enfant peut le modifier
+            bool isChildOfParent = false;
+            if (existingPerson.Status == "placeholder" || existingPerson.Status == "deceased")
             {
-                return StatusCode(403, new { message = "Vous ne pouvez modifier que votre propre profil ou les membres que vous avez créés" });
+                Console.WriteLine($"   - Profil placeholder/décédé détecté, vérification enfant...");
+                // Vérifier si l'utilisateur est l'enfant de cette personne
+                var currentUserPerson = await _context.Persons.FindAsync(userPersonId);
+                if (currentUserPerson != null)
+                {
+                    Console.WriteLine($"   - Current user FatherID: {currentUserPerson.FatherID}, MotherID: {currentUserPerson.MotherID}");
+                    Console.WriteLine($"   - Target PersonID: {existingPerson.PersonID}");
+                    
+                    isChildOfParent = 
+                        currentUserPerson.FatherID == existingPerson.PersonID || 
+                        currentUserPerson.MotherID == existingPerson.PersonID;
+                    
+                    Console.WriteLine($"   - isChildOfParent: {isChildOfParent}");
+                }
+            }
+            
+            Console.WriteLine($"✅ Autorisation finale: {isAdmin || isCreator || isOwnProfile || isChildOfParent}");
+            
+            if (!isAdmin && !isCreator && !isOwnProfile && !isChildOfParent)
+            {
+                Console.WriteLine($"❌ ACCÈS REFUSÉ pour Person {id}");
+                return StatusCode(403, new { message = "Vous ne pouvez modifier que votre propre profil, les membres que vous avez créés, ou vos parents (profils temporaires/décédés)" });
             }
 
-            // 🔒 Empêcher le changement de FamilyID et CreatedBy
-            person.FamilyID = userFamilyId;
-            person.CreatedBy = existingPerson.CreatedBy; // Garder le créateur original
+            // �‍👩‍👦 Gérer les parents (placeholder ou existants)
+            int? fatherId = personUpdate.FatherID;
+            int? motherId = personUpdate.MotherID;
+            
+            // Si des noms de parents sont fournis en mode manuel, créer des placeholders
+            if (!string.IsNullOrEmpty(personUpdate.FatherFirstName) && !string.IsNullOrEmpty(personUpdate.FatherLastName))
+            {
+                var fatherPlaceholder = await FindOrCreateParentPlaceholder(
+                    personUpdate.FatherFirstName,
+                    personUpdate.FatherLastName,
+                    "M",
+                    existingPerson.CityID,
+                    userConnexionId,
+                    userFamilyId
+                );
+                
+                if (fatherPlaceholder == null)
+                {
+                    return StatusCode(500, new { message = "Erreur lors de la création du placeholder pour le père" });
+                }
+                
+                fatherId = fatherPlaceholder.PersonID;
+            }
+            
+            if (!string.IsNullOrEmpty(personUpdate.MotherFirstName) && !string.IsNullOrEmpty(personUpdate.MotherLastName))
+            {
+                var motherPlaceholder = await FindOrCreateParentPlaceholder(
+                    personUpdate.MotherFirstName,
+                    personUpdate.MotherLastName,
+                    "F",
+                    existingPerson.CityID,
+                    userConnexionId,
+                    userFamilyId
+                );
+                
+                if (motherPlaceholder == null)
+                {
+                    return StatusCode(500, new { message = "Erreur lors de la création du placeholder pour la mère" });
+                }
+                
+                motherId = motherPlaceholder.PersonID;
+            }
 
-            _context.Entry(existingPerson).CurrentValues.SetValues(person);
+            // Mise à jour des champs autorisés
+            existingPerson.FirstName = personUpdate.FirstName;
+            existingPerson.LastName = personUpdate.LastName;
+            existingPerson.Sex = personUpdate.Sex;
+            existingPerson.Birthday = personUpdate.Birthday;
+            existingPerson.Email = personUpdate.Email;
+            existingPerson.Activity = personUpdate.Activity;
+            existingPerson.PhotoUrl = personUpdate.PhotoUrl;
+            existingPerson.Notes = personUpdate.Notes;
+            existingPerson.CityID = personUpdate.CityID;
+            existingPerson.Alive = personUpdate.Alive;
+            existingPerson.DeathDate = personUpdate.DeathDate;
+            existingPerson.FatherID = fatherId;
+            existingPerson.MotherID = motherId;
+            
+            // 🕊️ Mettre à jour Status et CanLogin selon statut vital
+            existingPerson.Status = personUpdate.Alive ? "confirmed" : "deceased";
+            existingPerson.CanLogin = personUpdate.Alive; // Les décédés ne peuvent jamais se connecter
 
             try
             {
                 await _context.SaveChangesAsync();
                 
                 // 🎂 Créer ou mettre à jour l'événement anniversaire si la date de naissance a changé
-                if (person.Birthday.HasValue)
+                if (existingPerson.Birthday.HasValue)
                 {
-                    await CreateOrUpdateBirthdayEventAsync(person, userFamilyId);
+                    await CreateOrUpdateBirthdayEventAsync(existingPerson, userFamilyId);
                 }
             }
             catch (DbUpdateConcurrencyException)
@@ -609,6 +750,176 @@ namespace FamilyTreeAPI.Controllers
                 await _context.SaveChangesAsync();
             }
         }
+        
+        // 🆕 Méthode pour trouver ou créer un parent "placeholder"
+        private async Task<Person?> FindOrCreateParentPlaceholder(
+            string firstName, 
+            string lastName, 
+            string sex, 
+            int cityId,
+            int createdBy,
+            int familyId)
+        {
+            // 1. Vérifier si un utilisateur actif existe déjà avec ce nom dans cette famille
+            var existingPerson = await _context.Persons
+                .FirstOrDefaultAsync(p => 
+                    p.FirstName.ToLower() == firstName.ToLower() && 
+                    p.LastName.ToLower() == lastName.ToLower() &&
+                    p.Sex == sex &&
+                    p.FamilyID == familyId &&
+                    p.Status == "confirmed");
+            
+            if (existingPerson != null)
+            {
+                Console.WriteLine($"✅ Parent trouvé (actif): {firstName} {lastName}");
+                return existingPerson;
+            }
+            
+            // 2. Vérifier si un placeholder existe déjà dans cette famille
+            var existingPlaceholder = await _context.Persons
+                .FirstOrDefaultAsync(p => 
+                    p.FirstName.ToLower() == firstName.ToLower() && 
+                    p.LastName.ToLower() == lastName.ToLower() &&
+                    p.Sex == sex &&
+                    p.FamilyID == familyId &&
+                    p.Status == "placeholder");
+            
+            if (existingPlaceholder != null)
+            {
+                Console.WriteLine($"✅ Placeholder existant trouvé: {firstName} {lastName}");
+                return existingPlaceholder;
+            }
+            
+            // 3. Créer un nouveau placeholder
+            Console.WriteLine($"🔍 Tentative de création de placeholder: {firstName} {lastName}, FamilyID: {familyId}");
+            
+            var placeholder = new Person
+            {
+                FirstName = firstName,
+                LastName = lastName,
+                Sex = sex,
+                FamilyID = familyId,  // ✅ Le placeholder appartient à la même famille
+                CityID = cityId,
+                Status = "placeholder", // Statut spécial
+                Alive = true,
+                CanLogin = false, // Ne peut pas se connecter tant que non réclamé
+                CreatedBy = null,  // ⚠️ Les placeholders n'ont pas de créateur spécifique
+                ParentLinkConfirmed = false
+            };
+            
+            _context.Persons.Add(placeholder);
+            await _context.SaveChangesAsync();
+            
+            Console.WriteLine($"🆕 Nouveau placeholder créé: {firstName} {lastName} (ID: {placeholder.PersonID})");
+            return placeholder;
+        }
+
+        // Méthode utilitaire pour créer/trouver les parents placeholders (pour PostPerson)
+        private async Task<Person> FindOrCreateParentPlaceholderForCreate(
+            string firstName, 
+            string lastName, 
+            string sex,
+            int familyId)
+        {
+            // 1. Vérifier si un utilisateur actif existe déjà avec ce nom dans cette famille
+            var existingPerson = await _context.Persons
+                .FirstOrDefaultAsync(p => 
+                    p.FirstName.ToLower() == firstName.ToLower() && 
+                    p.LastName.ToLower() == lastName.ToLower() &&
+                    p.Sex == sex &&
+                    p.FamilyID == familyId &&
+                    p.Status == "confirmed");
+            
+            if (existingPerson != null)
+            {
+                Console.WriteLine($"✅ Parent trouvé (actif): {firstName} {lastName}");
+                return existingPerson;
+            }
+            
+            // 2. Vérifier si un placeholder existe déjà dans cette famille
+            var existingPlaceholder = await _context.Persons
+                .FirstOrDefaultAsync(p => 
+                    p.FirstName.ToLower() == firstName.ToLower() && 
+                    p.LastName.ToLower() == lastName.ToLower() &&
+                    p.Sex == sex &&
+                    p.FamilyID == familyId &&
+                    p.Status == "placeholder");
+            
+            if (existingPlaceholder != null)
+            {
+                Console.WriteLine($"✅ Placeholder existant trouvé: {firstName} {lastName}");
+                return existingPlaceholder;
+            }
+            
+            // 3. Créer un nouveau placeholder
+            var placeholder = new Person
+            {
+                FirstName = firstName,
+                LastName = lastName,
+                Sex = sex,
+                FamilyID = familyId,
+                CityID = 1, // Ville par défaut
+                Status = "placeholder",
+                Alive = true,
+                CreatedBy = null // Les placeholders n'ont pas de créateur
+            };
+            
+            _context.Persons.Add(placeholder);
+            await _context.SaveChangesAsync();
+            
+            Console.WriteLine($"🆕 Nouveau placeholder créé: {firstName} {lastName}");
+            return placeholder;
+        }
+
+        // DTO pour la création d'une nouvelle personne
+    public class CreatePersonDto
+    {
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Sex { get; set; } = string.Empty;
+        public DateTime? Birthday { get; set; }
+        public string? Email { get; set; }
+        public string? Activity { get; set; }
+        public string? PhotoUrl { get; set; }
+        public string? Notes { get; set; }
+        public int CityID { get; set; }
+        public bool Alive { get; set; }
+        public DateTime? DeathDate { get; set; }
+        
+        // Parents (mode dropdown)
+        public int? FatherID { get; set; }
+        public int? MotherID { get; set; }
+        
+        // Parents (mode manuel - placeholder)
+        public string? FatherFirstName { get; set; }
+        public string? FatherLastName { get; set; }
+        public string? MotherFirstName { get; set; }
+        public string? MotherLastName { get; set; }
+    }
+
+    public class UpdatePersonDto
+    {
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Sex { get; set; } = string.Empty;
+        public DateTime? Birthday { get; set; }
+        public string? Email { get; set; }
+        public string? Activity { get; set; }
+        public string? PhotoUrl { get; set; }
+        public string? Notes { get; set; }
+        public int CityID { get; set; }
+        public bool Alive { get; set; }
+        public DateTime? DeathDate { get; set; }
+        
+        // Parents (mode dropdown)
+        public int? FatherID { get; set; }
+        public int? MotherID { get; set; }
+        
+        // Parents (mode manuel - placeholder)
+        public string? FatherFirstName { get; set; }
+        public string? FatherLastName { get; set; }
+        public string? MotherFirstName { get; set; }
+        public string? MotherLastName { get; set; }
     }
 
     // DTO pour la mise à jour du profil
@@ -626,4 +937,5 @@ namespace FamilyTreeAPI.Controllers
         public bool Alive { get; set; }
         public DateTime? DeathDate { get; set; }
     }
+}
 }

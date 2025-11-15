@@ -11,10 +11,11 @@ import FamilyAttachment from './pages/FamilyAttachment';
 import ForgotPassword from './pages/ForgotPassword';
 import FamilySetup from './pages/FamilySetup';
 import Dashboard from './pages/Dashboard';
-import FamilyTreeVisualization from './pages/FamilyTreeVisualization';
+import FamilyTreeEnhanced from './pages/FamilyTreeEnhanced';
 import RelationsExplainer from './pages/RelationsExplainer';
 import PersonProfile from './pages/PersonProfile';
 import PersonsList from './pages/PersonsList';
+import MembersManagementDashboard from './pages/MembersManagementDashboard';
 import PublicPersonsList from './pages/PublicPersonsList';
 import MyProfile from './pages/MyProfile';
 import AddMember from './pages/AddMember';
@@ -27,9 +28,10 @@ import AlbumsList from './pages/AlbumsList';
 import AlbumDetail from './pages/AlbumDetail';
 import AlbumForm from './pages/AlbumForm';
 import PollsList from './pages/PollsList';
-import PollDetail from './pages/PollDetail';
 import CreatePoll from './pages/CreatePoll';
+import PollDetail from './pages/PollDetail';
 import LanguageSettings from './pages/LanguageSettings';
+import LoopDetectionTest from './components/LoopDetectionTest';
 import PrivateRoute from './components/PrivateRoute';
 
 function App() {
@@ -60,7 +62,31 @@ function App() {
               path="/family-tree"
               element={
                 <PrivateRoute>
-                  <FamilyTreeVisualization />
+                  <FamilyTreeEnhanced />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/family-tree-organic"
+              element={
+                <PrivateRoute>
+                  <FamilyTreeEnhanced />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/family-tree-dynamic"
+              element={
+                <PrivateRoute>
+                  <FamilyTreeEnhanced />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/test-architecture"
+              element={
+                <PrivateRoute>
+                  <LoopDetectionTest />
                 </PrivateRoute>
               }
             />
@@ -76,7 +102,23 @@ function App() {
               path="/persons"
               element={
                 <PrivateRoute>
+                  <MembersManagementDashboard />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/persons-old"
+              element={
+                <PrivateRoute>
                   <PersonsList />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/members-dashboard"
+              element={
+                <PrivateRoute>
+                  <MembersManagementDashboard />
                 </PrivateRoute>
               }
             />

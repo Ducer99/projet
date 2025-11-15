@@ -91,13 +91,47 @@ const PersonProfile = () => {
   const [children, setChildren] = useState<Child[]>([]);
   const [weddings, setWeddings] = useState<Wedding[]>([]);
   const [loading, setLoading] = useState(true);
+  const [canEditProfile, setCanEditProfile] = useState(false);
 
   const isCurrentUser = user?.idPerson === parseInt(id || '0');
-  const canEdit = isCurrentUser; // TODO: Ajouter vérification CreatedBy ou role admin depuis backend
 
   useEffect(() => {
     loadPersonData();
   }, [id]);
+
+  useEffect(() => {
+    // Vérifier si l'utilisateur peut modifier ce profil
+    if (!person || !user) {
+      setCanEditProfile(false);
+      return;
+    }
+
+    // Récupérer le profil de l'utilisateur actuel pour vérifier les liens de parenté
+    const checkEditPermissions = async () => {
+      try {
+        const currentUserResponse = await api.get(`/persons/${user.idPerson}`);
+        const currentUserPerson = currentUserResponse.data;
+
+        // 1. C'est son propre profil
+        const isOwnProfile = person.personID === user.idPerson;
+
+        // 2. L'utilisateur est enfant de cette personne (placeholder ou décédé)
+        const isChildOfParent = 
+          (currentUserPerson.fatherID === person.personID || 
+           currentUserPerson.motherID === person.personID);
+
+        // 3. Admin (on pourrait ajouter user.role === 'Admin')
+        const isAdmin = user.role === 'Admin';
+
+        setCanEditProfile(isOwnProfile || isChildOfParent || isAdmin);
+      } catch (error) {
+        console.error('Erreur vérification permissions:', error);
+        setCanEditProfile(isCurrentUser); // Fallback: seulement son propre profil
+      }
+    };
+
+    checkEditPermissions();
+  }, [person, user]);
 
   const loadPersonData = async () => {
     try {
@@ -237,7 +271,7 @@ const PersonProfile = () => {
                 )}
               </HStack>
 
-              {canEdit && (
+              {canEditProfile && (
                 <Button
                   leftIcon={<FaEdit />}
                   variant="solid"
@@ -730,7 +764,7 @@ const PersonProfile = () => {
                       <Box>
                         <Text fontWeight="bold">{t('personProfile.noBiography')}</Text>
                         <Text fontSize="sm">
-                          {canEdit
+                          {canEditProfile
                             ? t('personProfile.addBiographyPrompt')
                             : t('personProfile.biographyNotWritten')}
                         </Text>
@@ -738,7 +772,7 @@ const PersonProfile = () => {
                     </Alert>
                   )}
 
-                  {canEdit && (
+                  {canEditProfile && (
                     <Button
                       leftIcon={<FaEdit />}
                       variant="heritage"

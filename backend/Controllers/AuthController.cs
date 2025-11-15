@@ -30,13 +30,33 @@ namespace FamilyTreeAPI.Controllers
         [HttpPost("login")]
         public async Task<ActionResult> Login([FromBody] LoginRequest request)
         {
+            // Trouver l'utilisateur par email (actif ou non)
             var user = await _context.Connexions
                 .Include(c => c.Person)
-                .FirstOrDefaultAsync(c => c.Email == request.Email && c.IsActive);
+                .FirstOrDefaultAsync(c => c.Email == request.Email);
 
-            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
+            // Vérifier si l'utilisateur existe
+            if (user == null)
             {
-                return Unauthorized("Email ou mot de passe incorrect");
+                return Unauthorized(new { message = "Email ou mot de passe incorrect" });
+            }
+
+            // Vérifier le mot de passe
+            if (!BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
+            {
+                return Unauthorized(new { message = "Email ou mot de passe incorrect" });
+            }
+
+            // Vérifier si le compte est actif
+            if (!user.IsActive)
+            {
+                return StatusCode(403, new { message = "Votre compte n'est pas encore activé. Veuillez compléter votre inscription." });
+            }
+
+            // Vérifier si la personne peut se connecter (pas décédée)
+            if (user.Person != null && !user.Person.CanLogin)
+            {
+                return StatusCode(403, new { message = "Ce compte est désactivé. Les profils commémoratifs ne peuvent pas se connecter." });
             }
 
             // Update last login date
@@ -63,7 +83,7 @@ namespace FamilyTreeAPI.Controllers
                     user.IDPerson,
                     FamilyID = user.FamilyID,
                     user.Role,
-                    PersonName = $"{user.Person.FirstName} {user.Person.LastName}",
+                    PersonName = user.Person != null ? $"{user.Person.FirstName} {user.Person.LastName}" : user.UserName,
                     FamilyName = userFamily?.FamilyName
                 }
             });
@@ -276,57 +296,44 @@ namespace FamilyTreeAPI.Controllers
                 await _context.SaveChangesAsync();
             }
 
-            // 🆕 Traiter les parents (vivants, décédés ou non inscrits)
+            // 🆕 Traiter les parents (placeholder automatique)
             Person? father = null;
             Person? mother = null;
             
             // Traiter le père
-            if (!string.IsNullOrEmpty(request.FatherStatus) && request.FatherStatus != "unknown")
+            if (!string.IsNullOrEmpty(request.FatherFirstName) && !string.IsNullOrEmpty(request.FatherLastName))
             {
-                if (request.FatherID.HasValue && request.FatherID.Value > 0)
-                {
-                    // Parent déjà inscrit (sélectionné dans dropdown)
-                    father = await _context.Persons.FindAsync(request.FatherID.Value);
-                }
-                else if (!string.IsNullOrEmpty(request.FatherName))
-                {
-                    // Parent non inscrit ou décédé (saisie texte)
-                    father = await FindOrCreateParent(
-                        request.FatherName,
-                        request.FatherBirthDate,
-                        request.FatherDeathDate,
-                        request.FatherStatus,
-                        "M",
-                        connexion.FamilyID ?? 0,
-                        userId
-                    );
-                }
+                father = await FindOrCreateParentPlaceholder(
+                    request.FatherFirstName,
+                    request.FatherLastName,
+                    "M",
+                    city.CityID,
+                    userId
+                );
             }
             
             // Traiter la mère
-            if (!string.IsNullOrEmpty(request.MotherStatus) && request.MotherStatus != "unknown")
+            if (!string.IsNullOrEmpty(request.MotherFirstName) && !string.IsNullOrEmpty(request.MotherLastName))
             {
-                if (request.MotherID.HasValue && request.MotherID.Value > 0)
-                {
-                    // Parent déjà inscrit (sélectionné dans dropdown)
-                    mother = await _context.Persons.FindAsync(request.MotherID.Value);
-                }
-                else if (!string.IsNullOrEmpty(request.MotherName))
-                {
-                    // Parent non inscrit ou décédé (saisie texte)
-                    mother = await FindOrCreateParent(
-                        request.MotherName,
-                        request.MotherBirthDate,
-                        request.MotherDeathDate,
-                        request.MotherStatus,
-                        "F",
-                        connexion.FamilyID ?? 0,
-                        userId
-                    );
-                }
+                mother = await FindOrCreateParentPlaceholder(
+                    request.MotherFirstName,
+                    request.MotherLastName,
+                    "F",
+                    city.CityID,
+                    userId
+                );
             }
 
             // Créer la personne
+            // 🔧 WORKAROUND: Tronquer tous les champs texte pour éviter l'erreur VARCHAR(2000)
+            var safeActivity = request.Activity;
+            if (!string.IsNullOrEmpty(safeActivity) && safeActivity.Length > 1000) 
+                safeActivity = safeActivity.Substring(0, 1000);
+            
+            var safeEmail = connexion.Email;
+            if (!string.IsNullOrEmpty(safeEmail) && safeEmail.Length > 1000) 
+                safeEmail = safeEmail.Substring(0, 1000);
+            
             var person = new Person
             {
                 FirstName = request.FirstName,
@@ -334,11 +341,12 @@ namespace FamilyTreeAPI.Controllers
                 Sex = request.Gender,
                 Birthday = request.BirthDate.HasValue ? DateTime.SpecifyKind(request.BirthDate.Value, DateTimeKind.Utc) : null,
                 CityID = city.CityID,
-                Email = connexion.Email,
+                Email = safeEmail,
                 Alive = true,
                 FamilyID = null, // NULL jusqu'au rattachement familial
-                Activity = request.Activity,
-                PhotoUrl = request.PhotoUrl,
+                Activity = safeActivity,
+                // 🔧 WORKAROUND TEMPORAIRE: Ignorer PhotoUrl si trop grande
+                PhotoUrl = string.IsNullOrEmpty(request.PhotoUrl) || request.PhotoUrl.Length > 1000 ? null : request.PhotoUrl,
                 FatherID = father?.PersonID,
                 MotherID = mother?.PersonID,
                 Status = "confirmed",
@@ -348,6 +356,39 @@ namespace FamilyTreeAPI.Controllers
             };
 
             _context.Persons.Add(person);
+            
+            // 🐛 DEBUG: Log all field lengths before saving
+            Console.WriteLine($"========== DEBUG: CompleteProfile Person Object ==========");
+            Console.WriteLine($"FirstName length: {person.FirstName?.Length ?? 0}");
+            Console.WriteLine($"LastName length: {person.LastName?.Length ?? 0}");
+            Console.WriteLine($"Email length: {person.Email?.Length ?? 0}");
+            Console.WriteLine($"Activity length: {person.Activity?.Length ?? 0}");
+            Console.WriteLine($"PhotoUrl length: {person.PhotoUrl?.Length ?? 0}");
+            Console.WriteLine($"PendingFatherName length: {person.PendingFatherName?.Length ?? 0}");
+            Console.WriteLine($"PendingMotherName length: {person.PendingMotherName?.Length ?? 0}");
+            Console.WriteLine($"Status length: {person.Status?.Length ?? 0}");
+            Console.WriteLine($"Notes length: {person.Notes?.Length ?? 0}");
+            
+            // Check if father/mother were created
+            if (father != null)
+            {
+                Console.WriteLine($"Father FirstName length: {father.FirstName?.Length ?? 0}");
+                Console.WriteLine($"Father LastName length: {father.LastName?.Length ?? 0}");
+                Console.WriteLine($"Father Email length: {father.Email?.Length ?? 0}");
+                Console.WriteLine($"Father Activity length: {father.Activity?.Length ?? 0}");
+                Console.WriteLine($"Father Status length: {father.Status?.Length ?? 0}");
+            }
+            
+            if (mother != null)
+            {
+                Console.WriteLine($"Mother FirstName length: {mother.FirstName?.Length ?? 0}");
+                Console.WriteLine($"Mother LastName length: {mother.LastName?.Length ?? 0}");
+                Console.WriteLine($"Mother Email length: {mother.Email?.Length ?? 0}");
+                Console.WriteLine($"Mother Activity length: {mother.Activity?.Length ?? 0}");
+                Console.WriteLine($"Mother Status length: {mother.Status?.Length ?? 0}");
+            }
+            Console.WriteLine($"=====================================================");
+            
             await _context.SaveChangesAsync();
             
             // 🔍 Vérifier si cette personne correspond à un parent en attente
@@ -356,10 +397,10 @@ namespace FamilyTreeAPI.Controllers
             // Mettre à jour la connexion
             connexion.IDPerson = person.PersonID;
             connexion.ProfileCompleted = true;
-            connexion.UserName = $"{person.FirstName.ToLower()}.{person.LastName.ToLower()}";
+            connexion.UserName = $"{person.FirstName?.ToLower() ?? "user"}.{person.LastName?.ToLower() ?? "name"}";
             
             // Rendre le compte actif si ≥ 18 ans
-            var age = DateTime.Today.Year - person.Birthday?.Year ?? 0;
+            var age = DateTime.Today.Year - (person.Birthday?.Year ?? DateTime.Today.Year);
             if (age >= 18)
             {
                 connexion.IsActive = true;
@@ -1260,10 +1301,17 @@ namespace FamilyTreeAPI.Controllers
             }
             
             // 🆕 Créer nouveau parent
+            // 🔧 WORKAROUND: Tronquer les noms trop longs pour éviter l'erreur VARCHAR
+            var safeFirstName = CapitalizeFirstLetter(firstName);
+            if (safeFirstName.Length > 1000) safeFirstName = safeFirstName.Substring(0, 1000);
+            
+            var safeLastName = CapitalizeFirstLetter(lastName);
+            if (safeLastName.Length > 1000) safeLastName = safeLastName.Substring(0, 1000);
+            
             var newParent = new Person
             {
-                FirstName = CapitalizeFirstLetter(firstName),
-                LastName = CapitalizeFirstLetter(lastName),
+                FirstName = safeFirstName,
+                LastName = safeLastName,
                 Sex = sex,
                 Birthday = birthDate.HasValue ? DateTime.SpecifyKind(birthDate.Value, DateTimeKind.Utc) : null,
                 DeathDate = deathDate.HasValue ? DateTime.SpecifyKind(deathDate.Value, DateTimeKind.Utc) : null,
@@ -1337,6 +1385,63 @@ namespace FamilyTreeAPI.Controllers
             return char.ToUpper(text[0]) + text.Substring(1).ToLower();
         }
 
+        // 🆕 Méthode pour trouver ou créer un parent "placeholder"
+        private async Task<Person?> FindOrCreateParentPlaceholder(
+            string firstName, 
+            string lastName, 
+            string sex, 
+            int cityId,
+            int createdBy)
+        {
+            // 1. Vérifier si un utilisateur actif existe déjà avec ce nom
+            var existingPerson = await _context.Persons
+                .FirstOrDefaultAsync(p => 
+                    p.FirstName.ToLower() == firstName.ToLower() && 
+                    p.LastName.ToLower() == lastName.ToLower() &&
+                    p.Sex == sex &&
+                    p.Status == "confirmed");
+            
+            if (existingPerson != null)
+            {
+                Console.WriteLine($"✅ Parent trouvé (actif): {firstName} {lastName}");
+                return existingPerson;
+            }
+            
+            // 2. Vérifier si un placeholder existe déjà
+            var existingPlaceholder = await _context.Persons
+                .FirstOrDefaultAsync(p => 
+                    p.FirstName.ToLower() == firstName.ToLower() && 
+                    p.LastName.ToLower() == lastName.ToLower() &&
+                    p.Sex == sex &&
+                    p.Status == "placeholder");
+            
+            if (existingPlaceholder != null)
+            {
+                Console.WriteLine($"✅ Placeholder existant trouvé: {firstName} {lastName}");
+                return existingPlaceholder;
+            }
+            
+            // 3. Créer un nouveau placeholder
+            var placeholder = new Person
+            {
+                FirstName = firstName,
+                LastName = lastName,
+                Sex = sex,
+                CityID = cityId,
+                Status = "placeholder", // Statut spécial
+                Alive = true,
+                CanLogin = false, // Ne peut pas se connecter tant que non réclamé
+                CreatedBy = createdBy,
+                ParentLinkConfirmed = false
+            };
+            
+            _context.Persons.Add(placeholder);
+            await _context.SaveChangesAsync();
+            
+            Console.WriteLine($"🆕 Nouveau placeholder créé: {firstName} {lastName} (ID: {placeholder.PersonID})");
+            return placeholder;
+        }
+
         private string GenerateJwtToken(Connexion user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -1346,6 +1451,7 @@ namespace FamilyTreeAPI.Controllers
             var claims = new List<Claim>
             {
                 new Claim("id", user.ConnexionID.ToString()),
+                new Claim(ClaimTypes.NameIdentifier, user.ConnexionID.ToString()), // ✅ Claim standard pour l'ID utilisateur
                 new Claim("username", user.UserName),
                 new Claim("level", user.Level.ToString()),
                 new Claim("role", user.Role) // Ajouter le rôle dans le JWT
@@ -1411,19 +1517,13 @@ namespace FamilyTreeAPI.Controllers
         public string BirthCity { get; set; } = string.Empty;
         public string? Activity { get; set; }
         public string? PhotoUrl { get; set; }
+        public string? Phone { get; set; }
         
         // 🆕 Système de liaison automatique des parents
-        public string? FatherStatus { get; set; } // "living", "deceased", "unknown"
-        public string? FatherName { get; set; } // "Jean Dupont" si non inscrit
-        public DateTime? FatherBirthDate { get; set; } // Optionnel, pour matching
-        public DateTime? FatherDeathDate { get; set; } // Si décédé
-        public int? FatherID { get; set; } // Si déjà inscrit (dropdown)
-        
-        public string? MotherStatus { get; set; } // "living", "deceased", "unknown"
-        public string? MotherName { get; set; } // "Marie Talla" si non inscrite
-        public DateTime? MotherBirthDate { get; set; } // Optionnel, pour matching
-        public DateTime? MotherDeathDate { get; set; } // Si décédée
-        public int? MotherID { get; set; } // Si déjà inscrite (dropdown)
+        public string? FatherFirstName { get; set; }
+        public string? FatherLastName { get; set; }
+        public string? MotherFirstName { get; set; }
+        public string? MotherLastName { get; set; }
     }
 
     public class AttachFamilyRequest

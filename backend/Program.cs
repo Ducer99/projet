@@ -21,6 +21,9 @@ builder.Services.AddSwaggerGen();
 // Register EmailService
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+// Register PollAudienceService
+builder.Services.AddScoped<PollAudienceService>();
+
 // Database configuration
 builder.Services.AddDbContext<FamilyTreeContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));

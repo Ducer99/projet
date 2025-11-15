@@ -36,10 +36,10 @@ namespace FamilyTreeAPI.Models
         public int? CreatedBy { get; set; }
 
         [Column("CreatedAt")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; }
 
         [Column("UpdatedAt")]
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; }
         
         // Navigation Properties
         [ForeignKey("ManID")]

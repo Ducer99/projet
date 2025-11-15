@@ -28,9 +28,53 @@ namespace FamilyTreeAPI.Data
         public DbSet<PhotoLike> PhotoLikes { get; set; }
         public DbSet<AlbumPermission> AlbumPermissions { get; set; }
 
+        // 📊 Module Sondages
+        public DbSet<Poll> Polls { get; set; }
+        public DbSet<PollOption> PollOptions { get; set; }
+        public DbSet<PollVote> PollVotes { get; set; }
+        public DbSet<PollParticipant> PollParticipants { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // 🔧 CRITICAL FIX: Force TEXT columns (unlimited length) for Person entity
+            // Override any StringLength attributes from the model
+            modelBuilder.Entity<Person>()
+                .Property(p => p.FirstName)
+                .HasMaxLength(int.MaxValue);  // Equivalent to TEXT in PostgreSQL
+            
+            modelBuilder.Entity<Person>()
+                .Property(p => p.LastName)
+                .HasMaxLength(int.MaxValue);
+            
+            modelBuilder.Entity<Person>()
+                .Property(p => p.Email)
+                .HasMaxLength(int.MaxValue);
+            
+            modelBuilder.Entity<Person>()
+                .Property(p => p.Activity)
+                .HasMaxLength(int.MaxValue);
+            
+            modelBuilder.Entity<Person>()
+                .Property(p => p.PhotoUrl)
+                .HasMaxLength(int.MaxValue);
+            
+            modelBuilder.Entity<Person>()
+                .Property(p => p.Notes)
+                .HasMaxLength(int.MaxValue);
+            
+            modelBuilder.Entity<Person>()
+                .Property(p => p.PendingFatherName)
+                .HasMaxLength(int.MaxValue);
+            
+            modelBuilder.Entity<Person>()
+                .Property(p => p.PendingMotherName)
+                .HasMaxLength(int.MaxValue);
+            
+            modelBuilder.Entity<Person>()
+                .Property(p => p.Status)
+                .HasMaxLength(int.MaxValue);
 
             // Configure Person relationships
             modelBuilder.Entity<Person>()

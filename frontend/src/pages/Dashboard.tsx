@@ -78,15 +78,22 @@ const Dashboard = () => {
   const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
-    loadFamilyInfo();
-    loadUpcomingEvents();
-    loadMarriages();
-    loadMembers();
-    loadFamilyStats();
-  }, []);
+    if (user) {
+      loadFamilyInfo();
+      loadUpcomingEvents();
+      loadMarriages();
+      loadMembers();
+      loadFamilyStats();
+    }
+  }, [user]);
 
   const loadFamilyInfo = async () => {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('Pas de token disponible');
+        return;
+      }
       const response = await api.get('/auth/family-info');
       setFamilyInfo(response.data);
     } catch (error) {
@@ -96,6 +103,11 @@ const Dashboard = () => {
 
   const loadUpcomingEvents = async () => {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('Pas de token disponible');
+        return;
+      }
       setLoadingEvents(true);
       const response = await api.get<UpcomingEvent[]>('/events/upcoming?days=90');
       setUpcomingEvents(response.data);
@@ -108,8 +120,13 @@ const Dashboard = () => {
 
   const loadMarriages = async () => {
     try {
+      const token = localStorage.getItem('token');
+      if (!token || !user?.familyID) {
+        console.warn('Pas de token ou d\'ID famille disponible');
+        return;
+      }
       setLoadingMarriages(true);
-      const response = await api.get<Marriage[]>(`/marriages/family/${user?.familyID}`);
+      const response = await api.get<Marriage[]>(`/marriages/family/${user.familyID}`);
       setMarriages(response.data);
     } catch (error) {
       console.error('Erreur lors du chargement des mariages:', error);
@@ -120,6 +137,11 @@ const Dashboard = () => {
 
   const loadMembers = async () => {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('Pas de token disponible');
+        return;
+      }
       setLoadingMembers(true);
       const response = await api.get<FamilyMember[]>('/persons');
       setMembers(response.data);
@@ -132,6 +154,11 @@ const Dashboard = () => {
 
   const loadFamilyStats = async () => {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('Pas de token disponible');
+        return;
+      }
       setLoadingStats(true);
       const response = await api.get<FamilyStats>('/auth/family-stats');
       setStats(response.data);
@@ -366,8 +393,8 @@ const Dashboard = () => {
                   🏠 {t('dashboard.mainActions')}
                 </Heading>
                 <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)' }} gap={4}>
-                  {/* Arbre Généalogique */}
-                  <Link to="/family-tree" style={{ textDecoration: 'none' }}>
+                  {/* Arbre Généalogique Dynamique */}
+                  <Link to="/family-tree-dynamic" style={{ textDecoration: 'none' }}>
                     <MotionBox
                       variants={scaleIn}
                       whileHover={{ 
@@ -376,7 +403,7 @@ const Dashboard = () => {
                         transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] }
                       }}
                       whileTap={{ scale: 0.98 }}
-                      background={getFamilyGradient(user?.familyID || 1)}
+                      background="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
                       color="white"
                       p={5}
                       borderRadius="var(--radius-xl)"
@@ -384,8 +411,8 @@ const Dashboard = () => {
                       boxShadow="var(--shadow-md)"
                     >
                       <Icon as={FaSitemap} boxSize={6} mb={2} />
-                      <Text fontWeight="bold" fontSize="md" mb={1}>{t('dashboard.familyTree')}</Text>
-                      <Text fontSize="xs" opacity={0.9}>{t('dashboard.visualizeFamily')}</Text>
+                      <Text fontWeight="bold" fontSize="md" mb={1}>🚀 Arbre Dynamique</Text>
+                      <Text fontSize="xs" opacity={0.9}>Navigation interactive - Polygamie supportée</Text>
                     </MotionBox>
                   </Link>
 
@@ -478,6 +505,46 @@ const Dashboard = () => {
                       <Icon as={FaPollH} boxSize={6} mb={2} />
                       <Text fontWeight="bold" fontSize="md" mb={1}>🗳️ {t('dashboard.polls')}</Text>
                       <Text fontSize="xs" opacity={0.9}>{t('dashboard.familyPolls')}</Text>
+                    </MotionBox>
+                  </Link>
+
+                  {/* 🆕 NOUVEAU - Tableau de Bord de Gestion */}
+                  <Link to="/members-dashboard" style={{ textDecoration: 'none' }}>
+                    <MotionBox
+                      variants={scaleIn}
+                      whileHover={{ 
+                        y: -4,
+                        boxShadow: 'var(--shadow-xl)',
+                        transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] }
+                      }}
+                      whileTap={{ scale: 0.98 }}
+                      bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+                      color="white"
+                      p={5}
+                      borderRadius="var(--radius-xl)"
+                      cursor="pointer"
+                      boxShadow="var(--shadow-md)"
+                      position="relative"
+                    >
+                      {/* Badge "Nouveau" */}
+                      <Box
+                        position="absolute"
+                        top="-8px"
+                        right="-8px"
+                        bg="red.500"
+                        color="white"
+                        fontSize="xs"
+                        px={2}
+                        py={1}
+                        borderRadius="full"
+                        fontWeight="bold"
+                        boxShadow="md"
+                      >
+                        NEW
+                      </Box>
+                      <Icon as={FaUsers} boxSize={6} mb={2} />
+                      <Text fontWeight="bold" fontSize="md" mb={1}>📊 {t('members.managementDashboard')}</Text>
+                      <Text fontSize="xs" opacity={0.9}>{t('dashboard.advancedMemberManagement')}</Text>
                     </MotionBox>
                   </Link>
                 </Grid>

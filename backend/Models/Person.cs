@@ -10,43 +10,36 @@ namespace FamilyTreeAPI.Models
         public int PersonID { get; set; }
         
         [Required]
-        [StringLength(100)]
         public string LastName { get; set; } = string.Empty;
         
         [Required]
-        [StringLength(100)]
         public string FirstName { get; set; } = string.Empty;
         
         public DateTime? Birthday { get; set; }
         
-        [StringLength(255)]
         public string? Email { get; set; }
         
         [Required]
         [StringLength(1)]
         public string Sex { get; set; } = string.Empty; // M ou F
         
-        [StringLength(200)]
         public string? Activity { get; set; }
         
         public bool Alive { get; set; } = true;
         
         public DateTime? DeathDate { get; set; }
         
-        [StringLength(500)]
+        // Pas de StringLength pour supporter les images base64 volumineuses (type TEXT en BDD)
         public string? PhotoUrl { get; set; }
         
         [StringLength(1000)]
         public string? Notes { get; set; }
         
         // 🆕 Système de liaison automatique des parents
-        [StringLength(200)]
         public string? PendingFatherName { get; set; } // "Jean Dupont" si père non inscrit
         
-        [StringLength(200)]
         public string? PendingMotherName { get; set; } // "Marie Talla" si mère non inscrite
         
-        [StringLength(20)]
         public string Status { get; set; } = "confirmed"; // placeholder, confirmed, deceased
         
         public int? CreatedBy { get; set; } // ID utilisateur qui a créé ce membre

@@ -39,6 +39,15 @@ export default function AddMember() {
     motherID: null as number | null,
     cityID: 0
   });
+  
+  // États pour la saisie manuelle des parents
+  const [fatherMode, setFatherMode] = useState<'select' | 'manual'>('manual');
+  const [motherMode, setMotherMode] = useState<'select' | 'manual'>('manual');
+  const [fatherFirstName, setFatherFirstName] = useState('');
+  const [fatherLastName, setFatherLastName] = useState('');
+  const [motherFirstName, setMotherFirstName] = useState('');
+  const [motherLastName, setMotherLastName] = useState('');
+  
   const [saving, setSaving] = useState(false);
   const toast = useToast();
   const navigate = useNavigate();
@@ -49,12 +58,25 @@ export default function AddMember() {
     setSaving(true);
 
     try {
-      const personData = {
+      const personData: any = {
         ...formData,
         birthday: formData.birthday ? new Date(formData.birthday).toISOString() : null,
         deathDate: formData.deathDate ? new Date(formData.deathDate).toISOString() : null,
         cityID: formData.cityID || 1 // Par défaut ville ID 1
       };
+
+      // Gestion des parents selon le mode
+      if (fatherMode === 'manual' && (fatherFirstName || fatherLastName)) {
+        personData.fatherFirstName = fatherFirstName;
+        personData.fatherLastName = fatherLastName;
+        delete personData.fatherID;
+      }
+      
+      if (motherMode === 'manual' && (motherFirstName || motherLastName)) {
+        personData.motherFirstName = motherFirstName;
+        personData.motherLastName = motherLastName;
+        delete personData.motherID;
+      }
 
       await api.post('/persons', personData);
 
@@ -202,6 +224,155 @@ export default function AddMember() {
                   />
                 </FormControl>
 
+                {/* Section Parents */}
+                <Heading size="md" color="gray.700" alignSelf="flex-start" pt={4}>
+                  {t('editMember.parentsSection')}
+                </Heading>
+
+                {/* Père */}
+                <Card bg="blue.50" borderColor="blue.200" borderWidth={1}>
+                  <CardBody>
+                    <VStack spacing={3} align="stretch">
+                      <HStack justify="space-between">
+                        <Text fontWeight="bold" color="blue.700">
+                          👨 {t('editMember.father')}
+                        </Text>
+                        <HStack spacing={2}>
+                          <Button
+                            size="sm"
+                            variant={fatherMode === 'select' ? 'solid' : 'outline'}
+                            colorScheme="blue"
+                            onClick={() => setFatherMode('select')}
+                          >
+                            {t('editMember.selectFromList')}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={fatherMode === 'manual' ? 'solid' : 'outline'}
+                            colorScheme="blue"
+                            onClick={() => setFatherMode('manual')}
+                          >
+                            {t('editMember.enterManually')}
+                          </Button>
+                        </HStack>
+                      </HStack>
+
+                      {fatherMode === 'select' ? (
+                        <FormControl>
+                          <Select
+                            value={formData.fatherID || ''}
+                            onChange={(e) => setFormData({ 
+                              ...formData, 
+                              fatherID: e.target.value ? parseInt(e.target.value) : null 
+                            })}
+                            placeholder={t('editMember.selectFatherPlaceholder')}
+                          >
+                            {/* Liste des pères potentiels - à implémenter si nécessaire */}
+                          </Select>
+                        </FormControl>
+                      ) : (
+                        <VStack spacing={3}>
+                          <HStack spacing={3} w="full">
+                            <FormControl>
+                              <FormLabel fontSize="sm">{t('editMember.firstName')}</FormLabel>
+                              <Input
+                                value={fatherFirstName}
+                                onChange={(e) => setFatherFirstName(e.target.value)}
+                                placeholder={t('editMember.fatherFirstNamePlaceholder')}
+                                bg="white"
+                              />
+                            </FormControl>
+                            <FormControl>
+                              <FormLabel fontSize="sm">{t('editMember.lastName')}</FormLabel>
+                              <Input
+                                value={fatherLastName}
+                                onChange={(e) => setFatherLastName(e.target.value)}
+                                placeholder={t('editMember.fatherLastNamePlaceholder')}
+                                bg="white"
+                              />
+                            </FormControl>
+                          </HStack>
+                          <Text fontSize="xs" color="blue.600">
+                            ℹ️ {t('editMember.placeholderWillBeCreated')}
+                          </Text>
+                        </VStack>
+                      )}
+                    </VStack>
+                  </CardBody>
+                </Card>
+
+                {/* Mère */}
+                <Card bg="pink.50" borderColor="pink.200" borderWidth={1}>
+                  <CardBody>
+                    <VStack spacing={3} align="stretch">
+                      <HStack justify="space-between">
+                        <Text fontWeight="bold" color="pink.700">
+                          👩 {t('editMember.mother')}
+                        </Text>
+                        <HStack spacing={2}>
+                          <Button
+                            size="sm"
+                            variant={motherMode === 'select' ? 'solid' : 'outline'}
+                            colorScheme="pink"
+                            onClick={() => setMotherMode('select')}
+                          >
+                            {t('editMember.selectFromList')}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={motherMode === 'manual' ? 'solid' : 'outline'}
+                            colorScheme="pink"
+                            onClick={() => setMotherMode('manual')}
+                          >
+                            {t('editMember.enterManually')}
+                          </Button>
+                        </HStack>
+                      </HStack>
+
+                      {motherMode === 'select' ? (
+                        <FormControl>
+                          <Select
+                            value={formData.motherID || ''}
+                            onChange={(e) => setFormData({ 
+                              ...formData, 
+                              motherID: e.target.value ? parseInt(e.target.value) : null 
+                            })}
+                            placeholder={t('editMember.selectMotherPlaceholder')}
+                          >
+                            {/* Liste des mères potentielles - à implémenter si nécessaire */}
+                          </Select>
+                        </FormControl>
+                      ) : (
+                        <VStack spacing={3}>
+                          <HStack spacing={3} w="full">
+                            <FormControl>
+                              <FormLabel fontSize="sm">{t('editMember.firstName')}</FormLabel>
+                              <Input
+                                value={motherFirstName}
+                                onChange={(e) => setMotherFirstName(e.target.value)}
+                                placeholder={t('editMember.motherFirstNamePlaceholder')}
+                                bg="white"
+                              />
+                            </FormControl>
+                            <FormControl>
+                              <FormLabel fontSize="sm">{t('editMember.lastName')}</FormLabel>
+                              <Input
+                                value={motherLastName}
+                                onChange={(e) => setMotherLastName(e.target.value)}
+                                placeholder={t('editMember.motherLastNamePlaceholder')}
+                                bg="white"
+                              />
+                            </FormControl>
+                          </HStack>
+                          <Text fontSize="xs" color="pink.600">
+                            ℹ️ {t('editMember.placeholderWillBeCreated')}
+                          </Text>
+                        </VStack>
+                      )}
+                    </VStack>
+                  </CardBody>
+                </Card>
+
                 <FormControl display="flex" alignItems="center">
                   <FormLabel mb="0">{t('addMemberForm.alive')}</FormLabel>
                   <Select
@@ -213,6 +384,35 @@ export default function AddMember() {
                     <option value="false">{t('addMemberForm.aliveNo')}</option>
                   </Select>
                 </FormControl>
+
+                {/* 🕊️ Message explicatif selon le statut */}
+                {formData.alive ? (
+                  <Alert 
+                    status="info" 
+                    variant="left-accent"
+                    borderRadius="md"
+                    bg="blue.50"
+                  >
+                    <AlertIcon />
+                    <AlertDescription fontSize="sm">
+                      {t('addMemberForm.aliveInfo') || 
+                        '✅ Cette personne pourra s\'inscrire et réclamer son profil plus tard.'}
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <Alert 
+                    status="warning" 
+                    variant="left-accent"
+                    borderRadius="md"
+                    bg="orange.50"
+                  >
+                    <AlertIcon />
+                    <AlertDescription fontSize="sm">
+                      {t('addMemberForm.deceasedInfo') || 
+                        '🕊️ Un profil commémoratif sera créé. Cette personne ne pourra pas s\'inscrire.'}
+                    </AlertDescription>
+                  </Alert>
+                )}
 
                 {!formData.alive && (
                   <FormControl>

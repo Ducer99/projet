@@ -88,6 +88,14 @@ export default function EditMember() {
   const [cityID, setCityID] = useState(1);
   const [fatherID, setFatherID] = useState<number | undefined>();
   const [motherID, setMotherID] = useState<number | undefined>();
+  
+  // 👨‍👩‍👦 Mode de saisie des parents (dropdown ou manuel)
+  const [fatherMode, setFatherMode] = useState<'select' | 'manual'>('select');
+  const [motherMode, setMotherMode] = useState<'select' | 'manual'>('select');
+  const [fatherFirstName, setFatherFirstName] = useState('');
+  const [fatherLastName, setFatherLastName] = useState('');
+  const [motherFirstName, setMotherFirstName] = useState('');
+  const [motherLastName, setMotherLastName] = useState('');
 
   useEffect(() => {
     loadMember();
@@ -161,8 +169,7 @@ export default function EditMember() {
     setSaving(true);
 
     try {
-      const payload = {
-        personID: parseInt(id || '0'),
+      const payload: any = {
         firstName,
         lastName,
         sex,
@@ -174,10 +181,24 @@ export default function EditMember() {
         photoUrl,
         notes,
         cityID,
-        fatherID: fatherID || null,
-        motherID: motherID || null,
-        familyID: member?.familyID,
       };
+
+      // 👨‍👩‍👦 Gérer les parents selon le mode
+      if (fatherMode === 'select') {
+        payload.fatherID = fatherID || null;
+      } else {
+        // Mode manuel : envoyer les noms pour créer un placeholder
+        payload.fatherFirstName = fatherFirstName || null;
+        payload.fatherLastName = fatherLastName || null;
+      }
+
+      if (motherMode === 'select') {
+        payload.motherID = motherID || null;
+      } else {
+        // Mode manuel : envoyer les noms pour créer un placeholder
+        payload.motherFirstName = motherFirstName || null;
+        payload.motherLastName = motherLastName || null;
+      }
 
       await api.put(`/persons/${id}`, payload);
 
@@ -188,8 +209,10 @@ export default function EditMember() {
         duration: 3000,
       });
 
-      navigate('/members');
+      navigate('/persons');
     } catch (error: any) {
+      console.error('❌ Erreur lors de la mise à jour:', error);
+      console.error('Response data:', error.response?.data);
       toast({
         title: t('common.error'),
         description: error.response?.data?.message || t('editMember.updateError'),
@@ -402,68 +425,186 @@ export default function EditMember() {
                       {/* Père */}
                       <FormControl>
                         <FormLabel color="blue.700">
-                          <HStack>
-                            <Icon as={FaMale} />
-                            <Text>{t('editMember.father')}</Text>
+                          <HStack justify="space-between">
+                            <HStack>
+                              <Icon as={FaMale} />
+                              <Text>{t('editMember.father')}</Text>
+                            </HStack>
+                            <HStack spacing={2}>
+                              <Button
+                                size="xs"
+                                variant={fatherMode === 'select' ? 'solid' : 'outline'}
+                                colorScheme="blue"
+                                onClick={() => setFatherMode('select')}
+                              >
+                                {t('editMember.selectFromList')}
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant={fatherMode === 'manual' ? 'solid' : 'outline'}
+                                colorScheme="blue"
+                                onClick={() => setFatherMode('manual')}
+                              >
+                                {t('editMember.enterManually')}
+                              </Button>
+                            </HStack>
                           </HStack>
                         </FormLabel>
-                        {maleFamilyMembers.length > 0 ? (
-                          <Select
-                            placeholder={t('editMember.noFather')}
-                            value={fatherID || ''}
-                            onChange={(e) => setFatherID(e.target.value ? parseInt(e.target.value) : undefined)}
-                          >
-                            {maleFamilyMembers.map(person => (
-                              <option key={person.personID} value={person.personID}>
-                                {person.firstName} {person.lastName}
-                                {person.birthday && ` (${calculateAge(person.birthday)} ${t('editMember.years')})`}
-                                {!person.alive && ' ✝️'}
-                              </option>
-                            ))}
-                          </Select>
+                        
+                        {fatherMode === 'select' ? (
+                          maleFamilyMembers.length > 0 ? (
+                            <Select
+                              placeholder={t('editMember.noFather')}
+                              value={fatherID || ''}
+                              onChange={(e) => setFatherID(e.target.value ? parseInt(e.target.value) : undefined)}
+                            >
+                              {maleFamilyMembers.map(person => (
+                                <option key={person.personID} value={person.personID}>
+                                  {person.firstName} {person.lastName}
+                                  {person.birthday && ` (${calculateAge(person.birthday)} ${t('editMember.years')})`}
+                                  {!person.alive && ' ✝️'}
+                                </option>
+                              ))}
+                            </Select>
+                          ) : (
+                            <Alert status="info" borderRadius="md">
+                              <AlertIcon />
+                              <AlertDescription>
+                                {t('editMember.noMaleInFamily')}
+                              </AlertDescription>
+                            </Alert>
+                          )
                         ) : (
-                          <Alert status="info" borderRadius="md">
-                            <AlertIcon />
-                            <AlertDescription>
-                              {t('editMember.noMaleInFamily')}
-                            </AlertDescription>
-                          </Alert>
+                          <Card variant="outline" borderColor="blue.200" bg="blue.50">
+                            <CardBody>
+                              <VStack spacing={3}>
+                                <Alert status="info" size="sm" borderRadius="md">
+                                  <AlertIcon />
+                                  <AlertDescription fontSize="xs">
+                                    {t('editMember.placeholderWillBeCreated')}
+                                  </AlertDescription>
+                                </Alert>
+                                <HStack spacing={4} w="full">
+                                  <FormControl>
+                                    <FormLabel fontSize="sm">{t('profile.firstName')}</FormLabel>
+                                    <Input
+                                      value={fatherFirstName}
+                                      onChange={(e) => setFatherFirstName(e.target.value)}
+                                      placeholder={t('profile.fatherFirstNamePlaceholder')}
+                                      size="sm"
+                                      bg="white"
+                                    />
+                                  </FormControl>
+                                  <FormControl>
+                                    <FormLabel fontSize="sm">{t('profile.lastName')}</FormLabel>
+                                    <Input
+                                      value={fatherLastName}
+                                      onChange={(e) => setFatherLastName(e.target.value)}
+                                      placeholder={t('profile.fatherLastNamePlaceholder')}
+                                      size="sm"
+                                      bg="white"
+                                    />
+                                  </FormControl>
+                                </HStack>
+                              </VStack>
+                            </CardBody>
+                          </Card>
                         )}
                       </FormControl>
 
                       {/* Mère */}
                       <FormControl>
                         <FormLabel color="pink.700">
-                          <HStack>
-                            <Icon as={FaFemale} />
-                            <Text>{t('editMember.mother')}</Text>
+                          <HStack justify="space-between">
+                            <HStack>
+                              <Icon as={FaFemale} />
+                              <Text>{t('editMember.mother')}</Text>
+                            </HStack>
+                            <HStack spacing={2}>
+                              <Button
+                                size="xs"
+                                variant={motherMode === 'select' ? 'solid' : 'outline'}
+                                colorScheme="pink"
+                                onClick={() => setMotherMode('select')}
+                              >
+                                {t('editMember.selectFromList')}
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant={motherMode === 'manual' ? 'solid' : 'outline'}
+                                colorScheme="pink"
+                                onClick={() => setMotherMode('manual')}
+                              >
+                                {t('editMember.enterManually')}
+                              </Button>
+                            </HStack>
                           </HStack>
                         </FormLabel>
-                        {femaleFamilyMembers.length > 0 ? (
-                          <Select
-                            placeholder={t('editMember.noMother')}
-                            value={motherID || ''}
-                            onChange={(e) => setMotherID(e.target.value ? parseInt(e.target.value) : undefined)}
-                          >
-                            {femaleFamilyMembers.map(person => (
-                              <option key={person.personID} value={person.personID}>
-                                {person.firstName} {person.lastName}
-                                {person.birthday && ` (${calculateAge(person.birthday)} ${t('editMember.years')})`}
-                                {!person.alive && ' ✝️'}
-                              </option>
-                            ))}
-                          </Select>
+                        
+                        {motherMode === 'select' ? (
+                          femaleFamilyMembers.length > 0 ? (
+                            <Select
+                              placeholder={t('editMember.noMother')}
+                              value={motherID || ''}
+                              onChange={(e) => setMotherID(e.target.value ? parseInt(e.target.value) : undefined)}
+                            >
+                              {femaleFamilyMembers.map(person => (
+                                <option key={person.personID} value={person.personID}>
+                                  {person.firstName} {person.lastName}
+                                  {person.birthday && ` (${calculateAge(person.birthday)} ${t('editMember.years')})`}
+                                  {!person.alive && ' ✝️'}
+                                </option>
+                              ))}
+                            </Select>
+                          ) : (
+                            <Alert status="info" borderRadius="md">
+                              <AlertIcon />
+                              <AlertDescription>
+                                {t('editMember.noFemaleInFamily')}
+                              </AlertDescription>
+                            </Alert>
+                          )
                         ) : (
-                          <Alert status="info" borderRadius="md">
-                            <AlertIcon />
-                            <AlertDescription>
-                              {t('editMember.noFemaleInFamily')}
-                            </AlertDescription>
-                          </Alert>
+                          <Card variant="outline" borderColor="pink.200" bg="pink.50">
+                            <CardBody>
+                              <VStack spacing={3}>
+                                <Alert status="info" size="sm" borderRadius="md">
+                                  <AlertIcon />
+                                  <AlertDescription fontSize="xs">
+                                    {t('editMember.placeholderWillBeCreated')}
+                                  </AlertDescription>
+                                </Alert>
+                                <HStack spacing={4} w="full">
+                                  <FormControl>
+                                    <FormLabel fontSize="sm">{t('profile.firstName')}</FormLabel>
+                                    <Input
+                                      value={motherFirstName}
+                                      onChange={(e) => setMotherFirstName(e.target.value)}
+                                      placeholder={t('profile.motherFirstNamePlaceholder')}
+                                      size="sm"
+                                      bg="white"
+                                    />
+                                  </FormControl>
+                                  <FormControl>
+                                    <FormLabel fontSize="sm">{t('profile.lastName')}</FormLabel>
+                                    <Input
+                                      value={motherLastName}
+                                      onChange={(e) => setMotherLastName(e.target.value)}
+                                      placeholder={t('profile.motherLastNamePlaceholder')}
+                                      size="sm"
+                                      bg="white"
+                                    />
+                                  </FormControl>
+                                </HStack>
+                              </VStack>
+                            </CardBody>
+                          </Card>
                         )}
                       </FormControl>
 
-                      {(fatherID || motherID) && (
+                      {((fatherMode === 'select' && fatherID) || (motherMode === 'select' && motherID) || 
+                        (fatherMode === 'manual' && fatherFirstName && fatherLastName) ||
+                        (motherMode === 'manual' && motherFirstName && motherLastName)) && (
                         <Alert status="success" borderRadius="md">
                           <AlertIcon />
                           <AlertDescription>

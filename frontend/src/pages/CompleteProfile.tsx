@@ -63,6 +63,12 @@ export default function CompleteProfile() {
   // 💼 Profession (conditionnelle si âge ≥ 18)
   const [activity, setActivity] = useState('');
   
+  // 👨‍👩‍👦 Informations parents (optionnel)
+  const [fatherFirstName, setFatherFirstName] = useState('');
+  const [fatherLastName, setFatherLastName] = useState('');
+  const [motherFirstName, setMotherFirstName] = useState('');
+  const [motherLastName, setMotherLastName] = useState('');
+  
   const [isLoading, setIsLoading] = useState(false);
 
   // 🎯 UX: Calcul automatique de l'âge
@@ -162,6 +168,11 @@ export default function CompleteProfile() {
         activity: activity || null,
         photoUrl: photoUrl || null,
         phone: phone || null,
+        // 👨‍👩‍👦 Informations parents (optionnel)
+        fatherFirstName: fatherFirstName || null,
+        fatherLastName: fatherLastName || null,
+        motherFirstName: motherFirstName || null,
+        motherLastName: motherLastName || null,
       };
 
       const response = await api.post('/auth/complete-profile', payload);
@@ -475,6 +486,86 @@ export default function CompleteProfile() {
                       </FormControl>
                     </>
                   )}
+
+                  {/* 👨‍👩‍👦 Informations Parents (Optionnel) */}
+                  <Divider />
+                  <Heading size="md" color="purple.600">
+                    {t('profile.parentsInfo')} <Text as="span" fontSize="sm" color="gray.500">({t('common.optional')})</Text>
+                  </Heading>
+
+                  <Alert status="info" borderRadius="md" variant="left-accent">
+                    <AlertIcon />
+                    <AlertDescription fontSize="sm">
+                      <Text fontWeight="bold" mb={1}>{t('profile.parentsInfoTitle')}</Text>
+                      <Text>
+                        {t('profile.parentsInfoDescription')}
+                      </Text>
+                    </AlertDescription>
+                  </Alert>
+
+                  {/* Père */}
+                  <Card variant="outline" borderColor="blue.200">
+                    <CardBody>
+                      <VStack spacing={3} align="stretch">
+                        <HStack>
+                          <Icon as={FaMale} color="blue.500" boxSize={5} />
+                          <Heading size="sm" color="blue.700">{t('profile.father')}</Heading>
+                        </HStack>
+                        <HStack spacing={4}>
+                          <FormControl>
+                            <FormLabel fontSize="sm">{t('profile.firstName')}</FormLabel>
+                            <Input
+                              value={fatherFirstName}
+                              onChange={(e) => setFatherFirstName(e.target.value)}
+                              placeholder={t('profile.fatherFirstNamePlaceholder')}
+                              size="sm"
+                            />
+                          </FormControl>
+                          <FormControl>
+                            <FormLabel fontSize="sm">{t('profile.lastName')}</FormLabel>
+                            <Input
+                              value={fatherLastName}
+                              onChange={(e) => setFatherLastName(e.target.value)}
+                              placeholder={t('profile.fatherLastNamePlaceholder')}
+                              size="sm"
+                            />
+                          </FormControl>
+                        </HStack>
+                      </VStack>
+                    </CardBody>
+                  </Card>
+
+                  {/* Mère */}
+                  <Card variant="outline" borderColor="pink.200">
+                    <CardBody>
+                      <VStack spacing={3} align="stretch">
+                        <HStack>
+                          <Icon as={FaFemale} color="pink.500" boxSize={5} />
+                          <Heading size="sm" color="pink.700">{t('profile.mother')}</Heading>
+                        </HStack>
+                        <HStack spacing={4}>
+                          <FormControl>
+                            <FormLabel fontSize="sm">{t('profile.firstName')}</FormLabel>
+                            <Input
+                              value={motherFirstName}
+                              onChange={(e) => setMotherFirstName(e.target.value)}
+                              placeholder={t('profile.motherFirstNamePlaceholder')}
+                              size="sm"
+                            />
+                          </FormControl>
+                          <FormControl>
+                            <FormLabel fontSize="sm">{t('profile.lastName')}</FormLabel>
+                            <Input
+                              value={motherLastName}
+                              onChange={(e) => setMotherLastName(e.target.value)}
+                              placeholder={t('profile.motherLastNamePlaceholder')}
+                              size="sm"
+                            />
+                          </FormControl>
+                        </HStack>
+                      </VStack>
+                    </CardBody>
+                  </Card>
 
                   {/* Alert prochaine étape */}
                   <Alert status="success" borderRadius="md" variant="subtle">

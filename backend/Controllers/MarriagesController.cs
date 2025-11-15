@@ -241,6 +241,87 @@ namespace FamilyTreeAPI.Controllers
             return NoContent();
         }
 
+        // POST: api/marriages
+        // Crée un nouveau mariage - ROUTE CRITICAL POUR POLYGAMIE
+        [HttpPost]
+        public async Task<ActionResult<object>> CreateWedding([FromBody] CreateWeddingDto dto)
+        {
+            var connexionId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var connexion = await _context.Connexions.FindAsync(connexionId);
+
+            if (connexion == null)
+            {
+                return Unauthorized(new { message = "Connexion invalide" });
+            }
+
+            // Vérifier que les personnes existent et sont de la bonne famille
+            var man = await _context.Persons.FindAsync(dto.ManID);
+            var woman = await _context.Persons.FindAsync(dto.WomanID);
+
+            if (man == null || woman == null)
+            {
+                return BadRequest(new { message = "Une ou plusieurs personnes n'existent pas" });
+            }
+
+            // Vérifier l'accès familial
+            if (man.FamilyID != connexion.FamilyID && woman.FamilyID != connexion.FamilyID)
+            {
+                return Forbid("Accès refusé - familles différentes");
+            }
+
+            // Vérifier que ce ne sont pas le même personne
+            if (dto.ManID == dto.WomanID)
+            {
+                return BadRequest(new { message = "Une personne ne peut pas se marier avec elle-même" });
+            }
+
+            // CRITICAL: Autoriser explicitement la polygamie
+            // Pas de vérification d'unions existantes - c'est autorisé !
+            
+            try
+            {
+                // Créer le Wedding
+                var wedding = new Wedding
+                {
+                    ManID = dto.ManID,
+                    WomanID = dto.WomanID,
+                    WeddingDate = DateTime.SpecifyKind(dto.WeddingDate, DateTimeKind.Utc),
+                    PatrilinealFamilyID = dto.PatrilinealFamilyID ?? connexion.FamilyID ?? 10,
+                    Status = "active",
+                    IsActive = true,
+                    Location = dto.Location,
+                    Notes = dto.Notes,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    DivorceDate = null  // Explicitement null pour éviter les problèmes de DateTime
+                };
+
+                _context.Weddings.Add(wedding);
+                await _context.SaveChangesAsync();
+
+                // Retourner le wedding avec son ID pour permettre l'ajout d'unions
+                var result = new
+                {
+                    weddingID = wedding.WeddingID,
+                    manID = wedding.ManID,
+                    womanID = wedding.WomanID,
+                    weddingDate = wedding.WeddingDate,
+                    status = wedding.Status,
+                    message = "Union créée avec succès - Polygamie autorisée"
+                };
+
+                return CreatedAtAction(nameof(GetMarriage), new { id = wedding.WeddingID }, result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { 
+                    message = "Erreur lors de la création de l'union", 
+                    error = ex.Message,
+                    details = "Contactez l'équipe de développement"
+                });
+            }
+        }
+
         // GET: api/marriages/family/{familyId}
         // Retourne tous les mariages d'une famille
         [HttpGet("family/{familyId}")]
@@ -254,6 +335,7 @@ namespace FamilyTreeAPI.Controllers
                 return Forbid();
             }
 
+            // D'abord récupérer les mariages
             var marriages = await _context.Weddings
                 .Include(w => w.Man)
                 .Include(w => w.Woman)
@@ -261,20 +343,76 @@ namespace FamilyTreeAPI.Controllers
                 .Include(w => w.Unions)
                 .Where(w => w.PatrilinealFamilyID == familyId || w.Man.FamilyID == familyId || w.Woman.FamilyID == familyId)
                 .OrderByDescending(w => w.WeddingDate)
-                .Select(w => new
+                .ToListAsync();
+
+            // Ensuite calculer les enfants pour chaque mariage
+            var result = new List<object>();
+            foreach (var w in marriages)
+            {
+                var childrenCount = await _context.Persons
+                    .CountAsync(p => p.FatherID == w.ManID && p.MotherID == w.WomanID);
+
+                var isPolygamous = await _context.Weddings
+                    .AnyAsync(other => 
+                        other.WeddingID != w.WeddingID && 
+                        other.IsActive && 
+                        (other.ManID == w.ManID || other.WomanID == w.WomanID));
+
+                result.Add(new
                 {
                     weddingID = w.WeddingID,
+                    manID = w.ManID,
+                    womanID = w.WomanID,
                     manName = $"{w.Man.FirstName} {w.Man.LastName}",
                     womanName = $"{w.Woman.FirstName} {w.Woman.LastName}",
+                    manPhoto = w.Man.PhotoUrl,
+                    womanPhoto = w.Woman.PhotoUrl,
                     patrilinealFamilyName = w.PatrilinealFamily!.FamilyName,
                     status = w.Status,
                     weddingDate = w.WeddingDate,
                     unionCount = w.Unions.Count,
-                    unionTypes = string.Join(", ", w.Unions.Select(u => u.UnionType))
+                    unionTypes = string.Join(", ", w.Unions.Select(u => u.UnionType)),
+                    children = childrenCount,
+                    isPolygamous = isPolygamous,
+                    location = w.Location,
+                    notes = w.Notes
+                });
+            }
+
+            return Ok(result);
+        }
+
+        // GET: api/marriages/person/{personId}/active
+        // Retourne les unions actives d'une personne (pour détection polygamie)
+        [HttpGet("person/{personId}/active")]
+        public async Task<ActionResult<IEnumerable<object>>> GetPersonActiveUnions(int personId)
+        {
+            var connexionId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var connexion = await _context.Connexions.FindAsync(connexionId);
+
+            if (connexion == null)
+            {
+                return Unauthorized(new { message = "Connexion invalide" });
+            }
+
+            // Trouver toutes les unions actives de cette personne
+            var activeWeddings = await _context.Weddings
+                .Include(w => w.Man)
+                .Include(w => w.Woman)
+                .Include(w => w.Unions)
+                .Where(w => (w.ManID == personId || w.WomanID == personId) && w.IsActive)
+                .Select(w => new
+                {
+                    weddingID = w.WeddingID,
+                    partnerName = w.ManID == personId ? $"{w.Woman.FirstName} {w.Woman.LastName}" : $"{w.Man.FirstName} {w.Man.LastName}",
+                    weddingDate = w.WeddingDate,
+                    unionTypes = string.Join(", ", w.Unions.Select(u => u.UnionType)),
+                    unionCount = w.Unions.Count,
+                    status = w.Status
                 })
                 .ToListAsync();
 
-            return Ok(marriages);
+            return Ok(activeWeddings);
         }
     }
 
@@ -286,5 +424,17 @@ namespace FamilyTreeAPI.Controllers
         public string? Location { get; set; }
         public string? Notes { get; set; }
         public bool Validated { get; set; } = false;
+    }
+
+    // DTO pour créer un nouveau mariage - CRITICAL POUR POLYGAMIE
+    public class CreateWeddingDto
+    {
+        public int ManID { get; set; }
+        public int WomanID { get; set; }
+        public DateTime WeddingDate { get; set; }
+        public int? PatrilinealFamilyID { get; set; }
+        public string? Location { get; set; }
+        public string? Notes { get; set; }
+        public bool IsFormalMarriage { get; set; } = true;
     }
 }
