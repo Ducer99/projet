@@ -413,7 +413,6 @@ export default function MemberForm() {
                       <Input
                         value={firstName}
                         onChange={(e) => handleFirstNameChange(e.target.value)}
-                        placeholder="Jean"
                         borderColor={!firstName ? 'red.500' : 'gray.200'}
                         borderWidth={!firstName ? '2px' : '1px'}
                       />
@@ -425,7 +424,6 @@ export default function MemberForm() {
                       <Input
                         value={lastName}
                         onChange={(e) => handleLastNameChange(e.target.value)}
-                        placeholder="DUPONT"
                         borderColor={!lastName ? 'red.500' : 'gray.200'}
                         borderWidth={!lastName ? '2px' : '1px'}
                       />
@@ -483,7 +481,6 @@ export default function MemberForm() {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+33 6 12 34 56 78"
                     />
                   </FormControl>
 
@@ -524,7 +521,6 @@ export default function MemberForm() {
                       <Input
                         value={birthCountry}
                         onChange={(e) => setBirthCountry(e.target.value)}
-                        placeholder="France"
                       />
                     </FormControl>
 
@@ -533,7 +529,6 @@ export default function MemberForm() {
                       <Input
                         value={birthCity}
                         onChange={(e) => setBirthCity(e.target.value)}
-                        placeholder="Paris"
                       />
                     </FormControl>
                   </HStack>
@@ -561,7 +556,6 @@ export default function MemberForm() {
                             <Input
                               value={residenceCountry}
                               onChange={(e) => setResidenceCountry(e.target.value)}
-                              placeholder="Canada"
                             />
                           </FormControl>
 
@@ -570,7 +564,6 @@ export default function MemberForm() {
                             <Input
                               value={residenceCity}
                               onChange={(e) => setResidenceCity(e.target.value)}
-                              placeholder="Montréal"
                             />
                           </FormControl>
                         </HStack>
@@ -591,7 +584,6 @@ export default function MemberForm() {
                         <Input
                           value={activity}
                           onChange={(e) => setActivity(e.target.value)}
-                          placeholder="Ingénieur, Enseignant, Médecin..."
                         />
                       </FormControl>
                     </>
@@ -643,7 +635,6 @@ export default function MemberForm() {
                             <Select
                               value={selectedFatherID || ''}
                               onChange={(e) => setSelectedFatherID(Number(e.target.value) || null)}
-                              placeholder="-- Choisir un membre masculin --"
                               icon={<FaSearch />}
                             >
                               {potentialFathers.map((member) => (
@@ -668,7 +659,6 @@ export default function MemberForm() {
                             <Input
                               value={manualFatherName}
                               onChange={(e) => setManualFatherName(e.target.value)}
-                              placeholder="Jean DUPONT"
                             />
                             <FormHelperText fontSize="xs">
                               Saisissez le nom complet. Vous pourrez créer sa fiche plus tard.
@@ -708,7 +698,6 @@ export default function MemberForm() {
                             <Select
                               value={selectedMotherID || ''}
                               onChange={(e) => setSelectedMotherID(Number(e.target.value) || null)}
-                              placeholder="-- Choisir un membre féminin --"
                               icon={<FaSearch />}
                             >
                               {potentialMothers.map((member) => (
@@ -733,7 +722,6 @@ export default function MemberForm() {
                             <Input
                               value={manualMotherName}
                               onChange={(e) => setManualMotherName(e.target.value)}
-                              placeholder="Marie MARTIN"
                             />
                             <FormHelperText fontSize="xs">
                               Saisissez le nom complet. Vous pourrez créer sa fiche plus tard.

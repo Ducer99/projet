@@ -257,7 +257,9 @@ namespace FamilyTreeAPI.Controllers
             }
 
             // 🔒 Permissions : Admin OU Créateur
-            bool isAdmin = userRole == "Admin";
+            bool isAdmin = userRole?.Equals("Admin", StringComparison.OrdinalIgnoreCase) == true || 
+                          userRole?.Equals("ADMIN", StringComparison.OrdinalIgnoreCase) == true ||
+                          userRole?.Equals("SUPER_ADMIN", StringComparison.OrdinalIgnoreCase) == true;
             bool isCreator = existingEvent.CreatedBy == userConnexionId;
 
             if (!isAdmin && !isCreator)
@@ -313,7 +315,9 @@ namespace FamilyTreeAPI.Controllers
             }
 
             // 🔒 Permissions : Admin OU Créateur
-            bool isAdmin = userRole == "Admin";
+            bool isAdmin = userRole?.Equals("Admin", StringComparison.OrdinalIgnoreCase) == true || 
+                          userRole?.Equals("ADMIN", StringComparison.OrdinalIgnoreCase) == true ||
+                          userRole?.Equals("SUPER_ADMIN", StringComparison.OrdinalIgnoreCase) == true;
             bool isCreator = eventData.CreatedBy == userConnexionId;
 
             if (!isAdmin && !isCreator)

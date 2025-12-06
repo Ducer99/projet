@@ -37,13 +37,16 @@ import {
   Stat,
   StatLabel,
   StatNumber,
-  StatHelpText
+  StatHelpText,
+  useBreakpointValue,
+  SimpleGrid,
 } from '@chakra-ui/react';
 import { FaHeart, FaPlus, FaRing, FaEdit, FaTrash, FaSearch, FaUsers, FaChild } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import MarriageCard from '../components/MarriageCard';
 
 interface Marriage {
   weddingID: number;
@@ -77,6 +80,9 @@ const WeddingsList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const cancelRef = useRef<HTMLButtonElement>(null);
+  
+  // Responsive: basculer entre cartes (mobile) et tableau (desktop)
+  const isMobile = useBreakpointValue({ base: true, md: false });
 
   // Stats calculées
   const stats = {
@@ -276,7 +282,6 @@ const WeddingsList = () => {
                     <Icon as={FaSearch} color="gray.400" />
                   </InputLeftElement>
                   <Input
-                    placeholder={t('weddings.searchPlaceholder')}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -296,15 +301,15 @@ const WeddingsList = () => {
             </CardBody>
           </Card>
 
-          {/* Table améliorée */}
-          <Card>
-            <CardBody>
-              {loading ? (
-                <Box textAlign="center" py={10}>
-                  <Spinner size="xl" color="pink.500" />
-                  <Text mt={4} color="gray.500">{t('weddings.loading')}</Text>
-                </Box>
-              ) : filteredMarriages.length === 0 ? (
+          {/* Liste responsive: Cartes sur mobile, Tableau sur desktop */}
+          {loading ? (
+            <Box textAlign="center" py={10}>
+              <Spinner size="xl" color="pink.500" />
+              <Text mt={4} color="gray.500">{t('weddings.loading')}</Text>
+            </Box>
+          ) : filteredMarriages.length === 0 ? (
+            <Card>
+              <CardBody>
                 <Box textAlign="center" py={10}>
                   <Icon as={FaRing} boxSize={12} color="gray.300" mb={4} />
                   <Text color="gray.500" fontSize="lg" mb={2}>
@@ -326,7 +331,27 @@ const WeddingsList = () => {
                     </Button>
                   )}
                 </Box>
-              ) : (
+              </CardBody>
+            </Card>
+          ) : isMobile ? (
+            // Vue mobile: Grille de cartes
+            <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
+              {filteredMarriages.map((marriage) => (
+                <MarriageCard
+                  key={marriage.weddingID}
+                  marriage={marriage}
+                  onEdit={(id) => navigate(`/weddings/edit/${id}`)}
+                  onDelete={(id) => {
+                    setDeleteId(id);
+                    onOpen();
+                  }}
+                />
+              ))}
+            </SimpleGrid>
+          ) : (
+            // Vue desktop: Tableau
+            <Card>
+              <CardBody>
                 <Table variant="simple" size="md">
                   <Thead>
                     <Tr>
@@ -442,9 +467,9 @@ const WeddingsList = () => {
                     ))}
                   </Tbody>
                 </Table>
-              )}
-            </CardBody>
-          </Card>
+              </CardBody>
+            </Card>
+          )}
         </VStack>
 
         {/* Dialog de confirmation de suppression */}

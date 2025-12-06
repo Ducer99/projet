@@ -176,7 +176,6 @@ const FamilyTreeDynamic: React.FC = () => {
               <SearchIcon color="gray.400" />
             </InputLeftElement>
             <Input
-              placeholder="Rechercher une personne..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />

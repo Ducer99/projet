@@ -215,7 +215,6 @@ const CreatePoll: React.FC = () => {
                 <Input
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
-                  placeholder={t('polls.questionPlaceholder')}
                   size="lg"
                   borderColor="#EDE8E3"
                   _focus={{ borderColor: '#A3B18A', boxShadow: 'none' }}
@@ -231,7 +230,6 @@ const CreatePoll: React.FC = () => {
                 <Textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder={t('polls.descriptionPlaceholder')}
                   rows={3}
                   borderColor="#EDE8E3"
                   _focus={{ borderColor: '#A3B18A', boxShadow: 'none' }}
@@ -342,12 +340,11 @@ const CreatePoll: React.FC = () => {
                   {t('polls.options')} ({options.length}/6)
                 </FormLabel>
                 <VStack spacing={3} align="stretch">
-                  {options.map((option, index) => (
+                  {options.map((option) => (
                     <HStack key={option.id}>
                       <Input
                         value={option.text}
                         onChange={(e) => updateOption(option.id, e.target.value)}
-                        placeholder={`${t('polls.option')} ${index + 1}`}
                         size="lg"
                         borderColor="#EDE8E3"
                         _focus={{ borderColor: '#A3B18A', boxShadow: 'none' }}

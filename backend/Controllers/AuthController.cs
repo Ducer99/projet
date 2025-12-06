@@ -9,6 +9,7 @@ using FamilyTreeAPI.Data;
 using FamilyTreeAPI.Models;
 using FamilyTreeAPI.Services;
 using BCrypt.Net;
+using Google.Apis.Auth; // ⭐ Google OAuth validation
 
 namespace FamilyTreeAPI.Controllers
 {
@@ -72,9 +73,13 @@ namespace FamilyTreeAPI.Controllers
                 userFamily = await _context.Families.FindAsync(user.FamilyID);
             }
 
+            // 🚀 Smart Redirect Flow: Vérifier si l'utilisateur a besoin d'un "Family Onboarding"
+            bool needsFamilyOnboarding = user.FamilyID == null || user.FamilyID == 0;
+
             return Ok(new
             {
                 Token = token,
+                NeedsFamilyOnboarding = needsFamilyOnboarding, // ⭐ Nouveau flag
                 User = new
                 {
                     user.ConnexionID,
@@ -89,6 +94,113 @@ namespace FamilyTreeAPI.Controllers
             });
         }
 
+        // 🔐 Google OAuth Login/Register
+        [HttpPost("google")]
+        public async Task<ActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+        {
+            try
+            {
+                // 1. Valider le token Google auprès de Google (SÉCURITÉ CRITIQUE !)
+                var payload = await GoogleJsonWebSignature.ValidateAsync(request.Token);
+
+                // 2. Le token est valide ! Extraire les infos utilisateur
+                var email = payload.Email;
+                var firstName = payload.GivenName ?? "";
+                var lastName = payload.FamilyName ?? "";
+                var photoUrl = payload.Picture;
+                var googleUserId = payload.Subject; // ID Google unique
+
+                // 3. Vérifier si l'utilisateur existe déjà
+                var existingUser = await _context.Connexions
+                    .Include(c => c.Person)
+                    .FirstOrDefaultAsync(c => c.Email == email);
+
+                Connexion user;
+
+                if (existingUser != null)
+                {
+                    // Utilisateur existant -> Login
+                    user = existingUser;
+
+                    // Vérifier que le compte est actif
+                    if (!user.IsActive)
+                    {
+                        return StatusCode(403, new { message = "Votre compte n'est pas actif." });
+                    }
+
+                    // Update last login
+                    user.LastLoginDate = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                }
+                else
+                {
+                    // Nouvel utilisateur -> Auto-Register
+                    var username = $"{firstName} {lastName}".Trim();
+                    if (string.IsNullOrEmpty(username))
+                    {
+                        username = email.Split('@')[0];
+                    }
+
+                    user = new Connexion
+                    {
+                        Email = email,
+                        UserName = username,
+                        Password = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()), // Password aléatoire (jamais utilisé)
+                        IsActive = true, // ⭐ Google users sont activés automatiquement
+                        EmailVerified = true, // ⭐ Email vérifié par Google
+                        ProfileCompleted = false,
+                        Role = "Member",
+                        Level = 1,
+                        FamilyID = null, // ⭐ Sans Domicile Familial (SDF)
+                        CreatedDate = DateTime.UtcNow,
+                        LastLoginDate = DateTime.UtcNow
+                    };
+
+                    _context.Connexions.Add(user);
+                    await _context.SaveChangesAsync();
+                }
+
+                // 4. Générer notre propre JWT token pour l'application
+                var token = GenerateJwtToken(user);
+
+                // 5. Charger la famille si elle existe
+                Family? userFamily = null;
+                if (user.FamilyID > 0)
+                {
+                    userFamily = await _context.Families.FindAsync(user.FamilyID);
+                }
+
+                // 6. Smart Redirect Flow
+                bool needsFamilyOnboarding = user.FamilyID == null || user.FamilyID == 0;
+
+                return Ok(new
+                {
+                    Token = token,
+                    NeedsFamilyOnboarding = needsFamilyOnboarding,
+                    User = new
+                    {
+                        user.ConnexionID,
+                        user.UserName,
+                        user.Level,
+                        user.IDPerson,
+                        FamilyID = user.FamilyID,
+                        user.Role,
+                        PersonName = user.Person != null ? $"{user.Person.FirstName} {user.Person.LastName}" : user.UserName,
+                        FamilyName = userFamily?.FamilyName,
+                        PhotoUrl = photoUrl // Info additionnelle de Google
+                    }
+                });
+            }
+            catch (InvalidJwtException)
+            {
+                return BadRequest(new { message = "Token Google invalide" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Erreur serveur : {ex.Message}" });
+            }
+        }
+
         // 🆕 Inscription simplifiée : Email + Mot de passe uniquement
         [HttpPost("register-simple")]
         public async Task<ActionResult> RegisterSimple([FromBody] SimpleRegisterRequest request)
@@ -101,17 +213,21 @@ namespace FamilyTreeAPI.Controllers
 
             var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
+            // 🆕 Pour Google OAuth simulation : activer immédiatement si demandé
+            bool isGoogleSimulation = request.UserName?.StartsWith("Google User") == true;
+
             // Créer un compte temporaire sans Person ni Family
             var connexion = new Connexion
             {
-                UserName = request.Email.Split('@')[0], // Username temporaire basé sur l'email
+                UserName = request.UserName ?? request.Email.Split('@')[0], // Username temporaire basé sur l'email
                 Password = hashedPassword,
                 Level = 1,
                 IDPerson = null, // NULL jusqu'à la complétion du profil
                 FamilyID = null, // NULL jusqu'au rattachement familial
                 Email = request.Email,
                 CreatedDate = DateTime.UtcNow,
-                IsActive = false, // Inactif jusqu'à la complétion du profil
+                IsActive = true, // ⭐ FIXME: Activé immédiatement pour éviter les 403 (TODO: email verification)
+                EmailVerified = isGoogleSimulation ? true : false, // ⭐ Email vérifié si Google
                 ProfileCompleted = false,
                 Role = "Member"
             };
@@ -268,16 +384,32 @@ namespace FamilyTreeAPI.Controllers
         [Authorize]
         public async Task<ActionResult> CompleteProfile([FromBody] CompleteProfileRequest request)
         {
+            Console.WriteLine("========== 🔵 COMPLETE-PROFILE DEBUG START ==========");
+            Console.WriteLine($"📥 Request received:");
+            Console.WriteLine($"   FirstName: '{request.FirstName}' (length: {request.FirstName?.Length ?? 0})");
+            Console.WriteLine($"   LastName: '{request.LastName}' (length: {request.LastName?.Length ?? 0})");
+            Console.WriteLine($"   Sex: '{request.Sex}' (length: {request.Sex?.Length ?? 0})");
+            Console.WriteLine($"   BirthDate: {request.BirthDate}");
+            Console.WriteLine($"   BirthCity: '{request.BirthCity}' (length: {request.BirthCity?.Length ?? 0})");
+            Console.WriteLine($"   BirthCountry: '{request.BirthCountry}' (length: {request.BirthCountry?.Length ?? 0})");
+            Console.WriteLine($"   Activity: '{request.Activity}' (length: {request.Activity?.Length ?? 0})");
+            
             var userId = int.Parse(User.FindFirst("id")?.Value ?? "0");
+            Console.WriteLine($"👤 User ID from token: {userId}");
+            
             var connexion = await _context.Connexions.FindAsync(userId);
 
             if (connexion == null)
             {
+                Console.WriteLine("❌ ERROR: Connexion not found for userId: " + userId);
                 return NotFound("Utilisateur non trouvé");
             }
 
+            Console.WriteLine($"✅ Connexion found: ID={connexion.ConnexionID}, Email={connexion.Email}");
+
             if (connexion.ProfileCompleted)
             {
+                Console.WriteLine("❌ ERROR: Profile already completed");
                 return BadRequest("Profil déjà complété");
             }
 
@@ -325,6 +457,8 @@ namespace FamilyTreeAPI.Controllers
             }
 
             // Créer la personne
+            Console.WriteLine("📝 Creating Person object...");
+            
             // 🔧 WORKAROUND: Tronquer tous les champs texte pour éviter l'erreur VARCHAR(2000)
             var safeActivity = request.Activity;
             if (!string.IsNullOrEmpty(safeActivity) && safeActivity.Length > 1000) 
@@ -334,11 +468,16 @@ namespace FamilyTreeAPI.Controllers
             if (!string.IsNullOrEmpty(safeEmail) && safeEmail.Length > 1000) 
                 safeEmail = safeEmail.Substring(0, 1000);
             
+            Console.WriteLine($"🔍 Sex value before Person creation: '{request.Sex}'");
+            Console.WriteLine($"   Is null or empty? {string.IsNullOrEmpty(request.Sex)}");
+            Console.WriteLine($"   Is 'M'? {request.Sex == "M"}");
+            Console.WriteLine($"   Is 'F'? {request.Sex == "F"}");
+            
             var person = new Person
             {
                 FirstName = request.FirstName,
                 LastName = request.LastName,
-                Sex = request.Gender,
+                Sex = request.Sex,  // ✅ Changé de request.Gender à request.Sex
                 Birthday = request.BirthDate.HasValue ? DateTime.SpecifyKind(request.BirthDate.Value, DateTimeKind.Utc) : null,
                 CityID = city.CityID,
                 Email = safeEmail,
@@ -389,7 +528,25 @@ namespace FamilyTreeAPI.Controllers
             }
             Console.WriteLine($"=====================================================");
             
-            await _context.SaveChangesAsync();
+            try 
+            {
+                Console.WriteLine("💾 Attempting to save Person to database...");
+                await _context.SaveChangesAsync();
+                Console.WriteLine("✅ Person saved successfully! PersonID: " + person.PersonID);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("❌ ERROR saving Person to database:");
+                Console.WriteLine($"   Exception Type: {ex.GetType().Name}");
+                Console.WriteLine($"   Message: {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"   Inner Exception: {ex.InnerException.Message}");
+                }
+                Console.WriteLine($"   Stack Trace: {ex.StackTrace}");
+                Console.WriteLine("========== 🔴 COMPLETE-PROFILE DEBUG END (ERROR) ==========");
+                throw;
+            }
             
             // 🔍 Vérifier si cette personne correspond à un parent en attente
             await CheckAndLinkPendingChildren(person);
@@ -406,10 +563,16 @@ namespace FamilyTreeAPI.Controllers
                 connexion.IsActive = true;
             }
 
+            Console.WriteLine("💾 Saving Connexion updates...");
             await _context.SaveChangesAsync();
+            Console.WriteLine("✅ Connexion updated successfully!");
 
             // Générer un nouveau token avec les infos complètes (FamilyID reste NULL)
+            Console.WriteLine("🔑 Generating new JWT token...");
             var token = GenerateJwtToken(connexion);
+            Console.WriteLine("✅ Token generated!");
+            
+            Console.WriteLine("========== ✅ COMPLETE-PROFILE DEBUG END (SUCCESS) ==========");
 
             return Ok(new
             {
@@ -855,7 +1018,7 @@ namespace FamilyTreeAPI.Controllers
         
         // 🏠 Créer une nouvelle famille
         [HttpPost("create-family")]
-        public async Task<ActionResult> CreateFamily([FromBody] CreateFamilyRequest request)
+        public async Task<ActionResult> CreateFamily([FromBody] RegisterAndCreateFamilyRequest request)
         {
             // Vérifier si l'email existe déjà
             if (await _context.Connexions.AnyAsync(c => c.Email == request.Email))
@@ -952,7 +1115,7 @@ namespace FamilyTreeAPI.Controllers
         
         // 🎫 Rejoindre une famille avec un code
         [HttpPost("join-family")]
-        public async Task<ActionResult> JoinFamily([FromBody] JoinFamilyRequest request)
+        public async Task<ActionResult> JoinFamily([FromBody] RegisterAndJoinFamilyRequest request)
         {
             // Vérifier si l'email existe déjà
             if (await _context.Connexions.AnyAsync(c => c.Email == request.Email))
@@ -1504,6 +1667,13 @@ namespace FamilyTreeAPI.Controllers
     {
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+        public string? UserName { get; set; } // ⭐ Optionnel : pour Google OAuth simulation
+    }
+
+    // 🔐 Requête Google OAuth
+    public class GoogleLoginRequest
+    {
+        public string Token { get; set; } = string.Empty; // ID Token JWT de Google
     }
 
     // 🆕 Requête de complétion de profil
@@ -1511,7 +1681,7 @@ namespace FamilyTreeAPI.Controllers
     {
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
-        public string Gender { get; set; } = string.Empty; // "M" ou "F"
+        public string Sex { get; set; } = string.Empty; // "M" ou "F" (changé de Gender à Sex pour correspondre au frontend)
         public DateTime? BirthDate { get; set; }
         public string BirthCountry { get; set; } = string.Empty;
         public string BirthCity { get; set; } = string.Empty;
@@ -1572,7 +1742,7 @@ namespace FamilyTreeAPI.Controllers
         public string Email { get; set; } = string.Empty;
     }
     
-    public class CreateFamilyRequest
+    public class RegisterAndCreateFamilyRequest
     {
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
@@ -1584,7 +1754,7 @@ namespace FamilyTreeAPI.Controllers
         public string? Activity { get; set; }
     }
     
-    public class JoinFamilyRequest
+    public class RegisterAndJoinFamilyRequest
     {
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;

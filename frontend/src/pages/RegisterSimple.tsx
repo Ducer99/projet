@@ -144,7 +144,6 @@ export default function RegisterSimple() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder={t('auth.emailPlaceholder')}
                     size="lg"
                   />
                 </FormControl>
@@ -156,7 +155,6 @@ export default function RegisterSimple() {
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder={t('auth.passwordPlaceholder')}
                     />
                     <InputRightElement>
                       <IconButton
@@ -180,7 +178,6 @@ export default function RegisterSimple() {
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder={t('auth.passwordPlaceholder')}
                     />
                     <InputRightElement>
                       <IconButton

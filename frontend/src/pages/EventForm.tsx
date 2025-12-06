@@ -233,7 +233,6 @@ const EventForm = () => {
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Ex: Fête d'anniversaire, Mariage, Réunion familiale..."
                 maxLength={150}
               />
             </FormControl>
@@ -281,7 +280,6 @@ const EventForm = () => {
               <Input
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                placeholder="Ex: Paris, France"
               />
             </FormControl>
 
@@ -291,7 +289,6 @@ const EventForm = () => {
               <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ajoutez des détails sur l'événement..."
                 rows={4}
               />
             </FormControl>

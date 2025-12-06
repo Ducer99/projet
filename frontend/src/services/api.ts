@@ -2,18 +2,30 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: '/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 // Add token to requests
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
+    
+    // 🔍 DEBUG: Log every request with token status
+    console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.url}`);
+    console.log(`   Token present: ${token ? '✅ YES' : '❌ NO'}`);
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log(`   Authorization header: Bearer ${token.substring(0, 20)}...`);
+    } else {
+      console.log(`   ⚠️ No token found in localStorage!`);
     }
+    
+    // ⚠️ Définir Content-Type uniquement si ce n'est pas FormData
+    // Pour FormData, axios le définira automatiquement avec le boundary correct
+    if (!(config.data instanceof FormData)) {
+      config.headers['Content-Type'] = 'application/json';
+    }
+    
     return config;
   },
   (error) => {

@@ -5,19 +5,20 @@ import Header from './components/Header';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import RegisterSimple from './pages/RegisterSimple';
+import JoinOrCreateFamily from './pages/JoinOrCreateFamily';
 import VerifyEmail from './pages/VerifyEmail';
 import CompleteProfile from './pages/CompleteProfile';
 import FamilyAttachment from './pages/FamilyAttachment';
 import ForgotPassword from './pages/ForgotPassword';
 import FamilySetup from './pages/FamilySetup';
-import Dashboard from './pages/Dashboard';
+import Dashboard from './pages/DashboardV3'; // ⭐ Version Refonte UI - Soft UI Design + Bottom Nav Mobile
 import FamilyTreeEnhanced from './pages/FamilyTreeEnhanced';
 import RelationsExplainer from './pages/RelationsExplainer';
-import PersonProfile from './pages/PersonProfile';
+import PersonProfile from './pages/PersonProfileV2'; // ⭐ Version Moderne
 import PersonsList from './pages/PersonsList';
 import MembersManagementDashboard from './pages/MembersManagementDashboard';
 import PublicPersonsList from './pages/PublicPersonsList';
-import MyProfile from './pages/MyProfile';
+import MyProfile from './pages/MyProfileV3'; // ⭐ Version Refonte UI - Design System EditMember
 import AddMember from './pages/AddMember';
 import EditMember from './pages/EditMember';
 import EventsCalendar from './pages/EventsCalendar';
@@ -44,6 +45,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/register-simple" element={<RegisterSimple />} />
+            <Route path="/join-or-create-family" element={<JoinOrCreateFamily />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/complete-profile" element={<CompleteProfile />} />
             <Route path="/family-attachment" element={<FamilyAttachment />} />

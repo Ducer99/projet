@@ -27,6 +27,14 @@ namespace FamilyTreeAPI.Controllers
             _logger = logger;
         }
 
+        // GET: api/polls/test - Simple endpoint de test
+        [HttpGet("test")]
+        [AllowAnonymous]
+        public IActionResult TestEndpoint()
+        {
+            return Ok(new { message = "PollsController is working!", timestamp = DateTime.UtcNow });
+        }
+
         // GET: api/polls
         [HttpGet]
         public async Task<ActionResult<IEnumerable<PollListDto>>> GetPolls([FromQuery] bool activeOnly = true)
@@ -59,7 +67,7 @@ namespace FamilyTreeAPI.Controllers
                     .OrderByDescending(p => p.CreatedAt)
                     .ToListAsync();
 
-                // FILTRAGE PAR AUDIENCE
+                // 🎯 FILTRAGE PAR AUDIENCE: Ne garder que les sondages accessibles
                 var accessiblePolls = new List<Poll>();
                 foreach (var poll in polls)
                 {
@@ -105,7 +113,7 @@ namespace FamilyTreeAPI.Controllers
             }
         }
 
-        // GET: api/polls/{id}
+        // GET: api/polls/5
         [HttpGet("{id}")]
         public async Task<ActionResult<PollResultDto>> GetPoll(int id)
         {
@@ -132,7 +140,7 @@ namespace FamilyTreeAPI.Controllers
                     return NotFound(new { message = "Poll not found" });
                 }
 
-                // VERIFICATION ACCES
+                // 🎯 VÉRIFICATION D'ACCÈS: L'utilisateur peut-il voir ce sondage ?
                 if (!await _audienceService.CanUserAccessPoll(userId, poll))
                 {
                     return Forbid();
@@ -142,23 +150,44 @@ namespace FamilyTreeAPI.Controllers
                 var creator = await _context.Connexions
                     .Where(c => c.ConnexionID == poll.CreatorID)
                     .Include(c => c.Person)
-                    .Select(c => new { c.ConnexionID, Name = c.Person != null ? c.Person.FirstName + " " + c.Person.LastName : c.UserName })
+                    .Select(c => new { Name = c.Person != null ? c.Person.FirstName + " " + c.Person.LastName : c.UserName })
                     .FirstOrDefaultAsync();
 
-                // Get vote counts
-                var optionsWithVotes = poll.Options.Select(option => {
-                    var voteCount = _context.PollVotes.Count(v => v.OptionID == option.OptionID);
+                // Check if user has voted
+                var userVotes = await _context.PollVotes
+                    .Where(v => v.PollID == id && v.VoterID == userId)
+                    .Select(v => v.OptionID)
+                    .ToListAsync();
+
+                // Calculate vote counts for each option
+                var voteCounts = await _context.PollVotes
+                    .Where(v => v.PollID == id)
+                    .GroupBy(v => v.OptionID)
+                    .Select(g => new { OptionID = g.Key, Count = g.Count() })
+                    .ToListAsync();
+
+                var totalVoters = await _context.PollVotes
+                    .Where(v => v.PollID == id)
+                    .Select(v => v.VoterID)
+                    .Distinct()
+                    .CountAsync();
+
+                // Build options with vote data
+                var options = poll.Options?.Select(o => {
+                    var voteCount = voteCounts.FirstOrDefault(vc => vc.OptionID == o.OptionID)?.Count ?? 0;
                     return new PollOption
                     {
-                        OptionID = option.OptionID,
-                        OptionText = option.OptionText,
-                        PollID = option.PollID,
-                        VoteCount = voteCount
+                        OptionID = o.OptionID,
+                        PollID = o.PollID,
+                        OptionText = o.OptionText,
+                        OptionOrder = o.OptionOrder,
+                        VoteCount = voteCount,
+                        VotePercentage = totalVoters > 0 ? Math.Round((decimal)voteCount / totalVoters * 100, 1) : 0,
+                        UserVoted = userVotes.Contains(o.OptionID)
                     };
-                }).ToList();
+                }).OrderBy(o => o.OptionOrder).ToList() ?? new List<PollOption>();
 
-                var totalVoters = _context.PollVotes.Where(v => v.PollID == poll.PollID).Select(v => v.VoterID).Distinct().Count();
-                var hasVoted = _context.PollVotes.Any(v => v.PollID == poll.PollID && v.VoterID == userId);
+                // Get audience description
                 var audienceDescription = await _audienceService.GetAudienceDescription(poll);
 
                 var pollDto = new PollResultDto
@@ -172,8 +201,8 @@ namespace FamilyTreeAPI.Controllers
                     CreatorName = creator?.Name ?? "Unknown",
                     CreatorID = poll.CreatorID,
                     TotalVoters = totalVoters,
-                    HasUserVoted = hasVoted,
-                    Options = optionsWithVotes,
+                    HasUserVoted = userVotes.Any(),
+                    Options = options,
                     VisibilityType = poll.VisibilityType,
                     TargetAudienceDescription = audienceDescription
                 };
@@ -182,14 +211,14 @@ namespace FamilyTreeAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching poll");
+                _logger.LogError(ex, $"Error fetching poll {id}");
                 return StatusCode(500, new { message = "An error occurred while fetching the poll", error = ex.Message });
             }
         }
 
         // POST: api/polls
         [HttpPost]
-        public async Task<ActionResult<Poll>> CreatePoll(CreatePollDto pollDto)
+        public async Task<ActionResult<Poll>> CreatePoll([FromBody] CreatePollDto pollDto)
         {
             try
             {
@@ -205,65 +234,66 @@ namespace FamilyTreeAPI.Controllers
                     return BadRequest(new { message = "Family ID not found" });
                 }
 
-                // Validation
-                if (string.IsNullOrWhiteSpace(pollDto.Question))
-                {
-                    return BadRequest(new { message = "Question is required" });
-                }
-
                 if (pollDto.Options == null || pollDto.Options.Count < 2)
                 {
                     return BadRequest(new { message = "At least 2 options are required" });
                 }
 
-                if (!new[] { "single", "multiple" }.Contains(pollDto.PollType))
+                // Sérialiser le target_audience en JSON
+                string? targetAudienceJson = null;
+                if (pollDto.TargetAudience != null && pollDto.VisibilityType != "all")
                 {
-                    return BadRequest(new { message = "Invalid poll type" });
+                    targetAudienceJson = JsonSerializer.Serialize(pollDto.TargetAudience);
                 }
 
-                if (!new[] { "all", "lineage", "generation", "manual" }.Contains(pollDto.VisibilityType))
-                {
-                    return BadRequest(new { message = "Invalid visibility type" });
-                }
-
-                // Creer le sondage
                 var poll = new Poll
                 {
+                    FamilyID = familyId,
+                    CreatorID = userId,
                     Question = pollDto.Question,
                     Description = pollDto.Description,
                     PollType = pollDto.PollType,
                     EndDate = pollDto.EndDate,
-                    FamilyID = familyId,
-                    CreatorID = userId,
                     IsActive = true,
+                    StartDate = DateTime.UtcNow,
                     CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
                     VisibilityType = pollDto.VisibilityType,
-                    TargetAudience = pollDto.TargetAudience != null ? JsonSerializer.Serialize(pollDto.TargetAudience) : null,
-                    Options = pollDto.Options.Select(opt => new PollOption
-                    {
-                        OptionText = opt.OptionText,
-                        VoteCount = 0
-                    }).ToList()
+                    TargetAudience = targetAudienceJson
                 };
 
                 _context.Polls.Add(poll);
                 await _context.SaveChangesAsync();
 
-                // Si ciblage manuel
-                if (pollDto.VisibilityType == "manual" && pollDto.TargetAudience?.PersonIds != null)
+                // Add options
+                var options = pollDto.Options.Select((opt, index) => new PollOption
                 {
-                    foreach (var personId in pollDto.TargetAudience.PersonIds)
+                    PollID = poll.PollID,
+                    OptionText = opt.OptionText,
+                    OptionOrder = index + 1,
+                    CreatedAt = DateTime.UtcNow
+                }).ToList();
+
+                _context.PollOptions.AddRange(options);
+
+                // Si ciblage manuel, ajouter les participants
+                if (pollDto.VisibilityType == "manual" && 
+                    pollDto.TargetAudience?.PersonIds != null && 
+                    pollDto.TargetAudience.PersonIds.Any())
+                {
+                    var participants = pollDto.TargetAudience.PersonIds.Select(personId => new PollParticipant
                     {
-                        _context.PollParticipants.Add(new PollParticipant
-                        {
-                            PollId = poll.PollID,
-                            PersonId = personId
-                        });
-                    }
-                    await _context.SaveChangesAsync();
+                        PollId = poll.PollID,
+                        PersonId = personId,
+                        AddedAt = DateTime.UtcNow
+                    }).ToList();
+
+                    _context.PollParticipants.AddRange(participants);
                 }
 
-                _logger.LogInformation($"Poll {poll.PollID} created with visibility {poll.VisibilityType}");
+                await _context.SaveChangesAsync();
+
+                poll.Options = options;
 
                 return CreatedAtAction(nameof(GetPoll), new { id = poll.PollID }, poll);
             }
@@ -274,9 +304,9 @@ namespace FamilyTreeAPI.Controllers
             }
         }
 
-        // POST: api/polls/{id}/vote
+        // POST: api/polls/5/vote
         [HttpPost("{id}/vote")]
-        public async Task<IActionResult> VotePoll(int id, VotePollDto voteDto)
+        public async Task<ActionResult> Vote(int id, [FromBody] VotePollDto voteDto)
         {
             try
             {
@@ -301,84 +331,72 @@ namespace FamilyTreeAPI.Controllers
                     return NotFound(new { message = "Poll not found" });
                 }
 
-                // VERIFICATION ACCES
+                // 🎯 VÉRIFICATION D'ACCÈS: L'utilisateur peut-il voter sur ce sondage ?
                 if (!await _audienceService.CanUserAccessPoll(userId, poll))
                 {
                     return Forbid();
                 }
 
-                if (!poll.IsActive)
+                if (!poll.IsActive || (poll.EndDate.HasValue && poll.EndDate.Value < DateTime.UtcNow))
                 {
-                    return BadRequest(new { message = "This poll is no longer active" });
+                    return BadRequest(new { message = "Poll is closed" });
                 }
 
-                if (poll.EndDate.HasValue && poll.EndDate.Value < DateTime.UtcNow)
-                {
-                    return BadRequest(new { message = "This poll has ended" });
-                }
-
-                if (voteDto.OptionIds == null || voteDto.OptionIds.Count == 0)
-                {
-                    return BadRequest(new { message = "At least one option must be selected" });
-                }
-
-                // Check if user has already voted
+                // Check if user already voted
                 var existingVotes = await _context.PollVotes
                     .Where(v => v.PollID == id && v.VoterID == userId)
                     .ToListAsync();
 
                 if (existingVotes.Any())
                 {
-                    return BadRequest(new { message = "You have already voted on this poll" });
+                    return BadRequest(new { message = "You have already voted in this poll" });
                 }
 
                 // Validate option IDs
-                var validOptionIds = poll.Options.Select(o => o.OptionID).ToList();
-                if (voteDto.OptionIds.Any(optionId => !validOptionIds.Contains(optionId)))
+                if (voteDto.OptionIds == null || !voteDto.OptionIds.Any())
                 {
-                    return BadRequest(new { message = "Invalid option ID" });
+                    return BadRequest(new { message = "No options selected" });
                 }
 
-                // Check poll type constraints
+                var validOptionIds = poll.Options?.Select(o => o.OptionID).ToList() ?? new List<int>();
+                if (!voteDto.OptionIds.All(oid => validOptionIds.Contains(oid)))
+                {
+                    return BadRequest(new { message = "Invalid option selected" });
+                }
+
+                // For single choice, only allow one option
                 if (poll.PollType == "single" && voteDto.OptionIds.Count > 1)
                 {
-                    return BadRequest(new { message = "Only one option can be selected for single-choice polls" });
+                    return BadRequest(new { message = "Only one option allowed for single choice polls" });
                 }
 
-                // Create votes
+                // Record votes
                 foreach (var optionId in voteDto.OptionIds)
                 {
-                    _context.PollVotes.Add(new PollVote
+                    var vote = new PollVote
                     {
                         PollID = id,
                         OptionID = optionId,
                         VoterID = userId,
                         VotedAt = DateTime.UtcNow
-                    });
-
-                    var option = poll.Options.FirstOrDefault(o => o.OptionID == optionId);
-                    if (option != null)
-                    {
-                        option.VoteCount++;
-                    }
+                    };
+                    _context.PollVotes.Add(vote);
                 }
 
                 await _context.SaveChangesAsync();
-
-                _logger.LogInformation($"User {userId} voted on poll {id}");
 
                 return Ok(new { message = "Vote recorded successfully" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error voting on poll");
+                _logger.LogError(ex, $"Error voting on poll {id}");
                 return StatusCode(500, new { message = "An error occurred while recording your vote", error = ex.Message });
             }
         }
 
-        // DELETE: api/polls/{id}
+        // DELETE: api/polls/5
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeletePoll(int id)
+        public async Task<ActionResult> DeletePoll(int id)
         {
             try
             {
@@ -394,6 +412,8 @@ namespace FamilyTreeAPI.Controllers
                     return BadRequest(new { message = "Family ID not found" });
                 }
 
+                var roleClaim = User.FindFirst("role")?.Value;
+
                 var poll = await _context.Polls
                     .FirstOrDefaultAsync(p => p.PollID == id && p.FamilyID == familyId);
 
@@ -402,28 +422,41 @@ namespace FamilyTreeAPI.Controllers
                     return NotFound(new { message = "Poll not found" });
                 }
 
-                if (poll.CreatorID != userId)
+                // Only creator or admin can delete
+                if (poll.CreatorID != userId && roleClaim != "Admin")
                 {
                     return Forbid();
                 }
 
-                _context.Polls.Remove(poll);
-                await _context.SaveChangesAsync();
+                // Delete votes first (cascade)
+                var votes = await _context.PollVotes.Where(v => v.PollID == id).ToListAsync();
+                _context.PollVotes.RemoveRange(votes);
 
-                _logger.LogInformation($"Poll {id} deleted by user {userId}");
+                // Delete options
+                var options = await _context.PollOptions.Where(o => o.PollID == id).ToListAsync();
+                _context.PollOptions.RemoveRange(options);
+
+                // Delete participants (manual targeting)
+                var participants = await _context.PollParticipants.Where(pp => pp.PollId == id).ToListAsync();
+                _context.PollParticipants.RemoveRange(participants);
+
+                // Delete poll
+                _context.Polls.Remove(poll);
+                
+                await _context.SaveChangesAsync();
 
                 return Ok(new { message = "Poll deleted successfully" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting poll");
+                _logger.LogError(ex, $"Error deleting poll {id}");
                 return StatusCode(500, new { message = "An error occurred while deleting the poll", error = ex.Message });
             }
         }
 
-        // GET: api/polls/families
+        // GET: api/polls/families - Récupère les familles disponibles pour le ciblage
         [HttpGet("families")]
-        public async Task<ActionResult<IEnumerable<object>>> GetFamilies()
+        public async Task<ActionResult<IEnumerable<Family>>> GetFamilies()
         {
             try
             {
@@ -433,15 +466,7 @@ namespace FamilyTreeAPI.Controllers
                     return BadRequest(new { message = "Family ID not found" });
                 }
 
-                var families = await _context.Families
-                    .Where(f => f.FamilyID == familyId)
-                    .Select(f => new
-                    {
-                        f.FamilyID,
-                        f.FamilyName
-                    })
-                    .ToListAsync();
-
+                var families = await _audienceService.GetAvailableFamilies(familyId);
                 return Ok(families);
             }
             catch (Exception ex)
@@ -451,9 +476,9 @@ namespace FamilyTreeAPI.Controllers
             }
         }
 
-        // GET: api/polls/members
+        // GET: api/polls/members - Récupère les membres de la famille pour le ciblage manuel
         [HttpGet("members")]
-        public async Task<ActionResult<IEnumerable<object>>> GetMembers()
+        public async Task<ActionResult<IEnumerable<object>>> GetFamilyMembers()
         {
             try
             {
@@ -463,24 +488,22 @@ namespace FamilyTreeAPI.Controllers
                     return BadRequest(new { message = "Family ID not found" });
                 }
 
-                var members = await _context.Persons
-                    .Where(p => p.FamilyID == familyId)
-                    .Select(p => new
-                    {
-                        p.PersonID,
-                        p.FirstName,
-                        p.LastName,
-                        p.PhotoUrl,
-                        p.Sex
-                    })
-                    .ToListAsync();
+                var members = await _audienceService.GetFamilyMembers(familyId);
+                var result = members.Select(m => new
+                {
+                    m.PersonID,
+                    FullName = $"{m.FirstName} {m.LastName}",
+                    m.FirstName,
+                    m.LastName,
+                    m.PhotoUrl
+                }).ToList();
 
-                return Ok(members);
+                return Ok(result);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching members");
-                return StatusCode(500, new { message = "An error occurred while fetching members", error = ex.Message });
+                _logger.LogError(ex, "Error fetching family members");
+                return StatusCode(500, new { message = "An error occurred while fetching family members", error = ex.Message });
             }
         }
     }

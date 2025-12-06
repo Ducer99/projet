@@ -118,7 +118,6 @@ const AlbumForm = () => {
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Ex: Mariage de Paul & Léa - 2023"
                 size="lg"
               />
             </FormControl>
@@ -129,7 +128,6 @@ const AlbumForm = () => {
               <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Décrivez cet album (optionnel)..."
                 rows={4}
               />
             </FormControl>
@@ -140,7 +138,6 @@ const AlbumForm = () => {
               <Select
                 value={eventID}
                 onChange={(e) => setEventID(e.target.value)}
-                placeholder="Sélectionner un événement"
               >
                 {events.map((event) => (
                   <option key={event.eventID} value={event.eventID}>

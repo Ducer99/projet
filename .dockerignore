@@ -1,0 +1,39 @@
+# .dockerignore - Fichiers à exclure du build Docker
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.env
+frontend/.env.local
+frontend/npm-debug.log*
+
+# Backend
+backend/bin/
+backend/obj/
+backend/wwwroot/
+backend/*.user
+backend/appsettings.Development.json
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Documentation
+*.md
+docs/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Databases locales
+*.db
+*.sqlite

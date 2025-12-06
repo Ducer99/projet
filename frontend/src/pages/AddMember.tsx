@@ -151,7 +151,6 @@ export default function AddMember() {
                     <Input
                       value={formData.firstName}
                       onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                      placeholder={t('addMemberForm.firstNamePlaceholder')}
                     />
                   </FormControl>
 
@@ -160,7 +159,6 @@ export default function AddMember() {
                     <Input
                       value={formData.lastName}
                       onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                      placeholder={t('addMemberForm.lastNamePlaceholder')}
                     />
                   </FormControl>
                 </HStack>
@@ -193,7 +191,6 @@ export default function AddMember() {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder={t('addMemberForm.emailPlaceholder')}
                   />
                 </FormControl>
 
@@ -202,7 +199,6 @@ export default function AddMember() {
                   <Input
                     value={formData.activity}
                     onChange={(e) => setFormData({ ...formData, activity: e.target.value })}
-                    placeholder={t('addMemberForm.activityPlaceholder')}
                   />
                 </FormControl>
 
@@ -211,7 +207,6 @@ export default function AddMember() {
                   <Input
                     value={formData.photoUrl}
                     onChange={(e) => setFormData({ ...formData, photoUrl: e.target.value })}
-                    placeholder={t('addMemberForm.photoUrlPlaceholder')}
                   />
                 </FormControl>
 
@@ -220,7 +215,6 @@ export default function AddMember() {
                   <Input
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    placeholder={t('addMemberForm.notesPlaceholder')}
                   />
                 </FormControl>
 
@@ -265,7 +259,6 @@ export default function AddMember() {
                               ...formData, 
                               fatherID: e.target.value ? parseInt(e.target.value) : null 
                             })}
-                            placeholder={t('editMember.selectFatherPlaceholder')}
                           >
                             {/* Liste des pères potentiels - à implémenter si nécessaire */}
                           </Select>
@@ -278,7 +271,6 @@ export default function AddMember() {
                               <Input
                                 value={fatherFirstName}
                                 onChange={(e) => setFatherFirstName(e.target.value)}
-                                placeholder={t('editMember.fatherFirstNamePlaceholder')}
                                 bg="white"
                               />
                             </FormControl>
@@ -287,7 +279,6 @@ export default function AddMember() {
                               <Input
                                 value={fatherLastName}
                                 onChange={(e) => setFatherLastName(e.target.value)}
-                                placeholder={t('editMember.fatherLastNamePlaceholder')}
                                 bg="white"
                               />
                             </FormControl>
@@ -337,7 +328,6 @@ export default function AddMember() {
                               ...formData, 
                               motherID: e.target.value ? parseInt(e.target.value) : null 
                             })}
-                            placeholder={t('editMember.selectMotherPlaceholder')}
                           >
                             {/* Liste des mères potentielles - à implémenter si nécessaire */}
                           </Select>
@@ -350,7 +340,6 @@ export default function AddMember() {
                               <Input
                                 value={motherFirstName}
                                 onChange={(e) => setMotherFirstName(e.target.value)}
-                                placeholder={t('editMember.motherFirstNamePlaceholder')}
                                 bg="white"
                               />
                             </FormControl>
@@ -359,7 +348,6 @@ export default function AddMember() {
                               <Input
                                 value={motherLastName}
                                 onChange={(e) => setMotherLastName(e.target.value)}
-                                placeholder={t('editMember.motherLastNamePlaceholder')}
                                 bg="white"
                               />
                             </FormControl>

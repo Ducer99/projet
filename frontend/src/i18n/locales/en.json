@@ -18,6 +18,7 @@
     "search": "Search",
     "filter": "Filter",
     "sort": "Sort",
+    "logout": "Logout",
     "authError": "Authentication Error",
     "pleaseLogin": "Please log in to access this page",
     "export": "Export",
@@ -34,8 +35,10 @@
     "years": "years",
     "male": "Male",
     "female": "Female",
+    "alive": "Alive",
     "alive_m": "Alive",
     "alive_f": "Alive",
+    "deceased": "Deceased",
     "deceased_m": "Deceased",
     "deceased_f": "Deceased",
     "locked": "Locked",
@@ -44,7 +47,9 @@
     "requiredFields": "Please fill in all required fields",
     "unexpectedError": "An error occurred",
     "modifiedSuccess": "Modified successfully",
-    "createdSuccess": "Created successfully"
+    "createdSuccess": "Created successfully",
+    "seeAll": "See all",
+    "next": "Next"
   },
   
   "navigation": {
@@ -57,7 +62,25 @@
     "weddings": "Weddings",
     "polls": "Polls",
     "profile": "Profile",
-    "logout": "Logout"
+    "logout": "Logout",
+    "menu": "Menu"
+  },
+
+  "nav": {
+    "home": "Home",
+    "tree": "Tree",
+    "members": "Members",
+    "profile": "Profile"
+  },
+  
+  "tree": {
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "resetView": "Reset view",
+    "fullscreen": "Fullscreen mode",
+    "exitFullscreen": "Exit fullscreen",
+    "downloadImage": "Download tree as image",
+    "touchHelp": "👆 1 finger = pan | 🤏 2 fingers = zoom | 👆👆 double-tap = reset"
   },
   
   "auth": {
@@ -146,6 +169,55 @@
     "choosePassword": "Choose a password",
     "confirmPasswordPlaceholder": "Confirm your password",
     "atLeast6Characters": "At least 6 characters",
+    "next": "Next"
+  },
+
+  "register": {
+    "hero": {
+      "tagline": "Preserve your family's history for future generations",
+      "families": "Families",
+      "members": "Members",
+      "countries": "Countries"
+    },
+    "progress": {
+      "step": "Step",
+      "of": "of"
+    },
+    "step1": {
+      "title": "Create your account",
+      "subtitle": "Start with your login credentials"
+    },
+    "step2": {
+      "title": "Complete your profile",
+      "subtitle": "Tell us a bit more about yourself",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "gender": "Gender",
+      "male": "Male",
+      "female": "Female"
+    },
+    "step3": {
+      "title": "Final step",
+      "subtitle": "Create or join a family",
+      "question": "What would you like to do?",
+      "createTitle": "Create a new family",
+      "createDesc": "Start your own family tree",
+      "joinTitle": "Join an existing family",
+      "joinDesc": "Connect to an existing tree",
+      "familyName": "Family name",
+      "inviteCode": "Invitation code",
+      "createButton": "🏠 Create family",
+      "joinButton": "👥 Join family"
+    },
+    "googleComingSoon": "🚧 Google sign up coming soon",
+    "signUpWithGoogle": "Sign up with Google",
+    "orWithEmail": "or with email",
+    "footer": {
+      "byCreating": "By creating an account, you accept our",
+      "terms": "Terms of Service",
+      "and": "and our",
+      "privacy": "Privacy Policy"
+    },
     "signUpButton": "Sign up"
   },
 
@@ -199,11 +271,13 @@
     "biographyTab": "📖 Biography",
     "mainInformation": "Main information",
     "birthDate": "Birth date",
+    "birthday": "Birth date",
     "deathDate": "Death date",
     "city": "City",
     "birthPlace": "Birth place",
     "profession": "Profession",
     "email": "Email",
+    "activity": "Activity / Profession",
     "sex": "Sex",
     "gender": "Gender",
     "male": "👨 Male",
@@ -259,7 +333,9 @@
     "title": "Dashboard",
     "subtitle": "One family, one shared story across generations",
     "myFamily": "My Family",
+    "yourFamily": "Your Family",
     "inviteCode": "Invite Code",
+    "inviteCodeDescription": "Share this code with your family members to join your family tree.",
     "shareCode": "Share this code with your family members to join the family tree.",
     "regenerateCode": "Regenerate code",
     "members": "Members",
@@ -295,13 +371,17 @@
     "noMembers": "No members",
     "noEvents": "No events",
     "statistics": "Statistics",
+    "polls": "Family Polls",
+    "familyPolls": "Check the family's opinion",
     "loadingStats": "Loading statistics...",
     "errorLoadingStats": "Unable to load statistics",
     "familyOverview": "Your family overview",
     "noMarriages": "No marriages registered",
     "viewAllMarriages": "View all marriages",
     "yourFamilyHeritage": "Your Family Heritage",
-    "heritageDescription": "Each member added enriches your family's story for future generations."
+    "heritageDescription": "Each member added enriches your family's story for future generations.",
+    "unions": "Unions",
+    "recentUnions": "Recent unions"
   },
   
   "members": {
@@ -517,6 +597,10 @@
     "resetZoom": "Reset zoom",
     "fullscreen": "Fullscreen",
     "exitFullscreen": "Exit fullscreen",
+    "exportImage": "Export as image",
+    "exportingImage": "Exporting...",
+    "exportSuccess": "Tree exported successfully!",
+    "exportError": "Export error",
     "generation": "Generation",
     "relationship": "Relationship",
     "parent": "Parent",
@@ -868,7 +952,22 @@
     "enterManually": "Enter manually",
     "placeholderWillBeCreated": "A temporary profile will be created for this parent. They can claim it by registering later.",
     "saveChanges": "Save changes",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "tabGeneral": "General",
+    "tabFamily": "Family",
+    "tabBioNotes": "Bio & Notes",
+    "lifeStatus": "Life Status",
+    "biography": "Biography",
+    "biographyPlaceholder": "Tell the story of this person...",
+    "characters": "characters",
+    "biographyTips": "Biography Tips",
+    "biographyTipsText": "Include memories, anecdotes, accomplishments, character traits, etc.",
+    "role": "Role",
+    "roleMember": "Member",
+    "roleAdmin": "Administrator",
+    "roleDescription": "Administrators can edit all profiles. Members can only edit their own profile.",
+    "roleUpdated": "Role updated successfully",
+    "roleUpdateError": "Error updating role"
   },
   
   "albums": {
@@ -926,10 +1025,12 @@
     "deathDate": "Death date",
     "visibleOnlyIfDeceased": "Visible only if deceased",
     "location": "Location",
+    "birthPlace": "Birth place",
     "birthCountry": "Birth country",
     "birthCountryPlaceholder": "United States",
     "birthCity": "Birth city",
     "birthCityPlaceholder": "New York",
+    "currentResidence": "Current residence",
     "stillInBirthPlace": "I still live in my birth place",
     "residenceCountry": "Residence country",
     "residenceCountryPlaceholder": "Canada",
@@ -940,14 +1041,19 @@
     "professionPlaceholder": "Engineer, Teacher, Doctor...",
     "visibleIfOver18": "Visible only if you are 18 or older",
     "parents": "Parents",
+    "yourParents": "Your parents",
     "father": "Father",
     "mother": "Mother",
     "modifyParentsContactAdmin": "To modify parental relationships, contact an administrator.",
+    "whyCantModifyParents": "Why can't I modify my parents?",
+    "parentsExplanation": "Parental links are structural data of the family tree. Only administrators can modify them to avoid inconsistencies.",
     "otherInfo": "Other information",
     "email": "Email",
     "emailPlaceholder": "your@email.com",
+    "emailHelper": "Your email address for notifications",
     "notesBio": "Notes / Bio",
     "notesBioPlaceholder": "A few words about you...",
+    "notesHelper": "Share your story, interests, memories...",
     "saving": "Saving...",
     "saveChanges": "Save changes"
   },

@@ -72,10 +72,21 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Servir les fichiers statiques (uploads + React build)
+app.UseStaticFiles();
+
+// Activer le routing par défaut pour les fichiers dans wwwroot
+app.UseDefaultFiles();
+
 app.UseCors("AllowReactApp");
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// 🚀 IMPORTANT : Fallback pour React Router (SPA)
+// Toutes les routes non-API renvoient vers index.html
+app.MapFallbackToFile("index.html");
 
 app.Run();

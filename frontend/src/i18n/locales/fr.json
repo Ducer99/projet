@@ -18,6 +18,7 @@
     "search": "Rechercher",
     "filter": "Filtrer",
     "sort": "Trier",
+    "logout": "Déconnexion",
     "authError": "Erreur d'authentification",
     "pleaseLogin": "Veuillez vous connecter pour accéder à cette page",
     "export": "Exporter",
@@ -34,8 +35,10 @@
     "years": "ans",
     "male": "Homme",
     "female": "Femme",
+    "alive": "En vie",
     "alive_m": "Vivant",
     "alive_f": "Vivante",
+    "deceased": "Décédé(e)",
     "deceased_m": "Décédé",
     "deceased_f": "Décédée",
     "locked": "Verrouillé",
@@ -44,7 +47,9 @@
     "requiredFields": "Veuillez remplir tous les champs obligatoires",
     "unexpectedError": "Une erreur est survenue",
     "modifiedSuccess": "Modifié avec succès",
-    "createdSuccess": "Créé avec succès"
+    "createdSuccess": "Créé avec succès",
+    "seeAll": "Voir tout",
+    "next": "Suivant"
   },
   
   "navigation": {
@@ -57,7 +62,25 @@
     "weddings": "Mariages",
     "polls": "Sondages",
     "profile": "Profil",
-    "logout": "Déconnexion"
+    "logout": "Déconnexion",
+    "menu": "Menu"
+  },
+
+  "nav": {
+    "home": "Accueil",
+    "tree": "Arbre",
+    "members": "Membres",
+    "profile": "Profil"
+  },
+  
+  "tree": {
+    "zoomIn": "Zoom avant",
+    "zoomOut": "Zoom arrière",
+    "resetView": "Recentrer la vue",
+    "fullscreen": "Mode plein écran",
+    "exitFullscreen": "Quitter plein écran",
+    "downloadImage": "Télécharger l'arbre en image",
+    "touchHelp": "👆 1 doigt = déplacer | 🤏 2 doigts = zoomer | 👆👆 double-tap = recentrer"
   },
   
   "auth": {
@@ -146,6 +169,55 @@
     "choosePassword": "Choisissez un mot de passe",
     "confirmPasswordPlaceholder": "Confirmez votre mot de passe",
     "atLeast6Characters": "Au moins 6 caractères",
+    "next": "Suivant"
+  },
+
+  "register": {
+    "hero": {
+      "tagline": "Préservez l'histoire de votre famille pour les générations futures",
+      "families": "Familles",
+      "members": "Membres",
+      "countries": "Pays"
+    },
+    "progress": {
+      "step": "Étape",
+      "of": "sur"
+    },
+    "step1": {
+      "title": "Créez votre compte",
+      "subtitle": "Commencez par vos identifiants de connexion"
+    },
+    "step2": {
+      "title": "Complétez votre profil",
+      "subtitle": "Dites-nous en un peu plus sur vous",
+      "firstName": "Prénom",
+      "lastName": "Nom",
+      "gender": "Sexe",
+      "male": "Homme",
+      "female": "Femme"
+    },
+    "step3": {
+      "title": "Dernière étape",
+      "subtitle": "Créez ou rejoignez une famille",
+      "question": "Que souhaitez-vous faire ?",
+      "createTitle": "Créer une nouvelle famille",
+      "createDesc": "Démarrez votre propre arbre généalogique",
+      "joinTitle": "Rejoindre une famille existante",
+      "joinDesc": "Connectez-vous à un arbre existant",
+      "familyName": "Nom de la famille",
+      "inviteCode": "Code d'invitation",
+      "createButton": "🏠 Créer la famille",
+      "joinButton": "👥 Rejoindre la famille"
+    },
+    "googleComingSoon": "🚧 Inscription Google bientôt disponible",
+    "signUpWithGoogle": "S'inscrire avec Google",
+    "orWithEmail": "ou par email",
+    "footer": {
+      "byCreating": "En créant un compte, vous acceptez nos",
+      "terms": "Conditions d'utilisation",
+      "and": "et notre",
+      "privacy": "Politique de confidentialité"
+    },
     "signUpButton": "S'inscrire"
   },
 
@@ -199,11 +271,13 @@
     "biographyTab": "📖 Biographie",
     "mainInformation": "Informations principales",
     "birthDate": "Date de naissance",
+    "birthday": "Date de naissance",
     "deathDate": "Date de décès",
     "city": "Ville",
     "birthPlace": "Lieu de naissance",
     "profession": "Profession",
     "email": "Email",
+    "activity": "Activité / Profession",
     "sex": "Sexe",
     "gender": "Sexe",
     "male": "👨 Homme",
@@ -259,7 +333,9 @@
     "title": "Tableau de bord",
     "subtitle": "Une famille, une même histoire à travers les générations",
     "myFamily": "Ma Famille",
+    "yourFamily": "Votre Famille",
     "inviteCode": "Code d'invitation",
+    "inviteCodeDescription": "Partagez ce code avec les membres de votre famille pour qu'ils rejoignent votre arbre généalogique.",
     "shareCode": "Partagez ce code avec les membres de votre famille pour qu'ils rejoignent l'arbre généalogique.",
     "regenerateCode": "Régénérer le code",
     "members": "Membres",
@@ -295,13 +371,17 @@
     "noMembers": "Aucun membre",
     "noEvents": "Aucun événement",
     "statistics": "Statistiques",
+    "polls": "Sondages Familiaux",
+    "familyPolls": "Consultez l'opinion de la famille",
     "loadingStats": "Chargement des statistiques...",
     "errorLoadingStats": "Impossible de charger les statistiques",
     "familyOverview": "Aperçu de votre famille",
     "noMarriages": "Aucun mariage enregistré",
     "viewAllMarriages": "Voir tous les mariages",
     "yourFamilyHeritage": "Votre Héritage Familial",
-    "heritageDescription": "Chaque membre ajouté enrichit l'histoire de votre famille pour les générations futures."
+    "heritageDescription": "Chaque membre ajouté enrichit l'histoire de votre famille pour les générations futures.",
+    "unions": "Unions",
+    "recentUnions": "Unions récentes"
   },
   
   "members": {
@@ -310,6 +390,7 @@
     "editMember": "Modifier le membre",
     "deleteMember": "Supprimer le membre",
     "viewProfile": "Voir le profil",
+    "viewInTree": "Voir dans l'arbre généalogique",
     "myProfile": "Mon Profil",
     "id": "ID",
     "photo": "Photo",
@@ -518,6 +599,10 @@
     "resetZoom": "Réinitialiser",
     "fullscreen": "Plein écran",
     "exitFullscreen": "Quitter plein écran",
+    "exportImage": "Exporter en image",
+    "exportingImage": "Export en cours...",
+    "exportSuccess": "Arbre exporté avec succès !",
+    "exportError": "Erreur lors de l'export",
     "generation": "Génération",
     "relationship": "Relation",
     "parent": "Parent",
@@ -871,7 +956,22 @@
     "enterManually": "Saisir manuellement",
     "placeholderWillBeCreated": "Un profil temporaire sera créé pour ce parent. Il pourra le réclamer en s'inscrivant plus tard.",
     "saveChanges": "Enregistrer les modifications",
-    "saving": "Enregistrement..."
+    "saving": "Enregistrement...",
+    "tabGeneral": "Général",
+    "tabFamily": "Famille",
+    "tabBioNotes": "Bio & Notes",
+    "lifeStatus": "Statut vital",
+    "biography": "Biographie",
+    "biographyPlaceholder": "Racontez l'histoire de cette personne...",
+    "characters": "caractères",
+    "biographyTips": "Conseils pour la biographie",
+    "biographyTipsText": "Incluez les souvenirs, les anecdotes, les accomplissements, les traits de caractère, etc.",
+    "role": "Rôle",
+    "roleMember": "Membre",
+    "roleAdmin": "Administrateur",
+    "roleDescription": "Les administrateurs peuvent modifier tous les profils. Les membres ne peuvent modifier que leur propre profil.",
+    "roleUpdated": "Rôle mis à jour avec succès",
+    "roleUpdateError": "Erreur lors de la mise à jour du rôle"
   },
   
   "albums": {
@@ -929,10 +1029,12 @@
     "deathDate": "Date de décès",
     "visibleOnlyIfDeceased": "Visible uniquement si décédé",
     "location": "Localisation",
+    "birthPlace": "Lieu de naissance",
     "birthCountry": "Pays de naissance",
     "birthCountryPlaceholder": "France",
     "birthCity": "Ville de naissance",
     "birthCityPlaceholder": "Paris",
+    "currentResidence": "Résidence actuelle",
     "stillInBirthPlace": "Je réside toujours dans mon lieu de naissance",
     "residenceCountry": "Pays de résidence",
     "residenceCountryPlaceholder": "Canada",
@@ -943,14 +1045,19 @@
     "professionPlaceholder": "Ingénieur, Enseignant, Médecin...",
     "visibleIfOver18": "Visible uniquement si vous avez 18 ans ou plus",
     "parents": "Parents",
+    "yourParents": "Vos parents",
     "father": "Père",
     "mother": "Mère",
     "modifyParentsContactAdmin": "Pour modifier les liens de parenté, contactez un administrateur.",
+    "whyCantModifyParents": "Pourquoi ne puis-je pas modifier mes parents ?",
+    "parentsExplanation": "Les liens de parenté sont des données structurelles de l'arbre généalogique. Seuls les administrateurs peuvent les modifier pour éviter les incohérences.",
     "otherInfo": "Autres informations",
     "email": "Email",
     "emailPlaceholder": "votre@email.com",
+    "emailHelper": "Votre adresse email pour les notifications",
     "notesBio": "Notes / Bio",
     "notesBioPlaceholder": "Quelques mots sur vous...",
+    "notesHelper": "Partagez votre histoire, vos centres d'intérêt, vos souvenirs...",
     "saving": "Enregistrement...",
     "saveChanges": "Enregistrer les modifications"
   },

@@ -384,7 +384,6 @@ export default function MyProfile() {
                       <Input
                         value={profile.firstName}
                         onChange={(e) => handleFirstNameChange(e.target.value)}
-                        placeholder={t('myProfile.firstNamePlaceholder')}
                         borderColor={!profile.firstName ? 'red.500' : 'gray.200'}
                         borderWidth={!profile.firstName ? '2px' : '1px'}
                       />
@@ -396,7 +395,6 @@ export default function MyProfile() {
                       <Input
                         value={profile.lastName}
                         onChange={(e) => handleLastNameChange(e.target.value)}
-                        placeholder={t('myProfile.lastNamePlaceholder')}
                         borderColor={!profile.lastName ? 'red.500' : 'gray.200'}
                         borderWidth={!profile.lastName ? '2px' : '1px'}
                       />
@@ -498,7 +496,6 @@ export default function MyProfile() {
                       <Input
                         value={birthCountry}
                         onChange={(e) => setBirthCountry(e.target.value)}
-                        placeholder={t('myProfile.birthCountryPlaceholder')}
                         borderColor={!birthCountry ? 'red.500' : 'gray.200'}
                       />
                     </FormControl>
@@ -508,7 +505,6 @@ export default function MyProfile() {
                       <Input
                         value={birthCity}
                         onChange={(e) => setBirthCity(e.target.value)}
-                        placeholder={t('myProfile.birthCityPlaceholder')}
                         borderColor={!birthCity ? 'red.500' : 'gray.200'}
                       />
                     </FormControl>
@@ -532,7 +528,6 @@ export default function MyProfile() {
                             <Input
                               value={residenceCountry}
                               onChange={(e) => setResidenceCountry(e.target.value)}
-                              placeholder={t('myProfile.residenceCountryPlaceholder')}
                             />
                           </FormControl>
 
@@ -541,7 +536,6 @@ export default function MyProfile() {
                             <Input
                               value={residenceCity}
                               onChange={(e) => setResidenceCity(e.target.value)}
-                              placeholder={t('myProfile.residenceCityPlaceholder')}
                             />
                           </FormControl>
                         </HStack>
@@ -562,7 +556,6 @@ export default function MyProfile() {
                         <Input
                           value={profile.activity || ''}
                           onChange={(e) => setProfile({ ...profile, activity: e.target.value })}
-                          placeholder={t('myProfile.professionPlaceholder')}
                         />
                         <FormHelperText fontSize="xs">
                           {t('myProfile.visibleIfOver18')}
@@ -608,7 +601,6 @@ export default function MyProfile() {
                       type="email"
                       value={profile.email}
                       onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                      placeholder={t('myProfile.emailPlaceholder')}
                     />
                   </FormControl>
 
@@ -617,7 +609,6 @@ export default function MyProfile() {
                     <Input
                       value={profile.notes || ''}
                       onChange={(e) => setProfile({ ...profile, notes: e.target.value })}
-                      placeholder={t('myProfile.notesBioPlaceholder')}
                     />
                   </FormControl>
 

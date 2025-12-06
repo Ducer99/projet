@@ -879,7 +879,6 @@ const FamilyTreeEnglish: React.FC = () => {
             <HStack>
               <SearchIcon />
               <Input
-                placeholder={t('searchPlaceholder', language)}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 size="sm"

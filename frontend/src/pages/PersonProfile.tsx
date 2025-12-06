@@ -67,6 +67,7 @@ interface Child {
   firstName: string;
   lastName: string;
   birthday: string | null;
+  deathDate?: string | null;
   alive: boolean;
   sex: string;
 }
@@ -158,8 +159,15 @@ const PersonProfile = () => {
     }
   };
 
-  const calculateAge = (birthDate: string | null, deathDate: string | null = null) => {
+  const calculateAge = (birthDate: string | null, deathDate: string | null = null, isAlive: boolean = true) => {
     if (!birthDate) return null;
+    
+    // 🏥 RÈGLE MÉTIER : Pour les personnes décédées sans date de décès connue,
+    // ne pas calculer l'âge actuel (évite "150 ans" pour quelqu'un mort il y a longtemps)
+    if (!isAlive && !deathDate) {
+      return null; // Retourne null pour afficher "Âge inconnu"
+    }
+    
     const birth = new Date(birthDate);
     const end = deathDate ? new Date(deathDate) : new Date();
     let age = end.getFullYear() - birth.getFullYear();
@@ -190,7 +198,7 @@ const PersonProfile = () => {
     );
   }
 
-  const age = calculateAge(person.birthday, person.deathDate);
+  const age = calculateAge(person.birthday, person.deathDate, person.alive);
   const birthYear = person.birthday ? new Date(person.birthday).getFullYear() : null;
   const deathYear = person.deathDate ? new Date(person.deathDate).getFullYear() : null;
 
@@ -563,7 +571,7 @@ const PersonProfile = () => {
                               </Text>
                               {child.birthday && (
                                 <Text fontSize="sm" color="gray.600">
-                                  {t('personProfile.yearsOld', { count: calculateAge(child.birthday, null) || 0 })}
+                                  {t('personProfile.yearsOld', { count: calculateAge(child.birthday, child.deathDate, child.alive) || 0 })}
                                 </Text>
                               )}
                               {!child.alive && (

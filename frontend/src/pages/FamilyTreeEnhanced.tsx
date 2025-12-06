@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Container,
@@ -10,7 +10,6 @@ import {
   Badge,
   Card,
   CardBody,
-  useColorModeValue,
   Input,
   IconButton,
   Tooltip,
@@ -39,7 +38,9 @@ import {
   ViewIcon
 } from '@chakra-ui/icons';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 import api from '../services/api';
+import FamilyTreeToolbar from '../components/FamilyTreeToolbar';
 
 // Types
 interface Person {
@@ -90,6 +91,9 @@ const FamilyTreeEnhanced: React.FC = () => {
     return 'unknown';
   };
   
+  // React Router
+  const location = useLocation();
+  
   // States
   const [persons, setPersons] = useState<Person[]>([]);
   const [marriages, setMarriages] = useState<Marriage[]>([]);
@@ -106,66 +110,15 @@ const FamilyTreeEnhanced: React.FC = () => {
     polygamousPersons: 0,
     generations: 0
   });
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const treeRef = useRef<HTMLDivElement>(null);
   
   const { isOpen: isUnionModalOpen, onOpen: onUnionModalOpen, onClose: onUnionModalClose } = useDisclosure();
   const { isOpen: isStatsModalOpen, onOpen: onStatsModalOpen, onClose: onStatsModalClose } = useDisclosure();
   const [selectedUnion, setSelectedUnion] = useState<Marriage | null>(null);
   
   // Colors with gender distinction and clean up unused variables
-  
-  // Gender-specific colors
-  const getGenderColors = (gender: 'M' | 'F' | 'unknown', isMainFocus: boolean = false) => {
-    const colors = useColorModeValue(
-      {
-        // Light mode colors
-        male: {
-          bg: isMainFocus ? 'blue.50' : 'blue.50',
-          border: isMainFocus ? 'blue.500' : 'blue.300',
-          accent: 'blue.600',
-          avatarBg: '4299e1'
-        },
-        female: {
-          bg: isMainFocus ? 'pink.50' : 'pink.50', 
-          border: isMainFocus ? 'pink.500' : 'pink.300',
-          accent: 'pink.600',
-          avatarBg: 'ed64a6'
-        },
-        unknown: {
-          bg: isMainFocus ? 'gray.50' : 'white',
-          border: isMainFocus ? 'gray.500' : 'gray.300',
-          accent: 'gray.600',
-          avatarBg: '718096'
-        }
-      },
-      {
-        // Dark mode colors
-        male: {
-          bg: isMainFocus ? 'blue.900' : 'blue.800',
-          border: isMainFocus ? 'blue.300' : 'blue.500',
-          accent: 'blue.300',
-          avatarBg: '4299e1'
-        },
-        female: {
-          bg: isMainFocus ? 'pink.900' : 'pink.800',
-          border: isMainFocus ? 'pink.300' : 'pink.500', 
-          accent: 'pink.300',
-          avatarBg: 'ed64a6'
-        },
-        unknown: {
-          bg: isMainFocus ? 'gray.900' : 'gray.800',
-          border: isMainFocus ? 'gray.300' : 'gray.500',
-          accent: 'gray.300',
-          avatarBg: '718096'
-        }
-      }
-    );
-    
-    switch(gender) {
-      case 'M': return colors.male;
-      case 'F': return colors.female; 
-      default: return colors.unknown;
-    }
-  };
+  // ⚠️ NOTE: getGenderColors() supprimée car remplacée par le nouveau design moderne avec bordure colorée
 
   // Load data
   useEffect(() => {
@@ -177,6 +130,32 @@ const FamilyTreeEnhanced: React.FC = () => {
   useEffect(() => {
     calculateStats();
   }, [persons, marriages]);
+
+  // 🎯 Détection du paramètre focusId dans l'URL pour centrer sur une personne spécifique
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const focusId = searchParams.get('focusId');
+    
+    if (focusId && persons.length > 0) {
+      const personId = parseInt(focusId, 10);
+      const person = persons.find(p => p.personID === personId);
+      
+      if (person) {
+        console.log(`🎯 Navigation depuis Dashboard : Focus sur ${person.firstName} ${person.lastName} (ID: ${personId})`);
+        setFocusPersonID(personId);
+        
+        // Ajouter à l'historique de navigation
+        const newHistoryEntry: NavigationHistory = {
+          personID: personId,
+          personName: `${person.firstName} ${person.lastName}`
+        };
+        setNavigationHistory([newHistoryEntry]);
+        setCurrentHistoryIndex(0);
+      } else {
+        console.warn(`⚠️ Personne avec ID ${personId} non trouvée dans l'arbre`);
+      }
+    }
+  }, [location.search, persons]);
 
   const fetchPersons = async () => {
     try {
@@ -649,129 +628,199 @@ const FamilyTreeEnhanced: React.FC = () => {
     onUnionModalOpen();
   };
 
-  // Render person card
+  // Zoom functions
+  const handleZoomIn = () => {
+    setZoomLevel(prev => Math.min(prev + 0.1, 1.5));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel(prev => Math.max(prev - 0.1, 0.5));
+  };
+
+  const handleExport = () => {
+    // Cette fonction sera gérée par le FamilyTreeToolbar
+  };
+
+  // Render person card - 🎨 DESIGN MODERNE (Style Miro/Figma)
   const renderPersonCard = (person: Person, isMainFocus = false, relationship = '') => {
     const age = calculateAge(person);
     const birthDateStr = getBirthDate(person);
     const dateValidation = validatePersonDates(birthDateStr, person.deathDate);
     const gender = getGender(person);
-    const colors = getGenderColors(gender, isMainFocus);
+    
+    // 🎨 Couleurs subtiles selon le genre
+    const genderColor = gender === 'M' ? '#3B82F6' : gender === 'F' ? '#EC4899' : '#9CA3AF';
+    const genderColorLight = gender === 'M' ? '#DBEAFE' : gender === 'F' ? '#FCE7F3' : '#F3F4F6';
     
     return (
       <Card
         key={person.personID}
-        bg={colors.bg}
-        borderColor={colors.border}
-        borderWidth={isMainFocus ? "3px" : "2px"}
+        bg="white"
+        borderWidth="0"
+        borderLeftWidth="4px"
+        borderLeftColor={genderColor}
         cursor="pointer"
         onClick={() => !isMainFocus && navigateToFocus(person.personID)}
-        transition="all 0.2s"
-        _hover={{ transform: 'scale(1.02)', shadow: 'md' }}
-        minW="200px"
-        maxW="250px"
+        transition="all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+        _hover={{ 
+          transform: 'translateY(-2px)', 
+          shadow: 'xl',
+          borderLeftWidth: '6px',
+        }}
+        shadow="lg"
+        minW="180px"
+        maxW="220px"
+        borderRadius="xl"
+        overflow="visible"
+        position="relative"
+        {...(isMainFocus && {
+          shadow: '2xl',
+          borderLeftWidth: '6px',
+          ring: 2,
+          ringColor: genderColor,
+        })}
       >
-        <CardBody p={3}>
-          <VStack spacing={2}>
-            {/* 📸 PHOTO DE PROFIL AVEC COULEUR DE GENRE */}
-            <Avatar 
-              src={person.photoUrl || `https://ui-avatars.com/api/?name=${person.firstName}+${person.lastName}&background=${colors.avatarBg}&color=white&size=128`}
-              name={`${person.firstName} ${person.lastName}`}
-              size="lg"
-              showBorder
-              borderColor={colors.border}
-              borderWidth="3px"
-            />
+        <CardBody p={4}>
+          <VStack spacing={3} align="center">
+            {/* 📸 PHOTO/AVATAR EN PREMIER PLAN */}
+            <Box position="relative">
+              <Avatar 
+                src={person.photoUrl || `https://ui-avatars.com/api/?name=${person.firstName}+${person.lastName}&background=${gender === 'M' ? '3B82F6' : gender === 'F' ? 'EC4899' : '9CA3AF'}&color=white&size=128`}
+                name={`${person.firstName} ${person.lastName}`}
+                size="xl"
+                bg={genderColorLight}
+                border="3px solid white"
+                shadow="md"
+              />
+              {/* Icône de genre discrète */}
+              {gender !== 'unknown' && (
+                <Box
+                  position="absolute"
+                  bottom="-4px"
+                  right="-4px"
+                  bg={genderColor}
+                  borderRadius="full"
+                  w="28px"
+                  h="28px"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  border="2px solid white"
+                  shadow="sm"
+                >
+                  <Text color="white" fontSize="14px" fontWeight="bold">
+                    {gender === 'M' ? '♂' : '♀'}
+                  </Text>
+                </Box>
+              )}
+              {/* Badge focus */}
+              {isMainFocus && (
+                <Box
+                  position="absolute"
+                  top="-6px"
+                  left="-6px"
+                  bg="green.500"
+                  borderRadius="full"
+                  w="24px"
+                  h="24px"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  border="2px solid white"
+                  shadow="md"
+                >
+                  <Text color="white" fontSize="12px">
+                    🎯
+                  </Text>
+                </Box>
+              )}
+            </Box>
             
-            <VStack spacing={1}>
-              {/* 🎨 NOM AVEC ICÔNE DE GENRE COLORÉE */}
-              <HStack spacing={1}>
-                {gender === 'M' && <Text color={colors.accent} fontWeight="bold" fontSize="lg">♂</Text>}
-                {gender === 'F' && <Text color={colors.accent} fontWeight="bold" fontSize="lg">♀</Text>}
-                <Text fontWeight="bold" fontSize="sm" textAlign="center">
-                  {person.firstName} {person.lastName}
-                </Text>
-                {gender === 'M' && <Text color={colors.accent} fontWeight="bold" fontSize="lg">♂</Text>}
-                {gender === 'F' && <Text color={colors.accent} fontWeight="bold" fontSize="lg">♀</Text>}
-              </HStack>
+            {/* NOM COMPLET EN GRAS */}
+            <VStack spacing={0.5} w="100%">
+              <Text 
+                fontWeight="700" 
+                fontSize="md" 
+                textAlign="center"
+                color="gray.800"
+                lineHeight="1.2"
+              >
+                {person.firstName}
+              </Text>
+              <Text 
+                fontWeight="700" 
+                fontSize="md" 
+                textAlign="center"
+                color="gray.800"
+                lineHeight="1.2"
+              >
+                {person.lastName}
+              </Text>
+            </VStack>
+            
+            {/* DATES (Naissance - Décès) EN PETIT GRIS */}
+            <VStack spacing={0} w="100%">
+              {birthDateStr && (
+                <HStack spacing={1} fontSize="xs" color="gray.500">
+                  <Text>
+                    {new Date(birthDateStr).toLocaleDateString('fr-FR', { 
+                      day: 'numeric', 
+                      month: 'short', 
+                      year: 'numeric' 
+                    })}
+                  </Text>
+                  {person.deathDate && (
+                    <>
+                      <Text>-</Text>
+                      <Text>
+                        {new Date(person.deathDate).toLocaleDateString('fr-FR', { 
+                          day: 'numeric', 
+                          month: 'short', 
+                          year: 'numeric' 
+                        })}
+                      </Text>
+                    </>
+                  )}
+                </HStack>
+              )}
               
-              {/* 🎯 ÂGE ET STATUT VITAL AMÉLIORÉ */}
-              {age !== null ? (
-                <Text fontSize="xs" color="gray.500">
+              {/* Âge */}
+              {age !== null && (
+                <Text fontSize="xs" color="gray.400">
                   {person.isDeceased || person.deathDate ? 
-                    `${t('familyTree.deceasedAtAge')} ${age} ${t('familyTree.years')}` : 
-                    `${age} ${t('familyTree.years')}`
+                    `✝ ${age} ans` : 
+                    `${age} ans`
                   }
                 </Text>
-              ) : (
-                birthDateStr ? (
-                  <Text fontSize="xs" color="red.500">
-                    {t('familyTree.ageInconsistentDates')}
-                  </Text>
-                ) : (
-                  <Text fontSize="xs" color="gray.400" fontStyle="italic">
-                    {t('familyTree.unknownBirthDate')}
-                  </Text>
-                )
               )}
               
-              {/* 📅 DATES DE VIE */}
-              {birthDateStr && (
-                <Text fontSize="xs" color="gray.500">
-                  {new Date(birthDateStr).getFullYear()}
-                  {person.deathDate && ` - ${new Date(person.deathDate).getFullYear()}`}
-                  {!dateValidation.isValid && (
-                    <Text fontSize="xs" color="red.500" mt={1}>
-                      ⚠️ {t('familyTree.inconsistentDates')}
-                    </Text>
-                  )}
+              {/* Badge relation (discret) */}
+              {relationship && (
+                <Text 
+                  fontSize="2xs" 
+                  color="gray.400" 
+                  textTransform="uppercase" 
+                  fontWeight="600"
+                  mt={1}
+                >
+                  {relationship}
                 </Text>
               )}
-              
-              {/* 🏷️ BADGES DE RÔLE STANDARDISÉS */}
-              <VStack spacing={1}>
-                {/* Badge de genre */}
-                {gender !== 'unknown' && (
-                  <Badge 
-                    colorScheme={gender === 'M' ? 'blue' : 'pink'} 
-                    fontSize="10px"
-                    variant="solid"
-                  >
-                    {gender === 'M' ? `♂ ${t('familyTree.male')}` : `♀ ${t('familyTree.female')}`}
-                  </Badge>
-                )}
-                
-                {/* Badge de décès */}
-                {(person.isDeceased || person.deathDate) && (
-                  <Badge colorScheme="gray" fontSize="10px">
-                    ✝️ {t('familyTree.deceased')}
-                  </Badge>
-                )}
-                
-                {/* Badge de relation */}
-                {relationship && (
-                  <Badge 
-                    colorScheme={relationship.includes('Demi') ? 'orange' : 'blue'} 
-                    fontSize="10px"
-                  >
-                    {relationship.toUpperCase()}
-                  </Badge>
-                )}
-                
-                {/* Badge de focus */}
-                {isMainFocus && (
-                  <Badge colorScheme="green" fontSize="10px">
-                    🎯 {t('familyTree.focus')}
-                  </Badge>
-                )}
-                
-                {/* Badge de boucle */}
-                {isPersonInLoop(person.personID) && (
-                  <Badge colorScheme="red" fontSize="10px">
-                    ⚠️ {t('familyTree.loop')}
-                  </Badge>
-                )}
-              </VStack>
             </VStack>
+            
+            {/* Alerte dates incohérentes (si nécessaire) */}
+            {!dateValidation.isValid && (
+              <Text fontSize="2xs" color="red.500" textAlign="center">
+                ⚠️ Dates incohérentes
+              </Text>
+            )}
+            
+            {/* Badge boucle (si applicable) */}
+            {isPersonInLoop(person.personID) && (
+              <Badge colorScheme="red" fontSize="2xs" variant="subtle">
+                ⚠️ Boucle détectée
+              </Badge>
+            )}
           </VStack>
         </CardBody>
       </Card>
@@ -848,8 +897,15 @@ const FamilyTreeEnhanced: React.FC = () => {
   };
 
   return (
-    <Container maxW="8xl" py={6}>
-      <VStack spacing={6}>
+    <Box
+      bg="#F9FAFB"
+      bgImage="radial-gradient(circle, #E5E7EB 1px, transparent 1px)"
+      bgSize="20px 20px"
+      minH="100vh"
+      position="relative"
+    >
+      <Container maxW="8xl" py={6}>
+        <VStack spacing={6}>
         {/* Header with navigation and search */}
         <HStack w="full" justify="space-between" wrap="wrap" spacing={4}>
           <VStack spacing={2} align="start">
@@ -891,7 +947,6 @@ const FamilyTreeEnhanced: React.FC = () => {
             <HStack>
               <SearchIcon />
               <Input
-                placeholder={t('familyTree.searchPerson')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 size="sm"
@@ -954,8 +1009,20 @@ const FamilyTreeEnhanced: React.FC = () => {
           )}
         </StatGroup>
 
-        {/* Family tree layout */}
-        <Box w="full" position="relative">
+        {/* Family tree layout with background pattern and zoom */}
+        <Box
+          ref={treeRef}
+          w="full"
+          position="relative"
+          bg="gray.50"
+          backgroundImage="radial-gradient(circle, #E2E8F0 1px, transparent 1px)"
+          backgroundSize="20px 20px"
+          borderRadius="md"
+          p={6}
+          transform={`scale(${zoomLevel})`}
+          transformOrigin="top center"
+          transition="transform 0.3s ease"
+        >
           {/* Parents row */}
           {(father || mother) && (
             <HStack justify="center" spacing={8} mb={6}>
@@ -1332,7 +1399,16 @@ const FamilyTreeEnhanced: React.FC = () => {
           </ModalContent>
         </Modal>
       </VStack>
+
+      {/* Floating Toolbar */}
+      <FamilyTreeToolbar
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onExport={handleExport}
+        treeRef={treeRef}
+      />
     </Container>
+    </Box>
   );
 };
 

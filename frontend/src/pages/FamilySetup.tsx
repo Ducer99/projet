@@ -282,7 +282,6 @@ const FamilySetup = () => {
                     type="email"
                     value={createData.email}
                     onChange={(e) => setCreateData({ ...createData, email: e.target.value })}
-                    placeholder="votre@email.com"
                   />
                 </FormControl>
 
@@ -292,7 +291,6 @@ const FamilySetup = () => {
                     type="password"
                     value={createData.password}
                     onChange={(e) => setCreateData({ ...createData, password: e.target.value })}
-                    placeholder="••••••••"
                   />
                 </FormControl>
 
@@ -302,7 +300,6 @@ const FamilySetup = () => {
                     <Input
                       value={createData.firstName}
                       onChange={(e) => setCreateData({ ...createData, firstName: e.target.value })}
-                      placeholder="Jacques"
                     />
                   </FormControl>
 
@@ -311,7 +308,6 @@ const FamilySetup = () => {
                     <Input
                       value={createData.lastName}
                       onChange={(e) => setCreateData({ ...createData, lastName: e.target.value })}
-                      placeholder="Dupont"
                     />
                   </FormControl>
                 </HStack>
@@ -321,7 +317,6 @@ const FamilySetup = () => {
                   <Input
                     value={createData.familyName}
                     onChange={(e) => setCreateData({ ...createData, familyName: e.target.value })}
-                    placeholder="Famille Dupont"
                   />
                 </FormControl>
 
@@ -362,7 +357,6 @@ const FamilySetup = () => {
                   <Input
                     value={joinData.inviteCode}
                     onChange={(e) => setJoinData({ ...joinData, inviteCode: e.target.value.toUpperCase() })}
-                    placeholder="ABC-1234"
                     textTransform="uppercase"
                     fontSize="lg"
                     textAlign="center"
@@ -380,7 +374,6 @@ const FamilySetup = () => {
                     type="email"
                     value={joinData.email}
                     onChange={(e) => setJoinData({ ...joinData, email: e.target.value })}
-                    placeholder="votre@email.com"
                   />
                 </FormControl>
 
@@ -390,7 +383,6 @@ const FamilySetup = () => {
                     type="password"
                     value={joinData.password}
                     onChange={(e) => setJoinData({ ...joinData, password: e.target.value })}
-                    placeholder="••••••••"
                   />
                 </FormControl>
 
@@ -400,7 +392,6 @@ const FamilySetup = () => {
                     <Input
                       value={joinData.firstName}
                       onChange={(e) => setJoinData({ ...joinData, firstName: e.target.value })}
-                      placeholder="Marie"
                     />
                   </FormControl>
 
@@ -409,7 +400,6 @@ const FamilySetup = () => {
                     <Input
                       value={joinData.lastName}
                       onChange={(e) => setJoinData({ ...joinData, lastName: e.target.value })}
-                      placeholder="Dupont"
                     />
                   </FormControl>
                 </HStack>

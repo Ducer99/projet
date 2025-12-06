@@ -511,7 +511,6 @@ const FamilyTreeDynamic: React.FC = () => {
               <VStack spacing={4}>
                 <Text fontSize="lg" fontWeight="bold">Rechercher une personne</Text>
                 <Input
-                  placeholder="Tapez le prénom ou nom..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />

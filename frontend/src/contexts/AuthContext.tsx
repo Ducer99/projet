@@ -4,7 +4,7 @@ import { User, AuthResponse } from '../types';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ needsFamilyOnboarding?: boolean }>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -34,6 +34,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const responseData = response.data as any;
       const token = responseData.token || responseData.Token;
       const userData = responseData.user || responseData.User;
+      const needsFamilyOnboarding = responseData.needsFamilyOnboarding || responseData.NeedsFamilyOnboarding || false;
       
       if (!token || !userData) {
         console.error('Token or user missing:', { token, userData, fullResponse: response.data });
@@ -43,6 +44,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
+
+      // 🚀 Retourner le flag pour le Smart Redirect Flow
+      return { needsFamilyOnboarding };
     } catch (error: any) {
       console.error('Login error:', error);
       console.error('Error response:', error.response?.data);

@@ -187,7 +187,6 @@ export default function ForgotPassword() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder={t('auth.emailPlaceholder')}
                   />
                 </FormControl>
 
@@ -225,7 +224,6 @@ export default function ForgotPassword() {
                 <FormControl isRequired>
                   <FormLabel>{t('auth.chooseQuestion')}</FormLabel>
                   <Select
-                    placeholder={t('auth.selectQuestion')}
                     value={selectedQuestion}
                     onChange={(e) => setSelectedQuestion(e.target.value)}
                   >
@@ -243,7 +241,6 @@ export default function ForgotPassword() {
                     <Input
                       value={securityAnswer}
                       onChange={(e) => setSecurityAnswer(e.target.value)}
-                      placeholder={t('auth.enterYourAnswer')}
                     />
                   </FormControl>
                 )}
@@ -326,7 +323,6 @@ export default function ForgotPassword() {
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder={t('auth.passwordPlaceholder')}
                   />
                 </FormControl>
 
@@ -336,7 +332,6 @@ export default function ForgotPassword() {
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder={t('auth.retypePassword')}
                   />
                 </FormControl>
 

@@ -42,7 +42,10 @@ import {
   MenuList,
   MenuItem,
   Divider,
+  useBreakpointValue,
+  SimpleGrid,
 } from '@chakra-ui/react';
+import MemberCard from '../components/MemberCard';
 import { useNavigate } from 'react-router-dom';
 import { 
   FaUserPlus, 
@@ -62,7 +65,8 @@ import {
   FaUserFriends,
   FaCheck,
   FaStar,
-  FaUser
+  FaUser,
+  FaProjectDiagram
 } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
@@ -116,6 +120,9 @@ const MembersManagementDashboard = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [personToDelete, setPersonToDelete] = useState<PersonWithPermissions | null>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  
+  // Responsive: basculer entre cartes (mobile) et tableau (desktop)
+  const isMobile = useBreakpointValue({ base: true, md: false });
 
   useEffect(() => {
     fetchPersons();
@@ -125,18 +132,19 @@ const MembersManagementDashboard = () => {
   const canEditPerson = (person: Person): boolean => {
     if (!user) return false;
     
-    // Règle 1: Créateur du Fichier - L'utilisateur qui a créé la fiche
+    // ✅ Règle 1 (PRIORITAIRE): Admin - Les administrateurs ont accès total à TOUT
+    // Correction Bug: L'admin doit être vérifié EN PREMIER
+    if (user.role === 'Admin' || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+      return true;
+    }
+    
+    // Règle 2: Créateur du Fichier - L'utilisateur qui a créé la fiche
     if ((person as any).createdBy === user.idPerson) {
       return true;
     }
     
-    // Règle 2: Membre lui-même - La personne décrite dans la fiche peut modifier ses propres infos
+    // Règle 3: Membre lui-même - La personne décrite dans la fiche peut modifier ses propres infos
     if (person.personID === user.idPerson) {
-      return true;
-    }
-    
-    // Règle 3 (Optionnel): Admin - Les administrateurs ont accès total
-    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
       return true;
     }
     
@@ -175,13 +183,21 @@ const MembersManagementDashboard = () => {
       const response = await api.get<Person[]>('/persons');
       
       // Enrichir avec les informations de lignée et les permissions réelles
-      const enrichedPersons = response.data.map(person => ({
-        ...person,
-        familyLineage: determineFamilyLineage(person, response.data),
-        mainFamilyName: getMainFamilyName(person),
-        canEdit: canEditPerson(person), // Permissions basées sur les rôles réels
-        isCreator: (person as any).createdBy === user?.idPerson // Vérifie si l'utilisateur a créé cette personne
-      }));
+      // Utiliser Promise.all car determineFamilyLineage et getMainFamilyName sont async
+      const enrichedPersons = await Promise.all(
+        response.data.map(async (person) => {
+          const lineage = await determineFamilyLineage(person, response.data);
+          const mainFamilyName = await getMainFamilyName(person, response.data, lineage);
+          
+          return {
+            ...person,
+            familyLineage: lineage,
+            mainFamilyName: mainFamilyName,
+            canEdit: canEditPerson(person), // Permissions basées sur les rôles réels
+            isCreator: (person as any).createdBy === user?.idPerson // Vérifie si l'utilisateur a créé cette personne
+          };
+        })
+      );
       
       setPersons(enrichedPersons);
     } catch (error: any) {
@@ -285,40 +301,197 @@ const MembersManagementDashboard = () => {
 
   // ============ LIGNÉE/RELATION LOGIC ============
   
-  const determineFamilyLineage = (person: PersonWithPermissions, allPersons: PersonWithPermissions[]): 'MAIN' | 'SPOUSE' | 'BRANCH' => {
-    // Logique simplifiée - dans un vrai système, on analyserait les relations
-    // Pour l'instant, on considère que les personnes avec le même nom de famille sont lignée principale
-    if (!allPersons || allPersons.length === 0) return 'MAIN';
+  const determineFamilyLineage = async (person: PersonWithPermissions, allPersons: PersonWithPermissions[]): Promise<'MAIN' | 'SPOUSE' | 'BRANCH'> => {
+    // 🏷️ RÈGLE MÉTIER STRICTE : Distinction Sang (LIGNÉE) vs Alliance (CONJOINT)
     
-    const familyNames = allPersons.map(p => p.lastName).filter(Boolean);
-    if (familyNames.length === 0) return 'MAIN';
+    console.log(`🔍 Classification de ${person.firstName} ${person.lastName} (ID: ${person.personID})`);
     
-    const familyNameCounts = familyNames.reduce((acc, name) => {
-      acc[name] = (acc[name] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    // Cas A : LIGNÉE PRINCIPALE - Membre lié par le sang
+    // Condition 1 : A des parents enregistrés dans l'arbre
+    if (person.fatherID || person.motherID) {
+      console.log(`   ✅ MAIN - A des parents (Father: ${person.fatherID}, Mother: ${person.motherID})`);
+      return 'MAIN';
+    }
     
-    const mostCommonName = Object.keys(familyNameCounts).reduce((a, b) => 
-      familyNameCounts[a] > familyNameCounts[b] ? a : b
+    // Cas B : Personne sans parents mais avec enfants
+    // → Il faut distinguer RACINE (sang) vs CONJOINT (alliance)
+    const children = allPersons.filter(p => 
+      p.fatherID === person.personID || p.motherID === person.personID
     );
     
-    if (person.lastName === mostCommonName) return 'MAIN';
-    // Pour simplifier, on considère les autres comme conjoints
-    return 'SPOUSE';
+    if (children.length > 0) {
+      // Vérifier si cette personne est la RACINE DE SANG ou un CONJOINT
+      // Logique : Si les enfants ont un autre parent qui a LUI-MÊME des parents dans l'arbre,
+      // alors cette personne est un CONJOINT (entrée par mariage)
+      
+      const firstChild = children[0];
+      let otherParentID: number | null = null;
+      
+      if (person.sex === 'M' && firstChild.motherID) {
+        otherParentID = firstChild.motherID;
+      } else if (person.sex === 'F' && firstChild.fatherID) {
+        otherParentID = firstChild.fatherID;
+      }
+      
+      if (otherParentID) {
+        const otherParent = allPersons.find(p => p.personID === otherParentID);
+        console.log(`   → Autre parent: ${otherParent?.firstName} ${otherParent?.lastName} (Parents: Father=${otherParent?.fatherID}, Mother=${otherParent?.motherID})`);
+        
+        if (otherParent && (otherParent.fatherID || otherParent.motherID)) {
+          // L'autre parent a des parents dans l'arbre = il/elle est de la lignée principale
+          // Donc cette personne est un CONJOINT
+          console.log(`   ✅ SPOUSE - L'autre parent (${otherParent.firstName}) a des parents = cette personne est entrée par mariage`);
+          return 'SPOUSE';
+        }
+        
+        // CAS SPÉCIAL : COUPLE RACINE (ni la personne ni le partenaire n'ont de parents)
+        if (otherParent && !otherParent.fatherID && !otherParent.motherID) {
+          // RÈGLE MÉTIER : Le Patriarche (Homme) est la Lignée Principale, la Femme est Conjointe
+          if (person.sex === 'M') {
+            console.log(`   ✅ MAIN - Patriarche (Homme racine dans un couple fondateur)`);
+            return 'MAIN'; // Homme = Richard (Jaune)
+          } else {
+            console.log(`   ✅ SPOUSE - Conjointe du Patriarche (Femme dans un couple fondateur)`);
+            return 'SPOUSE'; // Femme = Rebecca (Rose)
+          }
+        }
+      }
+      
+      // Si on arrive ici, cette personne est une racine solitaire (pas de partenaire identifié)
+      console.log(`   ✅ MAIN - Racine de l'arbre (pas de partenaire détecté)`);
+      return 'MAIN';
+    }
+    
+    // Cas C : Personne sans parents ni enfants
+    // → Vérifier d'abord si un mariage existe
+    console.log(`   → Personne sans parents ni enfants, vérification des mariages...`);
+    
+    try {
+      const response = await api.get(`/marriages/person/${person.personID}/active`);
+      
+      if (response.data && response.data.length > 0) {
+        // Un mariage actif existe → Cette personne est un CONJOINT
+        const activeMarriage = response.data[0];
+        console.log(`   ✅ SPOUSE - Mariage actif trouvé avec ${activeMarriage.partnerName}`);
+        return 'SPOUSE';
+      }
+    } catch (error) {
+      console.log(`   ⚠️ Erreur lors de la vérification des mariages:`, error);
+    }
+    
+    // Pas de mariage trouvé → Par défaut MAIN (profil isolé en attente de complétion)
+    console.log(`   ⚠️ MAIN (par défaut) - Ni parents ni enfants ni mariage (profil isolé ou en attente de complétion)`);
+    return 'MAIN';
   };
 
-  const getMainFamilyName = (person: PersonWithPermissions): string => {
-    // Retourne le nom de famille principal auquel la personne appartient
+  const getSpouseName = async (person: PersonWithPermissions, allPersons: PersonWithPermissions[]): Promise<string | null> => {
+    // Pour un CONJOINT, chercher le NOM DE FAMILLE du partenaire
+    // Priorité 1 : Via les Unions/Mariages déclarés (API)
+    // Priorité 2 : Via les enfants communs (fallback)
+    
+    console.log(`🔍 getSpouseName pour ${person.firstName} ${person.lastName} (ID: ${person.personID})`);
+    
+    // MÉTHODE 1 : Chercher via l'API des mariages actifs
+    try {
+      console.log(`   → Recherche dans les unions actives (API)...`);
+      const response = await api.get(`/marriages/person/${person.personID}/active`);
+      
+      if (response.data && response.data.length > 0) {
+        // Prendre la première union active
+        const activeMarriage = response.data[0];
+        const partnerFullName = activeMarriage.partnerName; // "Prénom NomDeFamille"
+        
+        // Extraire le nom de famille : tout sauf le premier mot (prénom)
+        const nameParts = partnerFullName.trim().split(' ');
+        const partnerLastName = nameParts.slice(1).join(' '); // Prend tout après le prénom
+        
+        console.log(`   ✅ Partenaire trouvé via API: ${partnerFullName} → Retourne: ${partnerLastName}`);
+        return partnerLastName;
+      }
+      
+      console.log(`   → Pas d'union active trouvée dans l'API, tentative via enfants...`);
+    } catch (error) {
+      console.log(`   ⚠️ Erreur API mariages:`, error);
+      console.log(`   → Tentative via enfants...`);
+    }
+    
+    // MÉTHODE 2 (FALLBACK) : Chercher via les enfants communs
+    const childrenOfPerson = allPersons.filter(p => 
+      p.fatherID === person.personID || p.motherID === person.personID
+    );
+    
+    console.log(`   → Enfants trouvés: ${childrenOfPerson.length}`, childrenOfPerson.map(c => `${c.firstName} ${c.lastName}`));
+    
+    if (childrenOfPerson.length === 0) {
+      console.log(`   ❌ Pas d'enfants non plus, impossible de déterminer le conjoint`);
+      return null;
+    }
+    
+    // Prendre le premier enfant et regarder qui est l'autre parent
+    const firstChild = childrenOfPerson[0];
+    console.log(`   → Premier enfant: ${firstChild.firstName} ${firstChild.lastName} (Father: ${firstChild.fatherID}, Mother: ${firstChild.motherID})`);
+    
+    if (person.sex === 'M') {
+      // Si la personne est un homme, chercher la mère des enfants (son épouse)
+      if (firstChild.motherID) {
+        const spouse = allPersons.find(p => p.personID === firstChild.motherID);
+        if (spouse) {
+          console.log(`   ✅ Épouse trouvée via enfants: ${spouse.firstName} ${spouse.lastName} → Retourne: ${spouse.lastName}`);
+          return spouse.lastName;
+        }
+      }
+    } else if (person.sex === 'F') {
+      // Si la personne est une femme, chercher le père des enfants (son époux)
+      if (firstChild.fatherID) {
+        const spouse = allPersons.find(p => p.personID === firstChild.fatherID);
+        if (spouse) {
+          console.log(`   ✅ Époux trouvé via enfants: ${spouse.firstName} ${spouse.lastName} → Retourne: ${spouse.lastName}`);
+          return spouse.lastName;
+        }
+      }
+    }
+    
+    console.log(`   ❌ Conjoint non trouvé (données incohérentes)`);
+    return null;
+  };
+
+  const getMainFamilyName = async (
+    person: PersonWithPermissions, 
+    allPersons: PersonWithPermissions[], 
+    lineage: 'MAIN' | 'SPOUSE' | 'BRANCH'
+  ): Promise<string> => {
+    // Pour un CONJOINT : Afficher "Conjoint de [Nom du Partenaire]"
+    if (lineage === 'SPOUSE') {
+      const spouseName = await getSpouseName(person, allPersons);
+      if (spouseName) {
+        console.log(`📛 mainFamilyName pour ${person.firstName}: "${spouseName}" (partenaire)`);
+        return spouseName; // Retourne juste le nom, le label "Conjoint de" sera ajouté dans le badge
+      }
+      console.log(`⚠️ mainFamilyName pour ${person.firstName}: "${person.lastName}" (FALLBACK - conjoint non trouvé)`);
+      return person.lastName; // Fallback si conjoint introuvable
+    }
+    
+    // Pour LIGNÉE PRINCIPALE : Retourner le nom de famille
+    console.log(`📛 mainFamilyName pour ${person.firstName}: "${person.lastName}" (lignée principale)`);
     return person.lastName;
   };
 
   // ============ CALCULATION HELPERS ============
   
-  const calculateAge = (birthday: string | undefined, deathDate?: string | null): number | null => {
+  const calculateAge = (birthday: string | undefined, deathDate?: string | null, isAlive?: boolean): number | null => {
     if (!birthday) return null;
+    
+    // 🏥 RÈGLE MÉTIER : Pour les personnes décédées sans date de décès connue,
+    // ne pas calculer l'âge actuel (évite "150 ans" pour quelqu'un mort il y a longtemps)
+    if (isAlive === false && !deathDate) {
+      return null; // Retourne null pour afficher "Âge inconnu"
+    }
     
     try {
       const birthDate = new Date(birthday);
+      
+      // Si décédé : calculer l'âge au moment du décès
+      // Si vivant : calculer l'âge actuel
       const endDate = deathDate ? new Date(deathDate) : new Date();
       
       const age = endDate.getFullYear() - birthDate.getFullYear();
@@ -371,7 +544,7 @@ const MembersManagementDashboard = () => {
     if (filters.ageMin) {
       const minAge = parseInt(filters.ageMin);
       filtered = filtered.filter(person => {
-        const age = calculateAge(person.birthday, person.deathDate);
+        const age = calculateAge(person.birthday, person.deathDate, person.alive);
         return age !== null && age >= minAge;
       });
     }
@@ -379,7 +552,7 @@ const MembersManagementDashboard = () => {
     if (filters.ageMax) {
       const maxAge = parseInt(filters.ageMax);
       filtered = filtered.filter(person => {
-        const age = calculateAge(person.birthday, person.deathDate);
+        const age = calculateAge(person.birthday, person.deathDate, person.alive);
         return age !== null && age <= maxAge;
       });
     }
@@ -394,8 +567,8 @@ const MembersManagementDashboard = () => {
           bValue = `${b.firstName} ${b.lastName}`.toLowerCase();
           break;
         case 'age':
-          aValue = calculateAge(a.birthday, a.deathDate) || 0;
-          bValue = calculateAge(b.birthday, b.deathDate) || 0;
+          aValue = calculateAge(a.birthday, a.deathDate, a.alive) || 0;
+          bValue = calculateAge(b.birthday, b.deathDate, b.alive) || 0;
           break;
         case 'status':
           aValue = a.alive ? 'alive' : 'deceased';
@@ -434,9 +607,9 @@ const MembersManagementDashboard = () => {
       mainLineage: persons.filter(p => p.familyLineage === 'MAIN').length,
       spouses: persons.filter(p => p.familyLineage === 'SPOUSE').length,
       averageAge: persons.reduce((sum, p) => {
-        const age = calculateAge(p.birthday, p.deathDate);
+        const age = calculateAge(p.birthday, p.deathDate, p.alive);
         return sum + (age || 0);
-      }, 0) / persons.filter(p => calculateAge(p.birthday, p.deathDate) !== null).length
+      }, 0) / persons.filter(p => calculateAge(p.birthday, p.deathDate, p.alive) !== null).length
     };
   }, [persons]);
 
@@ -468,6 +641,11 @@ const MembersManagementDashboard = () => {
 
   const handleViewProfile = (personID: number) => {
     navigate(`/person/${personID}`);
+  };
+
+  const handleViewInTree = (personID: number) => {
+    // Navigation vers l'arbre avec focus sur la personne sélectionnée
+    navigate(`/family-tree?focusId=${personID}`);
   };
 
   const handleDeleteClick = (person: PersonWithPermissions) => {
@@ -516,7 +694,7 @@ const MembersManagementDashboard = () => {
   // ============ FORMAT HELPERS ============
 
   const getStatusBadge = (person: PersonWithPermissions) => {
-    const age = calculateAge(person.birthday, person.deathDate);
+    const age = calculateAge(person.birthday, person.deathDate, person.alive);
     
     if (person.alive) {
       return (
@@ -609,8 +787,15 @@ const MembersManagementDashboard = () => {
         <Text fontSize="xs" fontWeight="600" color={config.textColor}>
           {config.label}
         </Text>
-        {person.mainFamilyName && (
+        {person.mainFamilyName && person.familyLineage === 'SPOUSE' && (
           <Text fontSize="xs" color="whiteAlpha.900" fontWeight="500">
+            {/* Pour les conjoints, mainFamilyName contient le nom du partenaire */}
+            de {person.mainFamilyName}
+          </Text>
+        )}
+        {person.mainFamilyName && person.familyLineage !== 'SPOUSE' && (
+          <Text fontSize="xs" color="whiteAlpha.900" fontWeight="500">
+            {/* Pour la lignée principale, afficher le nom de famille */}
             {person.mainFamilyName}
           </Text>
         )}
@@ -773,7 +958,6 @@ const MembersManagementDashboard = () => {
                     <Icon as={FaSearch} color="gray.400" />
                   </InputLeftElement>
                   <Input
-                    placeholder={t('members.searchPlaceholder')}
                     value={filters.search}
                     onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                     bg="white"
@@ -828,7 +1012,6 @@ const MembersManagementDashboard = () => {
               {/* Filtre âge minimum */}
               <GridItem>
                 <Input
-                  placeholder={t('members.minAge')}
                   type="number"
                   min="0"
                   max="150"
@@ -843,7 +1026,7 @@ const MembersManagementDashboard = () => {
         </MotionBox>
       </Container>
 
-      {/* Table des membres améliorée */}
+      {/* Liste responsive: Cartes sur mobile, Tableau sur desktop */}
       <Container maxW="container.xl" pb={8}>
         <MotionBox
           bg="white"
@@ -854,8 +1037,40 @@ const MembersManagementDashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
         >
-          <Box overflowX="auto">
-            <Table variant="simple">
+          {isMobile ? (
+            // Vue mobile: Grille de cartes
+            <Box p={4}>
+              <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
+                {filteredAndSortedPersons.map((person) => (
+                  <MemberCard
+                    key={person.personID}
+                    member={{
+                      ...person,
+                      birthday: person.birthday || null,
+                      deathDate: person.deathDate || null,
+                      photoUrl: person.photoUrl || null,
+                    }}
+                    onEdit={person.canEdit ? handleEditPerson : undefined}
+                    onView={handleViewProfile}
+                    showLineageBadge={true}
+                  />
+                ))}
+              </SimpleGrid>
+              
+              {filteredAndSortedPersons.length === 0 && (
+                <VStack py={8} spacing={4}>
+                  <Text color="gray.500" fontSize="lg">{t('members.noResults')}</Text>
+                  <Text color="gray.400" fontSize="sm">{t('members.tryDifferentFilters')}</Text>
+                  <Button variant="outline" onClick={handleFilterReset}>
+                    {t('members.resetFilters')}
+                  </Button>
+                </VStack>
+              )}
+            </Box>
+          ) : (
+            // Vue desktop: Tableau
+            <Box overflowX="auto">
+              <Table variant="simple">
               <Thead bg="var(--emotional-beige-light)">
                 <Tr>
                   <Th>{t('members.photo')}</Th>
@@ -962,12 +1177,17 @@ const MembersManagementDashboard = () => {
                     {/* Âge calculé */}
                     <Td>
                       <VStack align="start" spacing={0}>
-                        <Text fontWeight="500" color="gray.900"> {/* Noir très foncé pour contraste maximum */}
-                          {calculateAge(person.birthday, person.deathDate) || t('members.unknownAge')}
-                          {calculateAge(person.birthday, person.deathDate) && ` ${t('common.years')}`}
+                        <Text 
+                          fontWeight="500" 
+                          color={calculateAge(person.birthday, person.deathDate, person.alive) ? "gray.900" : "gray.400"}
+                        >
+                          {calculateAge(person.birthday, person.deathDate, person.alive) 
+                            ? `${calculateAge(person.birthday, person.deathDate, person.alive)} ${t('common.years')}`
+                            : '-'
+                          }
                         </Text>
                         {person.birthday && (
-                          <Text fontSize="xs" color="gray.600"> {/* Gris foncé au lieu de gris clair */}
+                          <Text fontSize="xs" color="gray.600">
                             {new Date(person.birthday).toLocaleDateString('fr-FR')}
                           </Text>
                         )}
@@ -993,6 +1213,21 @@ const MembersManagementDashboard = () => {
                     {/* Actions rapides */}
                     <Td>
                       <HStack spacing={1} justify="flex-end">
+                        {/* Bouton Voir dans l'Arbre */}
+                        <Tooltip label={t('members.viewInTree')}>
+                          <IconButton
+                            aria-label="View in tree"
+                            size="sm"
+                            bg="green.50"
+                            color="green.600"
+                            icon={<FaProjectDiagram />}
+                            onClick={() => handleViewInTree(person.personID)}
+                            _hover={{
+                              bg: 'green.100',
+                            }}
+                          />
+                        </Tooltip>
+
                         {/* Bouton Voir */}
                         <Tooltip label={t('members.viewProfile')}>
                           <IconButton
@@ -1117,7 +1352,8 @@ const MembersManagementDashboard = () => {
                 </Button>
               </VStack>
             )}
-          </Box>
+            </Box>
+          )}
         </MotionBox>
       </Container>
 
@@ -1160,8 +1396,14 @@ const MembersManagementDashboard = () => {
                         <Text fontWeight="600" fontSize="sm">
                           {personToDelete.firstName} {personToDelete.lastName}
                         </Text>
-                        <Text fontSize="xs" color="var(--text-secondary)">
-                          {calculateAge(personToDelete.birthday, personToDelete.deathDate)} {t('common.years')}
+                        <Text 
+                          fontSize="xs" 
+                          color={calculateAge(personToDelete.birthday, personToDelete.deathDate, personToDelete.alive) ? "var(--text-secondary)" : "gray.400"}
+                        >
+                          {calculateAge(personToDelete.birthday, personToDelete.deathDate, personToDelete.alive)
+                            ? `${calculateAge(personToDelete.birthday, personToDelete.deathDate, personToDelete.alive)} ${t('common.years')}`
+                            : '-'
+                          }
                         </Text>
                       </VStack>
                     </HStack>

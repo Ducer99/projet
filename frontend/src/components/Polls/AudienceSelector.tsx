@@ -300,7 +300,6 @@ const AudienceSelector: React.FC<AudienceSelectorProps> = ({ value, onChange }) 
                   <FormControl>
                     <FormLabel fontSize="sm">{t('polls.selectAncestor')}</FormLabel>
                     <Select
-                      placeholder={t('polls.selectAncestorPlaceholder')}
                       value={value.targetAudience?.ancestorIds?.[0] || ''}
                       onChange={(e) => handleAncestorChange(Number(e.target.value))}
                     >
@@ -327,7 +326,8 @@ const AudienceSelector: React.FC<AudienceSelectorProps> = ({ value, onChange }) 
                       value={value.targetAudience?.generationLevel || 0}
                       onChange={(_, val) => handleGenerationLevelChange(val)}
                     >
-                      <NumberInputField placeholder={t('polls.allGenerations')} />
+                      <NumberInputField
+ />
                       <NumberInputStepper>
                         <NumberIncrementStepper />
                         <NumberDecrementStepper />
@@ -371,7 +371,6 @@ const AudienceSelector: React.FC<AudienceSelectorProps> = ({ value, onChange }) 
                   {/* Search input */}
                   <FormControl>
                     <Input
-                      placeholder={t('polls.searchMembers')}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       size="sm"

@@ -183,7 +183,6 @@ const VerifyEmail = () => {
                   onComplete={handleVerify}
                   otp
                   type="number"
-                  placeholder="·"
                 >
                   <PinInputField 
                     bg="purple.50" 

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using FamilyTreeAPI.Data;
 using FamilyTreeAPI.Models;
+using Microsoft.AspNetCore.Hosting;
 
 namespace FamilyTreeAPI.Controllers
 {
@@ -12,10 +13,12 @@ namespace FamilyTreeAPI.Controllers
     public class PersonsController : ControllerBase
     {
         private readonly FamilyTreeContext _context;
+        private readonly IWebHostEnvironment _env;
 
-        public PersonsController(FamilyTreeContext context)
+        public PersonsController(FamilyTreeContext context, IWebHostEnvironment env)
         {
             _context = context;
+            _env = env;
         }
 
         // GET: api/Persons - Retourne uniquement les membres de la famille de l'utilisateur
@@ -278,7 +281,7 @@ namespace FamilyTreeAPI.Controllers
         // PUT: api/Persons/5 - Modifier un membre
         [HttpPut("{id}")]
         [Authorize]
-        public async Task<IActionResult> PutPerson(int id, UpdatePersonDto personUpdate)
+        public async Task<IActionResult> PutPerson(int id, [FromForm] UpdatePersonDto personUpdate, [FromForm] IFormFile? photo)
         {
             // 🔒 Récupérer les infos de l'utilisateur
             var userFamilyId = int.Parse(User.FindFirst("familyId")?.Value ?? "0");
@@ -308,44 +311,32 @@ namespace FamilyTreeAPI.Controllers
                 return Forbid(); // 403 - L'utilisateur ne peut pas modifier des personnes d'une autre famille
             }
 
-            // 🔒 Vérifier les permissions : Admin OU Créateur OU Son propre profil OU Enfant (placeholder/décédé)
-            bool isAdmin = userRole == "Admin";
+            // 🔒 Vérifier les permissions de base : Admin OU Créateur OU Son propre profil
+            bool isAdmin = userRole?.Equals("Admin", StringComparison.OrdinalIgnoreCase) == true || 
+                          userRole?.Equals("ADMIN", StringComparison.OrdinalIgnoreCase) == true ||
+                          userRole?.Equals("SUPER_ADMIN", StringComparison.OrdinalIgnoreCase) == true;
             bool isCreator = existingPerson.CreatedBy == userConnexionId;
             bool isOwnProfile = existingPerson.PersonID == userPersonId;
             
-            Console.WriteLine($"🔐 Vérification permissions pour Person {id}:");
-            Console.WriteLine($"   - Status: {existingPerson.Status}");
-            Console.WriteLine($"   - CreatedBy: {existingPerson.CreatedBy}");
-            Console.WriteLine($"   - isAdmin: {isAdmin}");
-            Console.WriteLine($"   - isCreator: {isCreator}");
-            Console.WriteLine($"   - isOwnProfile: {isOwnProfile}");
+            // �‍👩‍👦 Vérifications bidirectionnelles Parent-Enfant
+            bool isParentOfTarget = false;
+            bool isChildOfTarget = false;
             
-            // 👨‍👩‍👦 Nouvelle règle : Si c'est un placeholder ou décédé, l'enfant peut le modifier
-            bool isChildOfParent = false;
-            if (existingPerson.Status == "placeholder" || existingPerson.Status == "deceased")
+            // Récupérer le Person actuel pour vérifier les relations
+            var currentUserPerson = await _context.Persons.FindAsync(userPersonId);
+            if (currentUserPerson != null)
             {
-                Console.WriteLine($"   - Profil placeholder/décédé détecté, vérification enfant...");
-                // Vérifier si l'utilisateur est l'enfant de cette personne
-                var currentUserPerson = await _context.Persons.FindAsync(userPersonId);
-                if (currentUserPerson != null)
-                {
-                    Console.WriteLine($"   - Current user FatherID: {currentUserPerson.FatherID}, MotherID: {currentUserPerson.MotherID}");
-                    Console.WriteLine($"   - Target PersonID: {existingPerson.PersonID}");
-                    
-                    isChildOfParent = 
-                        currentUserPerson.FatherID == existingPerson.PersonID || 
-                        currentUserPerson.MotherID == existingPerson.PersonID;
-                    
-                    Console.WriteLine($"   - isChildOfParent: {isChildOfParent}");
-                }
+                // L'utilisateur est-il parent de la cible ?
+                isParentOfTarget = existingPerson.FatherID == userPersonId || existingPerson.MotherID == userPersonId;
+                
+                // L'utilisateur est-il enfant de la cible ?
+                isChildOfTarget = currentUserPerson.FatherID == id || currentUserPerson.MotherID == id;
             }
             
-            Console.WriteLine($"✅ Autorisation finale: {isAdmin || isCreator || isOwnProfile || isChildOfParent}");
-            
-            if (!isAdmin && !isCreator && !isOwnProfile && !isChildOfParent)
+            // ✅ Autorisation finale : Au moins une des 5 conditions doit être vraie
+            if (!isAdmin && !isCreator && !isOwnProfile && !isParentOfTarget && !isChildOfTarget)
             {
-                Console.WriteLine($"❌ ACCÈS REFUSÉ pour Person {id}");
-                return StatusCode(403, new { message = "Vous ne pouvez modifier que votre propre profil, les membres que vous avez créés, ou vos parents (profils temporaires/décédés)" });
+                return StatusCode(403, new { message = "Vous ne pouvez modifier que votre propre profil, les membres que vous avez créés, vos parents ou vos enfants" });
             }
 
             // �‍👩‍👦 Gérer les parents (placeholder ou existants)
@@ -391,24 +382,37 @@ namespace FamilyTreeAPI.Controllers
                 motherId = motherPlaceholder.PersonID;
             }
 
+            // 🛡️ CORRECTION BUG : Déterminer le statut vital à partir de la date de décès
+            // La présence d'une date de décès indique que la personne est décédée.
+            // Cela évite les problèmes de liaison de modèle (model binding) avec les booléens depuis FormData.
+            bool isAliveBasedOnDeathDate = !personUpdate.DeathDate.HasValue;
+
             // Mise à jour des champs autorisés
             existingPerson.FirstName = personUpdate.FirstName;
             existingPerson.LastName = personUpdate.LastName;
             existingPerson.Sex = personUpdate.Sex;
-            existingPerson.Birthday = personUpdate.Birthday;
+            existingPerson.Birthday = personUpdate.Birthday.HasValue 
+                ? DateTime.SpecifyKind(personUpdate.Birthday.Value, DateTimeKind.Utc) 
+                : null;
             existingPerson.Email = personUpdate.Email;
             existingPerson.Activity = personUpdate.Activity;
             existingPerson.PhotoUrl = personUpdate.PhotoUrl;
             existingPerson.Notes = personUpdate.Notes;
             existingPerson.CityID = personUpdate.CityID;
-            existingPerson.Alive = personUpdate.Alive;
-            existingPerson.DeathDate = personUpdate.DeathDate;
+            
+            // APPLIQUER LA LOGIQUE CORRIGÉE
+            existingPerson.Alive = isAliveBasedOnDeathDate;
+            existingPerson.DeathDate = personUpdate.DeathDate.HasValue 
+                ? DateTime.SpecifyKind(personUpdate.DeathDate.Value, DateTimeKind.Utc) 
+                : null;
+
             existingPerson.FatherID = fatherId;
             existingPerson.MotherID = motherId;
             
             // 🕊️ Mettre à jour Status et CanLogin selon statut vital
-            existingPerson.Status = personUpdate.Alive ? "confirmed" : "deceased";
-            existingPerson.CanLogin = personUpdate.Alive; // Les décédés ne peuvent jamais se connecter
+            // ⚠️ IMPORTANT: Utiliser isAliveBasedOnDeathDate au lieu de existingPerson.Alive
+            existingPerson.Status = isAliveBasedOnDeathDate ? "confirmed" : "deceased";
+            existingPerson.CanLogin = isAliveBasedOnDeathDate; // Les décédés ne peuvent jamais se connecter
 
             try
             {
@@ -460,14 +464,18 @@ namespace FamilyTreeAPI.Controllers
             existingPerson.FirstName = personUpdate.FirstName;
             existingPerson.LastName = personUpdate.LastName;
             existingPerson.Sex = personUpdate.Sex;
-            existingPerson.Birthday = personUpdate.Birthday;
+            existingPerson.Birthday = personUpdate.Birthday.HasValue 
+                ? DateTime.SpecifyKind(personUpdate.Birthday.Value, DateTimeKind.Utc) 
+                : null;
             existingPerson.Email = personUpdate.Email;
             existingPerson.Activity = personUpdate.Activity;
             existingPerson.PhotoUrl = personUpdate.PhotoUrl;
             existingPerson.Notes = personUpdate.Notes;
             existingPerson.CityID = personUpdate.CityID;
             existingPerson.Alive = personUpdate.Alive;
-            existingPerson.DeathDate = personUpdate.DeathDate;
+            existingPerson.DeathDate = personUpdate.DeathDate.HasValue 
+                ? DateTime.SpecifyKind(personUpdate.DeathDate.Value, DateTimeKind.Utc) 
+                : null;
 
             try
             {
@@ -592,12 +600,31 @@ namespace FamilyTreeAPI.Controllers
                 return Ok(new { canEdit = false, reason = "Famille différente" });
             }
 
-            // Vérifier les permissions : Admin OU Créateur OU Son propre profil
-            bool isAdmin = userRole == "Admin";
+            // 🔒 Vérifications de base
+            bool isAdmin = userRole?.Equals("Admin", StringComparison.OrdinalIgnoreCase) == true || 
+                          userRole?.Equals("ADMIN", StringComparison.OrdinalIgnoreCase) == true ||
+                          userRole?.Equals("SUPER_ADMIN", StringComparison.OrdinalIgnoreCase) == true;
             bool isCreator = person.CreatedBy == userConnexionId;
             bool isOwnProfile = person.PersonID == userPersonId;
             
-            bool canEdit = isAdmin || isCreator || isOwnProfile;
+            // 👨‍👩‍👦 Vérifications bidirectionnelles Parent-Enfant
+            bool isParentOfTarget = false;
+            bool isChildOfTarget = false;
+            
+            // Récupérer le Person actuel pour vérifier les relations
+            var currentUserPerson = await _context.Persons
+                .FirstOrDefaultAsync(p => p.PersonID == userPersonId);
+            
+            if (currentUserPerson != null)
+            {
+                // L'utilisateur est-il parent de la cible ?
+                isParentOfTarget = person.FatherID == userPersonId || person.MotherID == userPersonId;
+                
+                // L'utilisateur est-il enfant de la cible ?
+                isChildOfTarget = currentUserPerson.FatherID == id || currentUserPerson.MotherID == id;
+            }
+            
+            bool canEdit = isAdmin || isCreator || isOwnProfile || isParentOfTarget || isChildOfTarget;
             
             return Ok(new 
             { 
@@ -605,6 +632,8 @@ namespace FamilyTreeAPI.Controllers
                 isAdmin,
                 isCreator,
                 isOwnProfile,
+                isParentOfTarget,
+                isChildOfTarget,
                 createdBy = person.CreatedBy,
                 personId = person.PersonID
             });
@@ -895,6 +924,63 @@ namespace FamilyTreeAPI.Controllers
         public string? FatherLastName { get; set; }
         public string? MotherFirstName { get; set; }
         public string? MotherLastName { get; set; }
+    }
+
+    // 👑 GET: api/Persons/{personId}/role - Récupérer le rôle d'un utilisateur
+    [HttpGet("{personId}/role")]
+    [Authorize]
+    public async Task<ActionResult> GetUserRole(int personId)
+    {
+        var connexion = await _context.Connexions
+            .FirstOrDefaultAsync(c => c.IDPerson == personId);
+
+        if (connexion == null)
+        {
+            return NotFound(new { message = "Compte utilisateur introuvable pour cette personne" });
+        }
+
+        return Ok(new { 
+            personId = personId,
+            role = connexion.Role,
+            canModifyRole = User.FindFirst("role")?.Value == "Admin"
+        });
+    }
+
+    // 👑 PUT: api/Persons/{personId}/role - Mettre à jour le rôle d'un utilisateur (Admin uniquement)
+    [HttpPut("{personId}/role")]
+    [Authorize]
+    public async Task<ActionResult> UpdateUserRole(int personId, [FromBody] UpdateRoleDto updateRole)
+    {
+        // 🔐 Vérifier que l'utilisateur connecté est Admin
+        var userRole = User.FindFirst("role")?.Value ?? "Member";
+        if (userRole != "Admin")
+        {
+            return StatusCode(403, new { message = "Seuls les administrateurs peuvent modifier les rôles" });
+        }
+
+        // Trouver la connexion associée à cette personne
+        var connexion = await _context.Connexions
+            .FirstOrDefaultAsync(c => c.IDPerson == personId);
+
+        if (connexion == null)
+        {
+            return NotFound(new { message = "Compte utilisateur introuvable pour cette personne" });
+        }
+
+        // Mettre à jour le rôle
+        connexion.Role = updateRole.Role;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { 
+            message = $"Rôle mis à jour: {updateRole.Role}",
+            personId = personId,
+            role = connexion.Role
+        });
+    }
+
+    public class UpdateRoleDto
+    {
+        public string Role { get; set; } = "Member"; // "Admin" ou "Member"
     }
 
     public class UpdatePersonDto

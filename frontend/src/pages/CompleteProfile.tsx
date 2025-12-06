@@ -280,7 +280,6 @@ export default function CompleteProfile() {
                       <Input
                         value={firstName}
                         onChange={(e) => handleFirstNameChange(e.target.value)}
-                        placeholder={t('profile.firstNamePlaceholder')}
                         borderColor={!firstName ? 'red.500' : 'gray.200'}
                         borderWidth={!firstName ? '2px' : '1px'}
                       />
@@ -292,7 +291,6 @@ export default function CompleteProfile() {
                       <Input
                         value={lastName}
                         onChange={(e) => handleLastNameChange(e.target.value)}
-                        placeholder={t('profile.lastNamePlaceholder')}
                         borderColor={!lastName ? 'red.500' : 'gray.200'}
                         borderWidth={!lastName ? '2px' : '1px'}
                       />
@@ -361,7 +359,6 @@ export default function CompleteProfile() {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      placeholder={t('profile.phonePlaceholder')}
                     />
                     <FormHelperText fontSize="xs">{t('profile.internationalFormat')}</FormHelperText>
                   </FormControl>
@@ -407,7 +404,6 @@ export default function CompleteProfile() {
                       <Input
                         value={birthCountry}
                         onChange={(e) => setBirthCountry(e.target.value)}
-                        placeholder={t('profile.birthCountryPlaceholder')}
                         borderColor={!birthCountry ? 'red.500' : 'gray.200'}
                         borderWidth={!birthCountry ? '2px' : '1px'}
                       />
@@ -418,7 +414,6 @@ export default function CompleteProfile() {
                       <Input
                         value={birthCity}
                         onChange={(e) => setBirthCity(e.target.value)}
-                        placeholder={t('profile.birthCityPlaceholder')}
                         borderColor={!birthCity ? 'red.500' : 'gray.200'}
                         borderWidth={!birthCity ? '2px' : '1px'}
                       />
@@ -448,7 +443,6 @@ export default function CompleteProfile() {
                             <Input
                               value={residenceCountry}
                               onChange={(e) => setResidenceCountry(e.target.value)}
-                              placeholder={t('profile.residenceCountryPlaceholder')}
                             />
                           </FormControl>
 
@@ -457,7 +451,6 @@ export default function CompleteProfile() {
                             <Input
                               value={residenceCity}
                               onChange={(e) => setResidenceCity(e.target.value)}
-                              placeholder={t('profile.residenceCityPlaceholder')}
                             />
                           </FormControl>
                         </HStack>
@@ -478,7 +471,6 @@ export default function CompleteProfile() {
                         <Input
                           value={activity}
                           onChange={(e) => setActivity(e.target.value)}
-                          placeholder={t('profile.activityPlaceholder')}
                         />
                         <FormHelperText fontSize="xs">
                           {t('profile.visibleIfAdult')}
@@ -517,7 +509,6 @@ export default function CompleteProfile() {
                             <Input
                               value={fatherFirstName}
                               onChange={(e) => setFatherFirstName(e.target.value)}
-                              placeholder={t('profile.fatherFirstNamePlaceholder')}
                               size="sm"
                             />
                           </FormControl>
@@ -526,7 +517,6 @@ export default function CompleteProfile() {
                             <Input
                               value={fatherLastName}
                               onChange={(e) => setFatherLastName(e.target.value)}
-                              placeholder={t('profile.fatherLastNamePlaceholder')}
                               size="sm"
                             />
                           </FormControl>
@@ -549,7 +539,6 @@ export default function CompleteProfile() {
                             <Input
                               value={motherFirstName}
                               onChange={(e) => setMotherFirstName(e.target.value)}
-                              placeholder={t('profile.motherFirstNamePlaceholder')}
                               size="sm"
                             />
                           </FormControl>
@@ -558,7 +547,6 @@ export default function CompleteProfile() {
                             <Input
                               value={motherLastName}
                               onChange={(e) => setMotherLastName(e.target.value)}
-                              placeholder={t('profile.motherLastNamePlaceholder')}
                               size="sm"
                             />
                           </FormControl>

@@ -227,14 +227,16 @@ const Dashboard = () => {
         initial="hidden"
         animate="visible"
       >
-        {/* Welcome Header - Design Apple × Notion */}
+        {/* Welcome Header - Design Apple × Notion - STICKY */}
         <MotionBox
           variants={slideUp}
           background={getFamilyGradient(user?.familyID || 1)}
           p={8}
           borderRadius="var(--radius-2xl)"
           color="white"
-          position="relative"
+          position="sticky"
+          top={0}
+          zIndex={100}
           overflow="hidden"
           boxShadow="var(--shadow-xl)"
         >

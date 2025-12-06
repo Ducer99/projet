@@ -15,14 +15,12 @@ import {
   AlertTitle,
   AlertDescription,
   useToast,
-  RadioGroup,
-  Radio,
-  Stack,
   Progress,
   Icon,
   HStack,
+  FormHelperText,
 } from '@chakra-ui/react';
-import { FaHome, FaKey } from 'react-icons/fa';
+import { FaHome, FaUsers } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 
@@ -59,14 +57,25 @@ export default function FamilyAttachment() {
     setIsLoading(true);
 
     try {
-      const response = await api.post('/auth/attach-family', {
-        action,
-        familyName: action === 'create' ? familyName : undefined,
-        inviteCode: action === 'join' ? inviteCode : undefined,
-      });
+      let response;
+      
+      // 🎯 Appels API différenciés selon l'action
+      if (action === 'create') {
+        // POST /api/families/create
+        response = await api.post('/families/create', {
+          familyName: familyName.trim(),
+        });
+      } else {
+        // POST /api/families/join
+        response = await api.post('/families/join', {
+          inviteCode: inviteCode.trim().toUpperCase(),
+        });
+      }
 
       const { token } = response.data;
-      localStorage.setItem('token', token);
+      if (token) {
+        localStorage.setItem('token', token);
+      }
 
       toast({
         title: t('family.familyConfigured'),
@@ -146,89 +155,141 @@ export default function FamilyAttachment() {
             <form onSubmit={handleSubmit}>
               <VStack spacing={6}>
                 <FormControl isRequired>
-                  <FormLabel fontSize="lg" fontWeight="semibold">
+                  <FormLabel fontSize="lg" fontWeight="semibold" mb={4}>
                     {t('family.whatDoYouWantToDo')}
                   </FormLabel>
-                  <RadioGroup value={action} onChange={(value) => setAction(value as 'create' | 'join')}>
-                    <Stack spacing={4}>
-                      <Box
-                        p={4}
-                        borderWidth={2}
-                        borderColor={action === 'create' ? 'purple.500' : 'gray.200'}
-                        borderRadius="lg"
-                        cursor="pointer"
-                        onClick={() => setAction('create')}
-                        transition="all 0.2s"
-                        _hover={{ borderColor: 'purple.300' }}
-                      >
-                        <HStack>
-                          <Radio value="create" size="lg" colorScheme="purple" />
-                          <Icon as={FaHome} color="purple.500" boxSize={5} />
-                          <VStack align="start" spacing={0} flex={1}>
-                            <Text fontWeight="semibold">{t('family.createNewFamily')}</Text>
-                            <Text fontSize="sm" color="gray.600">
-                              {t('family.youWillBeAdmin')}
-                            </Text>
-                          </VStack>
-                        </HStack>
-                      </Box>
+                  
+                  {/* 🎨 SELECTABLE CARDS - Design Premium */}
+                  <VStack spacing={4} w="100%">
+                    {/* Carte "Créer une famille" */}
+                    <Box
+                      p={5}
+                      borderWidth={action === 'create' ? '2px' : '1px'}
+                      borderColor={action === 'create' ? '#7C3AED' : '#E5E7EB'}
+                      bg={action === 'create' ? '#F5F3FF' : 'white'}
+                      borderRadius="12px"
+                      cursor="pointer"
+                      onClick={() => setAction('create')}
+                      transition="all 0.2s ease-in-out"
+                      boxShadow={action === 'create' ? '0 4px 6px -1px rgba(124, 58, 237, 0.1)' : 'none'}
+                      _hover={{ 
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 12px -2px rgba(124, 58, 237, 0.15)',
+                      }}
+                      w="100%"
+                    >
+                      <HStack spacing={4} align="flex-start">
+                        <Icon 
+                          as={FaHome} 
+                          boxSize={8} 
+                          color={action === 'create' ? '#7C3AED' : 'gray.500'}
+                          mt={1}
+                        />
+                        <VStack align="start" spacing={1} flex={1}>
+                          <Text 
+                            fontWeight="bold" 
+                            fontSize="lg"
+                            color={action === 'create' ? '#7C3AED' : 'gray.800'}
+                          >
+                            {t('family.createNewFamily')}
+                          </Text>
+                          <Text fontSize="sm" color="gray.600">
+                            {t('family.youWillBeAdmin')}
+                          </Text>
+                        </VStack>
+                      </HStack>
+                    </Box>
 
-                      <Box
-                        p={4}
-                        borderWidth={2}
-                        borderColor={action === 'join' ? 'purple.500' : 'gray.200'}
-                        borderRadius="lg"
-                        cursor="pointer"
-                        onClick={() => setAction('join')}
-                        transition="all 0.2s"
-                        _hover={{ borderColor: 'purple.300' }}
-                      >
-                        <HStack>
-                          <Radio value="join" size="lg" colorScheme="purple" />
-                          <Icon as={FaKey} color="purple.500" boxSize={5} />
-                          <VStack align="start" spacing={0} flex={1}>
-                            <Text fontWeight="semibold">{t('family.joinExistingFamily')}</Text>
-                            <Text fontSize="sm" color="gray.600">
-                              {t('family.useInviteCode')}
-                            </Text>
-                          </VStack>
-                        </HStack>
-                      </Box>
-                    </Stack>
-                  </RadioGroup>
+                    {/* Carte "Rejoindre une famille" */}
+                    <Box
+                      p={5}
+                      borderWidth={action === 'join' ? '2px' : '1px'}
+                      borderColor={action === 'join' ? '#7C3AED' : '#E5E7EB'}
+                      bg={action === 'join' ? '#F5F3FF' : 'white'}
+                      borderRadius="12px"
+                      cursor="pointer"
+                      onClick={() => setAction('join')}
+                      transition="all 0.2s ease-in-out"
+                      boxShadow={action === 'join' ? '0 4px 6px -1px rgba(124, 58, 237, 0.1)' : 'none'}
+                      _hover={{ 
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 12px -2px rgba(124, 58, 237, 0.15)',
+                      }}
+                      w="100%"
+                    >
+                      <HStack spacing={4} align="flex-start">
+                        <Icon 
+                          as={FaUsers} 
+                          boxSize={8} 
+                          color={action === 'join' ? '#7C3AED' : 'gray.500'}
+                          mt={1}
+                        />
+                        <VStack align="start" spacing={1} flex={1}>
+                          <Text 
+                            fontWeight="bold" 
+                            fontSize="lg"
+                            color={action === 'join' ? '#7C3AED' : 'gray.800'}
+                          >
+                            {t('family.joinExistingFamily')}
+                          </Text>
+                          <Text fontSize="sm" color="gray.600">
+                            {t('family.useInviteCode')}
+                          </Text>
+                        </VStack>
+                      </HStack>
+                    </Box>
+                  </VStack>
                 </FormControl>
 
+                {/* 📝 CHAMPS DYNAMIQUES - Affichage conditionnel */}
                 {action === 'create' && (
                   <FormControl isRequired>
-                    <FormLabel>{t('family.familyName')}</FormLabel>
+                    <FormLabel fontWeight="medium" color="gray.700">
+                      {t('family.familyName')}
+                    </FormLabel>
                     <Input
                       value={familyName}
                       onChange={(e) => setFamilyName(e.target.value)}
-                      placeholder={t('family.familyNamePlaceholder')}
+                      placeholder="Ex: Famille Dupont"
                       size="lg"
+                      borderColor="gray.300"
+                      _hover={{ borderColor: 'purple.400' }}
+                      _focus={{
+                        borderColor: 'purple.500',
+                        boxShadow: '0 0 0 1px #7C3AED',
+                      }}
                     />
-                    <Text fontSize="sm" color="gray.600" mt={1}>
+                    <FormHelperText fontSize="xs" color="gray.500">
                       {t('family.nameVisibleToAll')}
-                    </Text>
+                    </FormHelperText>
                   </FormControl>
                 )}
 
                 {action === 'join' && (
                   <FormControl isRequired>
-                    <FormLabel>{t('family.invitationCode')}</FormLabel>
+                    <FormLabel fontWeight="medium" color="gray.700">
+                      {t('family.invitationCode')}
+                    </FormLabel>
                     <Input
                       value={inviteCode}
-                      onChange={(e) => setInviteCode(e.target.value)}
-                      placeholder={t('family.inviteCodePlaceholder')}
+                      onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                      placeholder="DUPONT2024"
                       size="lg"
                       textTransform="uppercase"
+                      borderColor="gray.300"
+                      _hover={{ borderColor: 'purple.400' }}
+                      _focus={{
+                        borderColor: 'purple.500',
+                        boxShadow: '0 0 0 1px #7C3AED',
+                      }}
                     />
-                    <Text fontSize="sm" color="gray.600" mt={1}>
+                    <FormHelperText fontSize="xs" color="gray.500">
                       {t('family.askMemberForCode')}
-                    </Text>
+                    </FormHelperText>
                   </FormControl>
                 )}
 
+                {/* 🎯 BOUTON DYNAMIQUE - Texte adaptatif */}
                 <VStack spacing={3} w="100%">
                   <Button
                     type="submit"
@@ -236,8 +297,14 @@ export default function FamilyAttachment() {
                     size="lg"
                     w="100%"
                     isLoading={isLoading}
-                    loadingText={t('family.configuring')}
-                    isDisabled={!action}
+                    loadingText={action === 'create' ? t('family.creating') : t('family.joining')}
+                    isDisabled={!action || (action === 'create' && !familyName) || (action === 'join' && !inviteCode)}
+                    leftIcon={<Icon as={action === 'create' ? FaHome : FaUsers} />}
+                    _hover={{
+                      transform: 'translateY(-2px)',
+                      boxShadow: 'lg',
+                    }}
+                    transition="all 0.2s"
                   >
                     {action === 'create' && t('family.createFamily')}
                     {action === 'join' && t('family.joinFamily')}

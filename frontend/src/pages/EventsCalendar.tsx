@@ -423,7 +423,6 @@ const EventsCalendar = () => {
           <Box>
             <Text fontSize="sm" fontWeight="500" mb={1}>Par Membre:</Text>
             <Select
-              placeholder="Tous les membres"
               value={filterMember}
               onChange={(e) => setFilterMember(e.target.value)}
               size="sm"
@@ -441,7 +440,6 @@ const EventsCalendar = () => {
           <Box>
             <Text fontSize="sm" fontWeight="500" mb={1}>Par Lignée:</Text>
             <Select
-              placeholder="Toutes les lignées"
               value={filterLineage}
               onChange={(e) => setFilterLineage(e.target.value)}
               size="sm"

@@ -55,15 +55,25 @@ interface Wedding {
   isActive: boolean;
 }
 
+/**
+ * Construit un arbre familial en évitant les doublons d'enfants
+ * Principe : Chaque enfant n'apparaît qu'UNE SEULE FOIS
+ * Si un enfant a 2 parents, on les affiche côte à côte comme couple
+ */
 export function buildFamilyTreeV2(
   persons: Person[],
   weddings: Wedding[],
   rootPersonId: number,
-  sharedProcessedChildren?: Set<number>
+  sharedProcessedChildren?: Set<number>,
+  sharedProcessedNodes?: Map<number, TreeNode>
 ): TreeNode | null {
   const personsMap = new Map(persons.map(p => [p.personID, p]));
   const processedChildren = sharedProcessedChildren || new Set<number>();
   
+  // 🆕 PHASE 4: Map globale partagée pour UN NŒUD UNIQUE par personne (évite duplication visuelle)
+  const processedNodes = sharedProcessedNodes || new Map<number, TreeNode>();
+  
+  // Créer index des mariages
   const weddingsMap = new Map<number, Wedding[]>();
   weddings.forEach(w => {
     if (!weddingsMap.has(w.manID)) weddingsMap.set(w.manID, []);
@@ -73,26 +83,42 @@ export function buildFamilyTreeV2(
   });
   
   function buildNode(personId: number, generation: number, visited: Set<number>): TreeNode | null {
-    if (visited.has(personId)) return null;
+    // 🆕 PHASE 4: Si ce nœud existe déjà, retourner une référence (évite duplication visuelle)
+    if (processedNodes.has(personId)) {
+      const person = personsMap.get(personId);
+      const personName = person ? `${person.firstName} ${person.lastName}` : `ID ${personId}`;
+      console.log(`♻️ RÉUTILISATION NŒUD: ${personName} (ID: ${personId}) - Generation: ${generation}`);
+      return processedNodes.get(personId)!;
+    }
+    
+    if (visited.has(personId)) {
+      console.warn(`Cycle détecté pour ${personId}`);
+      return null;
+    }
     visited.add(personId);
     
     const person = personsMap.get(personId);
     if (!person) return null;
     
+    // Trouver TOUS les enfants de cette personne
     const allChildren = persons.filter(p => 
       p.fatherID === personId || p.motherID === personId
     );
     
+    // Filtrer les enfants qui n'ont PAS encore été traités
     const childrenToProcess = allChildren.filter(child => 
       !processedChildren.has(child.personID)
     );
     
+    // Marquer ces enfants comme traités
     childrenToProcess.forEach(child => processedChildren.add(child.personID));
     
+    // Construire les nœuds enfants récursivement
     const children = childrenToProcess
       .map(child => buildNode(child.personID, generation + 1, new Set(visited)))
       .filter((node): node is TreeNode => node !== null);
     
+    // Trouver les conjoints (par mariages ou co-parents)
     const marriages = weddingsMap.get(personId) || [];
     const spouses: SpouseInfo[] = marriages
       .map(w => {
@@ -111,31 +137,41 @@ export function buildFamilyTreeV2(
       })
       .filter((s): s is SpouseInfo => s !== null);
     
-    if (spouses.length === 0) {
-      const coParentIds = new Set<number>();
-      allChildren.forEach(child => {
-        if (child.fatherID === personId && child.motherID) {
+    // 🔥 NOUVEAU: Détection automatique de TOUS les co-parents (polygamie/multi-partenaires)
+    // Même s'il y a des mariages, on détecte les autres co-parents
+    const coParentIds = new Set<number>();
+    const alreadyAddedSpouseIds = new Set(spouses.map(s => s.personId));
+    
+    allChildren.forEach(child => {
+      if (child.fatherID === personId && child.motherID) {
+        // Cette personne est le père, ajouter la mère
+        if (!alreadyAddedSpouseIds.has(child.motherID)) {
           coParentIds.add(child.motherID);
-        } else if (child.motherID === personId && child.fatherID) {
+        }
+      } else if (child.motherID === personId && child.fatherID) {
+        // Cette personne est la mère, ajouter le père
+        if (!alreadyAddedSpouseIds.has(child.fatherID)) {
           coParentIds.add(child.fatherID);
         }
-      });
-      
-      coParentIds.forEach(coParentId => {
-        const coParent = personsMap.get(coParentId);
-        if (coParent) {
-          spouses.push({
-            personId: coParent.personID,
-            name: `${coParent.firstName} ${coParent.lastName}`,
-            photoUrl: coParent.photoUrl,
-            weddingDate: undefined,
-            divorceDate: undefined,
-            isActive: true
-          });
-        }
-      });
-    }
+      }
+    });
     
+    // Ajouter tous les co-parents détectés
+    coParentIds.forEach(coParentId => {
+      const coParent = personsMap.get(coParentId);
+      if (coParent) {
+        spouses.push({
+          personId: coParent.personID,
+          name: `${coParent.firstName} ${coParent.lastName}`,
+          photoUrl: coParent.photoUrl,
+          weddingDate: undefined,
+          divorceDate: undefined,
+          isActive: true
+        });
+      }
+    });
+    
+    // Calculer l'âge
     let age: number | undefined;
     if (person.birthday) {
       const birthDate = new Date(person.birthday);
@@ -143,7 +179,8 @@ export function buildFamilyTreeV2(
       age = Math.floor((endDate.getTime() - birthDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25));
     }
     
-    return {
+    // 🆕 PHASE 4: Créer et enregistrer le nœud pour éviter les doublons
+    const node: TreeNode = {
       id: person.personID,
       name: `${person.firstName} ${person.lastName}`,
       firstName: person.firstName,
@@ -161,17 +198,27 @@ export function buildFamilyTreeV2(
       hasAccount: person.canLogin || false,
       _fullData: person
     };
+    
+    // Enregistrer ce nœud pour éviter de le recréer
+    processedNodes.set(personId, node);
+    console.log(`✅ NŒUD CRÉÉ: ${node.name} (ID: ${node.id}) - Generation: ${generation} - Enfants: ${children.length} - Conjoints: ${spouses.length}`);
+    
+    return node;
   }
   
   return buildNode(rootPersonId, 0, new Set());
 }
 
+/**
+ * Construit un arbre étendu avec tous les ancêtres
+ */
 export function buildExtendedFamilyTreeV2(
   persons: Person[],
   weddings: Wedding[],
   focusPersonId: number,
   ancestorLevels: number = 3,
-  sharedProcessedChildren?: Set<number>
+  sharedProcessedChildren?: Set<number>,
+  sharedProcessedNodes?: Map<number, TreeNode>
 ): TreeNode | null {
   const personsMap = new Map(persons.map(p => [p.personID, p]));
   
@@ -191,9 +238,12 @@ export function buildExtendedFamilyTreeV2(
   }
   
   const rootId = findOldestAncestor(focusPersonId, ancestorLevels);
-  return buildFamilyTreeV2(persons, weddings, rootId, sharedProcessedChildren);
+  return buildFamilyTreeV2(persons, weddings, rootId, sharedProcessedChildren, sharedProcessedNodes);
 }
 
+/**
+ * Statistiques de l'arbre
+ */
 export function getTreeStatistics(tree: TreeNode): {
   totalPersons: number;
   generations: number;

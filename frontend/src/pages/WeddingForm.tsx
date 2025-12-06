@@ -338,7 +338,6 @@ const WeddingForm = () => {
                         </HStack>
                       </FormLabel>
                       <Select
-                        placeholder={t('weddings.selectSpouse')}
                         value={formData.manID}
                         onChange={(e) => handlePersonSelection(e.target.value, true)}
                       >
@@ -362,7 +361,6 @@ const WeddingForm = () => {
                         </HStack>
                       </FormLabel>
                       <Select
-                        placeholder={t('weddings.selectSpouseFemale')}
                         value={formData.womanID}
                         onChange={(e) => handlePersonSelection(e.target.value, false)}
                       >
@@ -441,7 +439,6 @@ const WeddingForm = () => {
                   <FormControl>
                     <FormLabel>{t('weddings.location')}</FormLabel>
                     <Input
-                      placeholder={t('weddings.locationPlaceholder')}
                       value={formData.location}
                       onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                     />
@@ -450,7 +447,6 @@ const WeddingForm = () => {
                   <FormControl>
                     <FormLabel>{t('weddings.notes')}</FormLabel>
                     <Textarea
-                      placeholder={t('weddings.notesPlaceholder')}
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                       rows={3}

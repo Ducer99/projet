@@ -350,7 +350,6 @@ const AlbumDetail = () => {
         {/* Add Comment */}
         <VStack spacing={3} mb={6}>
           <Textarea
-            placeholder="Ajouter un commentaire..."
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             rows={3}
