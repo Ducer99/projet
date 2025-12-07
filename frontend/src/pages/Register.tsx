@@ -171,14 +171,40 @@ const Register = () => {
 
       console.log('✅ Profile completed');
       console.log('📥 Profile response:', profileResponse.data);
+      
+      // 🔑 BUGFIX: Sauvegarder le token et l'utilisateur mis à jour après complete-profile
+      if (profileResponse.data.token) {
+        localStorage.setItem('token', profileResponse.data.token);
+        console.log('🔑 Token updated after profile completion');
+      }
+      if (profileResponse.data.user) {
+        localStorage.setItem('user', JSON.stringify(profileResponse.data.user));
+        console.log('👤 User saved to localStorage:', profileResponse.data.user);
+      }
+      
       console.log('🔵 Step 3: Creating/joining family...');
 
-      // ✅ Étape 3: Créer ou rejoindre la famille
+      // ✅ Étape 3: Créer ou rejoindre la famille via /auth/attach-family
       if (actionChoice === 'create') {
         console.log('🔵 Creating family...');
         console.log('📤 Token in localStorage:', localStorage.getItem('token') ? 'PRESENT ✅' : 'MISSING ❌');
-        await api.post('/families/create', { familyName });
+        
+        // 🔧 CORRECTIF: Utiliser /auth/attach-family au lieu de /families/create
+        // ⚠️ Backend attend "Action" et "FamilyName" (PascalCase)
+        const familyResponse = await api.post('/auth/attach-family', { 
+          Action: 'create',
+          FamilyName: familyName 
+        });
+        
+        // 🔑 BUGFIX: Sauvegarder le nouveau token avec FamilyID mis à jour
+        if (familyResponse.data.token) {
+          localStorage.setItem('token', familyResponse.data.token);
+          console.log('🔑 Token updated with FamilyID after family creation');
+        }
+        
         console.log('✅ Family created:', familyName);
+        console.log('📥 Family response:', familyResponse.data);
+        
         toast({
           title: '✅ Compte créé !',
           description: `Bienvenue dans la famille ${familyName}`,
@@ -190,8 +216,22 @@ const Register = () => {
         console.log('📤 Token in localStorage:', localStorage.getItem('token') ? 'PRESENT ✅' : 'MISSING ❌');
         console.log('📤 Full token (first 20 chars):', localStorage.getItem('token')?.substring(0, 20));
         
-        await api.post('/families/join', { inviteCode: inviteCode.toUpperCase() });
+        // 🔧 CORRECTIF: Utiliser /auth/attach-family au lieu de /families/join
+        // ⚠️ Backend attend "InviteCode" (PascalCase)
+        const joinResponse = await api.post('/auth/attach-family', { 
+          Action: 'join',
+          InviteCode: inviteCode.toUpperCase() 
+        });
+        
+        // 🔑 BUGFIX: Sauvegarder le nouveau token avec FamilyID mis à jour
+        if (joinResponse.data.token) {
+          localStorage.setItem('token', joinResponse.data.token);
+          console.log('🔑 Token updated with FamilyID after joining family');
+        }
+        
         console.log('✅ Family joined with code:', inviteCode);
+        console.log('📥 Join response:', joinResponse.data);
+        
         toast({
           title: '✅ Compte créé !',
           description: 'Vous avez rejoint la famille avec succès',

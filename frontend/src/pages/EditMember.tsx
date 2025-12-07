@@ -380,7 +380,7 @@ export default function EditMemberV2() {
                 <IconButton
                   aria-label="Back"
                   icon={<FaArrowLeft />}
-                  onClick={() => navigate('/members')}
+                  onClick={() => navigate('/persons')}
                   position="absolute"
                   top={4}
                   left={4}
@@ -1262,7 +1262,7 @@ export default function EditMemberV2() {
                     <Button
                       variant="outline"
                       leftIcon={<Icon as={FaTimes} />}
-                      onClick={() => navigate('/members')}
+                      onClick={() => navigate('/persons')}
                       isDisabled={saving}
                       h="48px"
                       px={6}

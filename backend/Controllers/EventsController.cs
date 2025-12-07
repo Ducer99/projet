@@ -337,6 +337,13 @@ namespace FamilyTreeAPI.Controllers
         public async Task<ActionResult> GetUpcomingEvents([FromQuery] int days = 90)
         {
             var userFamilyId = int.Parse(User.FindFirst("familyId")?.Value ?? "0");
+            
+            // Si l'utilisateur n'a pas encore de famille, retourner un tableau vide
+            if (userFamilyId == 0)
+            {
+                return Ok(new List<object>());
+            }
+            
             var today = DateTime.UtcNow.Date;
             var futureDate = today.AddDays(days);
 

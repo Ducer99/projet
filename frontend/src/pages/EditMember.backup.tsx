@@ -131,7 +131,7 @@ export default function EditMember() {
         status: 'error',
         duration: 5000,
       });
-      navigate('/members');
+      navigate('/persons');
     }
   };
 
@@ -622,7 +622,7 @@ export default function EditMember() {
                     <Button
                       variant="outline"
                       leftIcon={<Icon as={FaTimes} />}
-                      onClick={() => navigate('/members')}
+                      onClick={() => navigate('/persons')}
                       isDisabled={saving}
                     >
                       {t('common.cancel')}

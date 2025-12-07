@@ -91,13 +91,18 @@ const Dashboard = () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        console.warn('Pas de token disponible');
+        console.warn('⚠️ [Dashboard] Pas de token disponible');
         return;
       }
+      console.log('🔵 [Dashboard] Loading family info...');
       const response = await api.get('/auth/family-info');
+      console.log('✅ [Dashboard] Family info loaded:', response.data);
       setFamilyInfo(response.data);
-    } catch (error) {
-      console.error('Erreur lors du chargement des infos famille:', error);
+    } catch (error: any) {
+      console.error('❌ [Dashboard] Erreur lors du chargement des infos famille:', error);
+      console.error('   Status:', error.response?.status);
+      console.error('   Message:', error.response?.data);
+      // Ne pas propager l'erreur - laisser l'utilisateur accéder au dashboard même sans infos famille
     }
   };
 
@@ -192,15 +197,15 @@ const Dashboard = () => {
       setFamilyInfo(prev => prev ? { ...prev, inviteCode: response.data.newInviteCode } : null);
       
       toast({
-        title: 'Code régénéré !',
-        description: `Nouveau code : ${response.data.newInviteCode}`,
+        title: t('dashboard.codeRegenerated'),
+        description: t('dashboard.newCode', { code: response.data.newInviteCode }),
         status: 'success',
         duration: 5000,
       });
     } catch (error: any) {
       toast({
-        title: 'Erreur',
-        description: error.response?.data?.message || 'Impossible de régénérer le code',
+        title: t('common.error'),
+        description: error.response?.data?.message || t('dashboard.regenerateError'),
         status: 'error',
         duration: 5000,
       });
@@ -413,8 +418,8 @@ const Dashboard = () => {
                       boxShadow="var(--shadow-md)"
                     >
                       <Icon as={FaSitemap} boxSize={6} mb={2} />
-                      <Text fontWeight="bold" fontSize="md" mb={1}>🚀 Arbre Dynamique</Text>
-                      <Text fontSize="xs" opacity={0.9}>Navigation interactive - Polygamie supportée</Text>
+                      <Text fontWeight="bold" fontSize="md" mb={1}>🚀 {t('dashboard.dynamicTree')}</Text>
+                      <Text fontSize="xs" opacity={0.9}>{t('dashboard.dynamicTreeDescription')}</Text>
                     </MotionBox>
                   </Link>
 
@@ -823,7 +828,7 @@ const Dashboard = () => {
                                 variant={member.sex === 'M' ? 'gender-male' : 'gender-female'} 
                                 size="sm"
                               >
-                                {Math.floor((Date.now() - new Date(member.birthday).getTime()) / (365.25 * 24 * 60 * 60 * 1000))} ans
+                                {t('dashboard.yearsOld', { count: Math.floor((Date.now() - new Date(member.birthday).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) })}
                               </Badge>
                             )}
                           </VStack>
@@ -1017,17 +1022,17 @@ const Dashboard = () => {
                       const statusConfig: Record<string, { gradient: string; label: string; emoji: string }> = {
                         active: { 
                           gradient: 'linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)', 
-                          label: 'Actif',
+                          label: t('dashboard.marriageStatus.active'),
                           emoji: '💚'
                         },
                         divorced: { 
                           gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', 
-                          label: 'Divorcé',
+                          label: t('dashboard.marriageStatus.divorced'),
                           emoji: '💔'
                         },
                         widowed: { 
                           gradient: 'linear-gradient(135deg, #8e9eab 0%, #eef2f3 100%)', 
-                          label: 'Veuvage',
+                          label: t('dashboard.marriageStatus.widowed'),
                           emoji: '🕊️'
                         }
                       };
@@ -1112,7 +1117,7 @@ const Dashboard = () => {
                                   width="full"
                                 >
                                   <Text fontWeight="var(--font-semibold)" color="white">
-                                    {marriage.unionCount} union{marriage.unionCount > 1 ? 's' : ''}
+                                    {t('dashboard.unionCount', { count: marriage.unionCount })}
                                   </Text>
                                   <Text color="whiteAlpha.800">•</Text>
                                   <Text color="whiteAlpha.900" noOfLines={1}>

@@ -50,15 +50,31 @@ builder.Services.AddAuthentication(x =>
     };
 });
 
-// CORS configuration
+// CORS configuration - Support localhost + production (Vercel)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp",
         policy =>
         {
-            policy.WithOrigins("http://localhost:3000", "http://localhost:3001")
+            var allowedOrigins = new List<string>
+            {
+                "http://localhost:3000", 
+                "http://127.0.0.1:3000",
+                "http://localhost:3001"
+            };
+
+            // Add Vercel production URL from environment variable
+            var vercelUrl = builder.Configuration["VERCEL_URL"];
+            if (!string.IsNullOrEmpty(vercelUrl))
+            {
+                allowedOrigins.Add(vercelUrl);
+                allowedOrigins.Add($"https://{vercelUrl}");
+            }
+
+            policy.WithOrigins(allowedOrigins.ToArray())
                   .AllowAnyHeader()
-                  .AllowAnyMethod();
+                  .AllowAnyMethod()
+                  .AllowCredentials();
         });
 });
 
@@ -71,7 +87,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// ⚠️ Désactivé temporairement pour développement HTTP
+// app.UseHttpsRedirection();
 
 // Servir les fichiers statiques (uploads + React build)
 app.UseStaticFiles();
@@ -79,6 +96,7 @@ app.UseStaticFiles();
 // Activer le routing par défaut pour les fichiers dans wwwroot
 app.UseDefaultFiles();
 
+// ✅ CORS doit être AVANT Authentication/Authorization
 app.UseCors("AllowReactApp");
 app.UseAuthentication();
 app.UseAuthorization();

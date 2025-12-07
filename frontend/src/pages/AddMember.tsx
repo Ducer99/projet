@@ -90,7 +90,7 @@ export default function AddMember() {
         duration: 3000,
       });
 
-      navigate('/members');
+      navigate('/persons');
     } catch (error: any) {
       console.error('Erreur lors de l\'ajout:', error);
       toast({
@@ -417,7 +417,7 @@ export default function AddMember() {
                   <Button
                     variant="outline"
                     colorScheme="gray"
-                    onClick={() => navigate('/members')}
+                    onClick={() => navigate('/persons')}
                     flex={1}
                   >
                     {t('addMemberForm.cancel')}

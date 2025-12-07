@@ -372,7 +372,7 @@ const DashboardV3 = () => {
                 iconBgColor="blue.50"
                 label={t('dashboard.members')}
                 value={familyStats?.membersCount || 0}
-                onClick={() => navigate('/members')}
+                onClick={() => navigate('/persons')}
               />
               <StatCard
                 icon={FaHeart}

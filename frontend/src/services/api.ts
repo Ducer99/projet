@@ -1,7 +1,12 @@
 import axios from 'axios';
 
+// Detect environment and set API base URL
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || '/api';
+
+console.log('🌐 API Base URL:', API_BASE_URL);
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
 });
 
 // Add token to requests
@@ -13,9 +18,22 @@ api.interceptors.request.use(
     console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.url}`);
     console.log(`   Token present: ${token ? '✅ YES' : '❌ NO'}`);
     
-    if (token) {
+    // 🚨 BUGFIX: Ne PAS ajouter le token sur les routes publiques d'authentification
+    const publicRoutes = [
+      '/auth/login', 
+      '/auth/register', 
+      '/auth/register-simple', 
+      '/auth/google-login',
+      '/auth/create-family',    // ✅ Nouveau endpoint atomique
+      '/auth/join-family'       // ✅ Nouveau endpoint atomique
+    ];
+    const isPublicRoute = publicRoutes.some(route => config.url?.includes(route));
+    
+    if (token && !isPublicRoute) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log(`   Authorization header: Bearer ${token.substring(0, 20)}...`);
+      console.log(`   ✅ Authorization header added: Bearer ${token.substring(0, 20)}...`);
+    } else if (isPublicRoute) {
+      console.log(`   ℹ️ Public route - No token added (${config.url})`);
     } else {
       console.log(`   ⚠️ No token found in localStorage!`);
     }
@@ -43,14 +61,28 @@ api.interceptors.response.use(
       // Éviter les boucles de redirection infinies
       const currentPath = window.location.pathname;
       const isOnLoginPage = currentPath === '/login';
+      const isOnRegisterPage = currentPath === '/register';
 
-      if (!isOnLoginPage) {
+      // 🚨 BUGFIX: Ne PAS rediriger si on vient de s'inscrire ou si on est sur /register
+      if (!isOnLoginPage && !isOnRegisterPage) {
         console.warn('⚠️ Erreur 401 - Non autorisé. Déconnexion...');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
+        console.warn('   Current path:', currentPath);
+        console.warn('   Error URL:', error.config?.url);
+        
+        // Vérifier si c'est une erreur sur une route non-critique (comme family-info)
+        const nonCriticalRoutes = ['/auth/family-info', '/events/upcoming', '/persons/tree'];
+        const isNonCritical = nonCriticalRoutes.some(route => error.config?.url?.includes(route));
+        
+        if (!isNonCritical) {
+          // Seulement déconnecter si c'est une route critique
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        } else {
+          console.warn('   ℹ️ Route non-critique - Pas de déconnexion');
+        }
       } else {
-        console.warn('⚠️ Erreur 401 sur la page de connexion - Pas de redirection');
+        console.warn('⚠️ Erreur 401 sur la page de connexion/inscription - Pas de redirection');
       }
     } else if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
       // Erreur réseau - ne pas déconnecter, juste logger

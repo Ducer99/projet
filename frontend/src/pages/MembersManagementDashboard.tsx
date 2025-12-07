@@ -1274,7 +1274,7 @@ const MembersManagementDashboard = () => {
 
                         {/* Badges de statut utilisateur et règles de permissions */}
                         {person.isCreator && (
-                          <Tooltip label="Règle Créateur : Vous avez créé cette fiche">
+                          <Tooltip label={t('members.creatorRuleTooltip')}>
                             <Badge colorScheme="green" fontSize="xs" display="flex" alignItems="center">
                               <Icon as={FaCheck} mr={1} />
                               {t('common.creator')}
@@ -1283,16 +1283,16 @@ const MembersManagementDashboard = () => {
                         )}
 
                         {person.personID === user?.idPerson && !person.isCreator && (
-                          <Tooltip label="Règle Membre : Votre propre fiche">
+                          <Tooltip label={t('members.memberRuleTooltip')}>
                             <Badge colorScheme="purple" fontSize="xs" display="flex" alignItems="center">
                               <Icon as={FaUser} mr={1} />
-                              Vous-même
+                              {t('members.yourself')}
                             </Badge>
                           </Tooltip>
                         )}
 
                         {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && !person.isCreator && person.personID !== user?.idPerson && person.canEdit && (
-                          <Tooltip label="Règle Admin : Accès administrateur">
+                          <Tooltip label={t('members.adminRuleTooltip')}>
                             <Badge colorScheme="orange" fontSize="xs" display="flex" alignItems="center">
                               <Icon as={FaStar} mr={1} />
                               {t('common.admin')}

@@ -174,41 +174,71 @@
 
   "register": {
     "hero": {
-      "tagline": "Preserve your family's history for future generations",
+      "title": "Kinship Haven",
+      "tagline": "Preserve family heritage for future generations",
+      "quote": "It's not just a tree. It's the story of those who made you who you are.",
       "families": "Families",
       "members": "Members",
       "countries": "Countries"
     },
     "progress": {
       "step": "Step",
-      "of": "of"
+      "of": "of",
+      "account": "Account",
+      "profile": "Profile",
+      "family": "Family"
     },
     "step1": {
-      "title": "Create your account",
-      "subtitle": "Start with your login credentials"
+      "title": "Let's begin",
+      "subtitle": "Create your secure access to your family space",
+      "email": "Email",
+      "password": "Password",
+      "confirmPassword": "Confirm password",
+      "continue": "Continue",
+      "passwordStrength": "Password strength",
+      "passwordWeak": "Weak",
+      "passwordMedium": "Medium",
+      "passwordStrong": "Strong",
+      "passwordRequirements": "At least 8 characters, 1 uppercase, 1 number"
     },
     "step2": {
-      "title": "Complete your profile",
-      "subtitle": "Tell us a bit more about yourself",
+      "title": "Who are you?",
+      "subtitle": "Tell us how to call you",
       "firstName": "First name",
       "lastName": "Last name",
       "gender": "Gender",
       "male": "Male",
-      "female": "Female"
+      "female": "Female",
+      "birthDate": "Birth date",
+      "birthCountry": "Birth country",
+      "birthCity": "Birth city",
+      "residenceCountry": "Country of residence",
+      "residenceCity": "City of residence",
+      "activity": "Profession",
+      "phone": "Phone",
+      "next": "Next"
     },
     "step3": {
       "title": "Final step",
-      "subtitle": "Create or join a family",
+      "subtitle": "Join your tribe or found a new one",
       "question": "What would you like to do?",
       "createTitle": "Create a new family",
-      "createDesc": "Start your own family tree",
-      "joinTitle": "Join an existing family",
-      "joinDesc": "Connect to an existing tree",
-      "familyName": "Family name",
+      "createDesc": "I'm the first, I'm starting the tree",
+      "joinTitle": "Join a family",
+      "joinDesc": "I have an invitation code",
+      "familyName": "Your Family Name",
+      "familyNamePlaceholder": "Ex: TOUKEP Family",
       "inviteCode": "Invitation code",
-      "createButton": "🏠 Create family",
-      "joinButton": "👥 Join family"
+      "inviteCodePlaceholder": "Ex: KAM-6644",
+      "createButton": "Create my Haven",
+      "joinButton": "Join the family"
     },
+    "welcomeMessage": "🎉 Welcome to the family!",
+    "redirecting": "Redirecting to your Dashboard...",
+    "error": "Error",
+    "errorMessage": "Please check your information",
+    "emailTaken": "This email address already exists",
+    "invalidCode": "Invalid invitation code",
     "googleComingSoon": "🚧 Google sign up coming soon",
     "signUpWithGoogle": "Sign up with Google",
     "orWithEmail": "or with email",
@@ -218,7 +248,9 @@
       "and": "and our",
       "privacy": "Privacy Policy"
     },
-    "signUpButton": "Sign up"
+    "signUpButton": "Sign up",
+    "alreadyHaveAccount": "Already have an account?",
+    "loginLink": "Sign in"
   },
 
   "family": {
@@ -381,7 +413,21 @@
     "yourFamilyHeritage": "Your Family Heritage",
     "heritageDescription": "Each member added enriches your family's story for future generations.",
     "unions": "Unions",
-    "recentUnions": "Recent unions"
+    "recentUnions": "Recent unions",
+    "codeRegenerated": "Code regenerated!",
+    "newCode": "New code: {{code}}",
+    "regenerateError": "Unable to regenerate code",
+    "dynamicTree": "Dynamic Tree",
+    "dynamicTreeDescription": "Interactive navigation - Polygamy supported",
+    "yearsOld": "{{count}} year old",
+    "yearsOld_plural": "{{count}} years old",
+    "unionCount": "{{count}} union",
+    "unionCount_plural": "{{count}} unions",
+    "marriageStatus": {
+      "active": "Active",
+      "divorced": "Divorced",
+      "widowed": "Widowed"
+    }
   },
   
   "members": {
@@ -464,7 +510,11 @@
     "editTooltip": "Edit this member",
     "deleteWithinHours": "You can delete within {{hours}} hours after creation",
     "adminCanDelete": "As administrator, you can delete this member",
-    "superAdminCanDelete": "As super administrator, you can delete anything"
+    "superAdminCanDelete": "As super administrator, you can delete anything",
+    "yourself": "Yourself",
+    "creatorRuleTooltip": "Creator Rule: You created this record",
+    "memberRuleTooltip": "Member Rule: Your own record",
+    "adminRuleTooltip": "Admin Rule: Administrator access"
   },
 
   "addMemberForm": {

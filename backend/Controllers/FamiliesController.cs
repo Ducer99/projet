@@ -4,19 +4,24 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using FamilyTreeAPI.Data;
 using FamilyTreeAPI.Models;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Text;
 
 namespace FamilyTreeAPI.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/families")] // ⭐ Route en minuscules pour correspondre au frontend
     [Authorize]
     public class FamiliesController : ControllerBase
     {
         private readonly FamilyTreeContext _context;
+        private readonly IConfiguration _configuration;
 
-        public FamiliesController(FamilyTreeContext context)
+        public FamiliesController(FamilyTreeContext context, IConfiguration configuration)
         {
             _context = context;
+            _configuration = configuration;
         }
 
         // 🌳 POST: api/families/create
@@ -58,8 +63,13 @@ namespace FamilyTreeAPI.Controllers
             user.Role = "Admin"; // Le créateur devient admin
             await _context.SaveChangesAsync();
 
+            // 🔑 BUGFIX: Régénérer le token avec le FamilyID mis à jour
+            var newToken = GenerateJwtToken(user);
+            Console.WriteLine($"🔑 Nouveau token généré avec FamilyID: {user.FamilyID}");
+
             return Ok(new
             {
+                Token = newToken, // ⭐ Retourner le nouveau token
                 FamilyID = family.FamilyID,
                 FamilyName = family.FamilyName,
                 Message = $"Famille '{family.FamilyName}' créée avec succès"
@@ -111,12 +121,47 @@ namespace FamilyTreeAPI.Controllers
             user.Role = "Member"; // Les nouveaux membres ont le rôle "Member"
             await _context.SaveChangesAsync();
 
+            // 🔑 BUGFIX: Régénérer le token avec le FamilyID mis à jour
+            var newToken = GenerateJwtToken(user);
+            Console.WriteLine($"🔑 Nouveau token généré avec FamilyID: {user.FamilyID}");
+
             return Ok(new
             {
+                Token = newToken, // ⭐ Retourner le nouveau token
                 FamilyID = family.FamilyID,
                 FamilyName = family.FamilyName,
                 Message = $"Vous avez rejoint la famille '{family.FamilyName}'"
             });
+        }
+        
+        // 🔑 Générer un JWT token
+        private string GenerateJwtToken(Connexion user)
+        {
+            var key = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
+                System.Text.Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "VotreClefSecreteTresLongueEtComplexe123456789")
+            );
+            var creds = new Microsoft.IdentityModel.Tokens.SigningCredentials(
+                key, 
+                Microsoft.IdentityModel.Tokens.SecurityAlgorithms.HmacSha256
+            );
+
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.ConnexionID.ToString()),
+                new Claim(ClaimTypes.Name, user.UserName ?? string.Empty),
+                new Claim("familyId", user.FamilyID?.ToString() ?? "0"),
+                new Claim("personId", user.IDPerson?.ToString() ?? "0")
+            };
+
+            var token = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(
+                issuer: _configuration["Jwt:Issuer"] ?? "FamilyTreeAPI",
+                audience: _configuration["Jwt:Audience"] ?? "FamilyTreeClient",
+                claims: claims,
+                expires: DateTime.Now.AddDays(30),
+                signingCredentials: creds
+            );
+
+            return new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler().WriteToken(token);
         }
     }
 

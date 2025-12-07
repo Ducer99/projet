@@ -225,7 +225,7 @@ export default function EditMemberV2() {
         duration: 3000,
       });
 
-      navigate('/members');
+      navigate('/persons');
     } catch (error: any) {
       console.error('Error updating member:', error);
       toast({
@@ -264,7 +264,7 @@ export default function EditMemberV2() {
               <IconButton
                 aria-label="Back"
                 icon={<FaArrowLeft />}
-                onClick={() => navigate('/members')}
+                onClick={() => navigate('/persons')}
                 variant="ghost"
                 colorScheme="purple"
                 size="lg"
@@ -733,7 +733,7 @@ export default function EditMemberV2() {
                     <Button
                       variant="outline"
                       leftIcon={<Icon as={FaTimes} />}
-                      onClick={() => navigate('/members')}
+                      onClick={() => navigate('/persons')}
                       isDisabled={saving}
                       size={{ base: 'md', md: 'lg' }}
                       w={{ base: 'full', sm: 'auto' }}

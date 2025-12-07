@@ -3,7 +3,7 @@ import { Box } from '@chakra-ui/react';
 import { AuthProvider } from './contexts/AuthContext';
 import Header from './components/Header';
 import Login from './pages/Login';
-import Register from './pages/Register';
+import Register from './pages/RegisterV4Premium';
 import RegisterSimple from './pages/RegisterSimple';
 import JoinOrCreateFamily from './pages/JoinOrCreateFamily';
 import VerifyEmail from './pages/VerifyEmail';

@@ -174,41 +174,71 @@
 
   "register": {
     "hero": {
-      "tagline": "Préservez l'histoire de votre famille pour les générations futures",
+      "title": "Kinship Haven",
+      "tagline": "Préservez l'héritage familial pour les générations futures",
+      "quote": "Ce n'est pas seulement un arbre. C'est l'histoire de ceux qui vous ont fait devenir qui vous êtes.",
       "families": "Familles",
       "members": "Membres",
       "countries": "Pays"
     },
     "progress": {
       "step": "Étape",
-      "of": "sur"
+      "of": "sur",
+      "account": "Compte",
+      "profile": "Profil",
+      "family": "Famille"
     },
     "step1": {
-      "title": "Créez votre compte",
-      "subtitle": "Commencez par vos identifiants de connexion"
+      "title": "Commençons",
+      "subtitle": "Créez votre accès sécurisé à votre espace familial",
+      "email": "Email",
+      "password": "Mot de passe",
+      "confirmPassword": "Confirmez le mot de passe",
+      "continue": "Continuer",
+      "passwordStrength": "Force du mot de passe",
+      "passwordWeak": "Faible",
+      "passwordMedium": "Moyen",
+      "passwordStrong": "Fort",
+      "passwordRequirements": "Au moins 8 caractères, 1 majuscule, 1 chiffre"
     },
     "step2": {
-      "title": "Complétez votre profil",
-      "subtitle": "Dites-nous en un peu plus sur vous",
+      "title": "Qui êtes-vous ?",
+      "subtitle": "Dites-nous comment vous appeler",
       "firstName": "Prénom",
       "lastName": "Nom",
       "gender": "Sexe",
-      "male": "Homme",
-      "female": "Femme"
+      "male": "Masculin",
+      "female": "Féminin",
+      "birthDate": "Date de naissance",
+      "birthCountry": "Pays de naissance",
+      "birthCity": "Ville de naissance",
+      "residenceCountry": "Pays de résidence",
+      "residenceCity": "Ville de résidence",
+      "activity": "Profession",
+      "phone": "Téléphone",
+      "next": "Suivant"
     },
     "step3": {
       "title": "Dernière étape",
-      "subtitle": "Créez ou rejoignez une famille",
+      "subtitle": "Rejoignez votre tribu ou fondez-en une nouvelle",
       "question": "Que souhaitez-vous faire ?",
       "createTitle": "Créer une nouvelle famille",
-      "createDesc": "Démarrez votre propre arbre généalogique",
-      "joinTitle": "Rejoindre une famille existante",
-      "joinDesc": "Connectez-vous à un arbre existant",
-      "familyName": "Nom de la famille",
+      "createDesc": "Je suis le premier, je commence l'arbre",
+      "joinTitle": "Rejoindre une famille",
+      "joinDesc": "J'ai un code d'invitation",
+      "familyName": "Nom de votre Famille",
+      "familyNamePlaceholder": "Ex: Famille TOUKEP",
       "inviteCode": "Code d'invitation",
-      "createButton": "🏠 Créer la famille",
-      "joinButton": "👥 Rejoindre la famille"
+      "inviteCodePlaceholder": "Ex: KAM-6644",
+      "createButton": "Créer mon Havre",
+      "joinButton": "Rejoindre la famille"
     },
+    "welcomeMessage": "🎉 Bienvenue dans la famille !",
+    "redirecting": "Redirection vers votre Dashboard...",
+    "error": "Erreur",
+    "errorMessage": "Vérifiez vos informations",
+    "emailTaken": "Cette adresse email existe déjà",
+    "invalidCode": "Code d'invitation invalide",
     "googleComingSoon": "🚧 Inscription Google bientôt disponible",
     "signUpWithGoogle": "S'inscrire avec Google",
     "orWithEmail": "ou par email",
@@ -218,7 +248,9 @@
       "and": "et notre",
       "privacy": "Politique de confidentialité"
     },
-    "signUpButton": "S'inscrire"
+    "signUpButton": "S'inscrire",
+    "alreadyHaveAccount": "Vous avez déjà un compte ?",
+    "loginLink": "Se connecter"
   },
 
   "family": {
@@ -381,7 +413,21 @@
     "yourFamilyHeritage": "Votre Héritage Familial",
     "heritageDescription": "Chaque membre ajouté enrichit l'histoire de votre famille pour les générations futures.",
     "unions": "Unions",
-    "recentUnions": "Unions récentes"
+    "recentUnions": "Unions récentes",
+    "codeRegenerated": "Code régénéré !",
+    "newCode": "Nouveau code : {{code}}",
+    "regenerateError": "Impossible de régénérer le code",
+    "dynamicTree": "Arbre Dynamique",
+    "dynamicTreeDescription": "Navigation interactive - Polygamie supportée",
+    "yearsOld": "{{count}} an",
+    "yearsOld_plural": "{{count}} ans",
+    "unionCount": "{{count}} union",
+    "unionCount_plural": "{{count}} unions",
+    "marriageStatus": {
+      "active": "Actif",
+      "divorced": "Divorcé",
+      "widowed": "Veuvage"
+    }
   },
   
   "members": {
@@ -465,7 +511,11 @@
     "editTooltip": "Modifier ce membre",
     "deleteWithinHours": "Vous pouvez supprimer pendant {{hours}} heures après création",
     "adminCanDelete": "En tant qu'administrateur, vous pouvez supprimer ce membre",
-    "superAdminCanDelete": "En tant que super administrateur, vous pouvez tout supprimer"
+    "superAdminCanDelete": "En tant que super administrateur, vous pouvez tout supprimer",
+    "yourself": "Vous-même",
+    "creatorRuleTooltip": "Règle Créateur : Vous avez créé cette fiche",
+    "memberRuleTooltip": "Règle Membre : Votre propre fiche",
+    "adminRuleTooltip": "Règle Admin : Accès administrateur"
   },
 
   "addMemberForm": {

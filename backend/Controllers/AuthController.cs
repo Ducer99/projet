@@ -28,6 +28,7 @@ namespace FamilyTreeAPI.Controllers
             _emailService = emailService;
         }
 
+        [AllowAnonymous]
         [HttpPost("login")]
         public async Task<ActionResult> Login([FromBody] LoginRequest request)
         {
@@ -95,6 +96,7 @@ namespace FamilyTreeAPI.Controllers
         }
 
         // 🔐 Google OAuth Login/Register
+        [AllowAnonymous]
         [HttpPost("google")]
         public async Task<ActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
         {
@@ -202,61 +204,81 @@ namespace FamilyTreeAPI.Controllers
         }
 
         // 🆕 Inscription simplifiée : Email + Mot de passe uniquement
+        [AllowAnonymous]
         [HttpPost("register-simple")]
         public async Task<ActionResult> RegisterSimple([FromBody] SimpleRegisterRequest request)
         {
-            // Check if email already exists
-            if (await _context.Connexions.AnyAsync(c => c.Email == request.Email))
+            try
             {
-                return BadRequest(new { message = "Cette adresse email existe déjà" });
-            }
+                Console.WriteLine($"📥 [register-simple] Request received: Email={request.Email}, UserName={request.UserName}");
 
-            var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
-
-            // 🆕 Pour Google OAuth simulation : activer immédiatement si demandé
-            bool isGoogleSimulation = request.UserName?.StartsWith("Google User") == true;
-
-            // Créer un compte temporaire sans Person ni Family
-            var connexion = new Connexion
-            {
-                UserName = request.UserName ?? request.Email.Split('@')[0], // Username temporaire basé sur l'email
-                Password = hashedPassword,
-                Level = 1,
-                IDPerson = null, // NULL jusqu'à la complétion du profil
-                FamilyID = null, // NULL jusqu'au rattachement familial
-                Email = request.Email,
-                CreatedDate = DateTime.UtcNow,
-                IsActive = true, // ⭐ FIXME: Activé immédiatement pour éviter les 403 (TODO: email verification)
-                EmailVerified = isGoogleSimulation ? true : false, // ⭐ Email vérifié si Google
-                ProfileCompleted = false,
-                Role = "Member"
-            };
-
-            _context.Connexions.Add(connexion);
-            await _context.SaveChangesAsync();
-
-            // Générer le token pour la session (avec un objet Connexion temporaire)
-            var tempConnexion = new Connexion
-            {
-                ConnexionID = connexion.ConnexionID,
-                UserName = connexion.UserName,
-                Level = connexion.Level,
-                IDPerson = 0,
-                FamilyID = 0
-            };
-            var token = GenerateJwtToken(tempConnexion);
-
-            return Ok(new
-            {
-                Token = token,
-                User = new
+                // Check if email already exists
+                if (await _context.Connexions.AnyAsync(c => c.Email == request.Email))
                 {
-                    connexion.ConnexionID,
-                    connexion.Email,
-                    ProfileCompleted = false,
-                    Message = "Compte créé avec succès. Veuillez compléter votre profil."
+                    Console.WriteLine($"⚠️ [register-simple] Email already exists: {request.Email}");
+                    return BadRequest(new { message = "Cette adresse email existe déjà" });
                 }
-            });
+
+                var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
+
+                // 🆕 Pour Google OAuth simulation : activer immédiatement si demandé
+                bool isGoogleSimulation = request.UserName?.StartsWith("Google User") == true;
+
+                // Créer un compte temporaire sans Person ni Family
+                var connexion = new Connexion
+                {
+                    UserName = request.UserName ?? request.Email.Split('@')[0], // Username temporaire basé sur l'email
+                    Password = hashedPassword,
+                    Level = 1,
+                    IDPerson = null, // NULL jusqu'à la complétion du profil
+                    FamilyID = null, // NULL jusqu'au rattachement familial
+                    Email = request.Email,
+                    CreatedDate = DateTime.UtcNow,
+                    IsActive = true, // ⭐ FIXME: Activé immédiatement pour éviter les 403 (TODO: email verification)
+                    EmailVerified = isGoogleSimulation ? true : false, // ⭐ Email vérifié si Google
+                    ProfileCompleted = false,
+                    Role = "Member"
+                };
+
+                Console.WriteLine($"💾 [register-simple] Saving connexion to database...");
+                _context.Connexions.Add(connexion);
+                await _context.SaveChangesAsync();
+                Console.WriteLine($"✅ [register-simple] Connexion saved with ID: {connexion.ConnexionID}");
+
+                // Générer le token pour la session (avec un objet Connexion temporaire)
+                var tempConnexion = new Connexion
+                {
+                    ConnexionID = connexion.ConnexionID,
+                    UserName = connexion.UserName,
+                    Level = connexion.Level,
+                    IDPerson = 0,
+                    FamilyID = 0
+                };
+                var token = GenerateJwtToken(tempConnexion);
+                Console.WriteLine($"🔑 [register-simple] Token generated successfully");
+
+                return Ok(new
+                {
+                    Token = token,
+                    User = new
+                    {
+                        connexion.ConnexionID,
+                        connexion.Email,
+                        ProfileCompleted = false,
+                        Message = "Compte créé avec succès. Veuillez compléter votre profil."
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ [register-simple] ERROR: {ex.Message}");
+                Console.WriteLine($"   Stack trace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"   Inner exception: {ex.InnerException.Message}");
+                }
+                return StatusCode(500, new { message = $"Erreur serveur : {ex.Message}" });
+            }
         }
 
         // 🆕 Vérification de l'email avec le code reçu
@@ -1016,197 +1038,6 @@ namespace FamilyTreeAPI.Controllers
             });
         }
         
-        // 🏠 Créer une nouvelle famille
-        [HttpPost("create-family")]
-        public async Task<ActionResult> CreateFamily([FromBody] RegisterAndCreateFamilyRequest request)
-        {
-            // Vérifier si l'email existe déjà
-            if (await _context.Connexions.AnyAsync(c => c.Email == request.Email))
-            {
-                return BadRequest("Cette adresse email existe déjà");
-            }
-            
-            // Créer la personne
-            var person = new Person
-            {
-                FirstName = request.FirstName,
-                LastName = request.LastName,
-                Email = request.Email,
-                Sex = request.Sex,
-                Birthday = request.Birthday?.ToUniversalTime(),
-                Alive = true,
-                CityID = 1, // Ville par défaut, à modifier plus tard
-                Activity = request.Activity ?? "N/A"
-            };
-            
-            // Créer la famille avec code d'invitation
-            var inviteCode = GenerateInviteCode(request.FamilyName);
-            
-            var family = new Family
-            {
-                FamilyName = request.FamilyName,
-                Description = $"Famille {request.FamilyName}",
-                InviteCode = inviteCode,
-                CreatedDate = DateTime.UtcNow
-            };
-            
-            _context.Families.Add(family);
-            await _context.SaveChangesAsync();
-            
-            // Lier la personne à la famille
-            person.FamilyID = family.FamilyID;
-            person.PaternalFamilyID = family.FamilyID;
-            _context.Persons.Add(person);
-            await _context.SaveChangesAsync();
-            
-            // Mettre à jour le créateur de la famille
-            family.CreatedBy = person.PersonID;
-            await _context.SaveChangesAsync();
-            
-            // Créer le compte utilisateur avec rôle Admin
-            var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
-            var userName = $"{request.FirstName.ToLower()}.{request.LastName.ToLower()}";
-            
-            var connexion = new Connexion
-            {
-                UserName = userName,
-                Password = hashedPassword,
-                Email = request.Email,
-                Level = 1,
-                IDPerson = person.PersonID,
-                FamilyID = family.FamilyID,
-                Role = "Admin", // Premier utilisateur = Admin
-                IsActive = true
-            };
-            
-            _context.Connexions.Add(connexion);
-            await _context.SaveChangesAsync();
-            
-            // Envoyer email de bienvenue
-            try
-            {
-                await _emailService.SendWelcomeEmailAsync(request.Email, request.FirstName, request.FamilyName);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Erreur lors de l'envoi de l'email : {ex.Message}");
-            }
-            
-            var token = GenerateJwtToken(connexion);
-            
-            return Ok(new
-            {
-                Message = "Famille créée avec succès !",
-                Token = token,
-                User = new
-                {
-                    connexion.ConnexionID,
-                    connexion.Email,
-                    connexion.UserName,
-                    connexion.Role,
-                    PersonID = person.PersonID,
-                    PersonName = $"{person.FirstName} {person.LastName}",
-                    FamilyID = family.FamilyID,
-                    FamilyName = family.FamilyName,
-                    InviteCode = family.InviteCode
-                }
-            });
-        }
-        
-        // 🎫 Rejoindre une famille avec un code
-        [HttpPost("join-family")]
-        public async Task<ActionResult> JoinFamily([FromBody] RegisterAndJoinFamilyRequest request)
-        {
-            // Vérifier si l'email existe déjà
-            if (await _context.Connexions.AnyAsync(c => c.Email == request.Email))
-            {
-                return BadRequest("Cette adresse email existe déjà");
-            }
-            
-            // Trouver la famille par le code
-            var family = await _context.Families.FirstOrDefaultAsync(f => f.InviteCode == request.InviteCode);
-            
-            if (family == null)
-            {
-                return BadRequest("Code d'invitation invalide");
-            }
-            
-            // Créer la personne
-            var person = new Person
-            {
-                FirstName = request.FirstName,
-                LastName = request.LastName,
-                Email = request.Email,
-                Sex = request.Sex,
-                Birthday = request.Birthday?.ToUniversalTime(),
-                Alive = true,
-                FamilyID = family.FamilyID,
-                PaternalFamilyID = family.FamilyID, // Par défaut, côté paternel
-                CityID = 1,
-                Activity = request.Activity ?? "N/A"
-            };
-            
-            _context.Persons.Add(person);
-            await _context.SaveChangesAsync();
-            
-            // Créer le compte utilisateur avec rôle Member
-            var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
-            var userName = $"{request.FirstName.ToLower()}.{request.LastName.ToLower()}";
-            var baseUserName = userName;
-            var counter = 1;
-            
-            // Garantir l'unicité du username
-            while (await _context.Connexions.AnyAsync(c => c.UserName == userName))
-            {
-                userName = $"{baseUserName}{counter}";
-                counter++;
-            }
-            
-            var connexion = new Connexion
-            {
-                UserName = userName,
-                Password = hashedPassword,
-                Email = request.Email,
-                Level = 1,
-                IDPerson = person.PersonID,
-                FamilyID = family.FamilyID,
-                Role = "Member", // Membre standard
-                IsActive = true
-            };
-            
-            _context.Connexions.Add(connexion);
-            await _context.SaveChangesAsync();
-            
-            // Envoyer email de bienvenue
-            try
-            {
-                await _emailService.SendWelcomeEmailAsync(request.Email, request.FirstName, family.FamilyName);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Erreur lors de l'envoi de l'email : {ex.Message}");
-            }
-            
-            var token = GenerateJwtToken(connexion);
-            
-            return Ok(new
-            {
-                Message = $"Vous avez rejoint la famille {family.FamilyName} !",
-                Token = token,
-                User = new
-                {
-                    connexion.ConnexionID,
-                    connexion.Email,
-                    connexion.UserName,
-                    connexion.Role,
-                    PersonID = person.PersonID,
-                    PersonName = $"{person.FirstName} {person.LastName}",
-                    FamilyID = family.FamilyID,
-                    FamilyName = family.FamilyName
-                }
-            });
-        }
-        
         // 🔄 Régénérer le code d'invitation (Admin uniquement)
         [HttpPost("regenerate-invite-code")]
         [Authorize]
@@ -1269,13 +1100,37 @@ namespace FamilyTreeAPI.Controllers
                 return NotFound();
             }
             
+            // Si l'utilisateur n'a pas encore de famille, retourner null
+            if (user.FamilyID == null || user.FamilyID == 0)
+            {
+                return Ok(new
+                {
+                    FamilyID = 0,
+                    FamilyName = "Aucune famille",
+                    Description = "",
+                    CreatedDate = DateTime.UtcNow,
+                    UserRole = user.Role,
+                    InviteCode = (string?)null,
+                    CanRegenerateCode = false
+                });
+            }
+            
             // Charger la famille séparément car on a .Ignore(c => c.Family)
             var family = await _context.Families
                 .FirstOrDefaultAsync(f => f.FamilyID == user.FamilyID);
             
             if (family == null)
             {
-                return NotFound("Famille non trouvée");
+                return Ok(new
+                {
+                    FamilyID = 0,
+                    FamilyName = "Aucune famille",
+                    Description = "",
+                    CreatedDate = DateTime.UtcNow,
+                    UserRole = user.Role,
+                    InviteCode = (string?)null,
+                    CanRegenerateCode = false
+                });
             }
             
             var response = new
@@ -1302,9 +1157,17 @@ namespace FamilyTreeAPI.Controllers
             var user = await _context.Connexions
                 .FirstOrDefaultAsync(c => c.ConnexionID == userId);
                 
-            if (user == null || user.FamilyID == null)
+            if (user == null || user.FamilyID == null || user.FamilyID == 0)
             {
-                return NotFound("Utilisateur ou famille non trouvé");
+                // Retourner des stats à 0 si l'utilisateur n'a pas encore de famille
+                return Ok(new
+                {
+                    MembersCount = 0,
+                    GenerationsCount = 0,
+                    PhotosCount = 0,
+                    EventsCount = 0,
+                    MarriagesCount = 0
+                });
             }
             
             var familyId = user.FamilyID.Value;
@@ -1605,6 +1468,252 @@ namespace FamilyTreeAPI.Controllers
             return placeholder;
         }
 
+        // 🆕 ENDPOINT ATOMIQUE : Créer Famille + Inscription Complète
+        [AllowAnonymous]
+        [HttpPost("create-family")]
+        public async Task<ActionResult> CreateFamily([FromBody] RegisterAndCreateFamilyRequest request)
+        {
+            // Validation email unique
+            if (await _context.Connexions.AnyAsync(c => c.Email == request.Email))
+            {
+                return BadRequest(new { message = "Cette adresse email est déjà utilisée" });
+            }
+
+            // Validation nom famille
+            if (string.IsNullOrWhiteSpace(request.FamilyName))
+            {
+                return BadRequest(new { message = "Le nom de la famille est requis" });
+            }
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            
+            try
+            {
+                // 1. CRÉER CONNEXION
+                var connexion = new Connexion
+                {
+                    Email = request.Email.ToLower().Trim(),
+                    Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                    UserName = $"{request.FirstName} {request.LastName}",
+                    Role = "Admin", // ⭐ Fondateur = Admin
+                    Level = 1,
+                    IsActive = true,
+                    EmailVerified = false,
+                    ProfileCompleted = true,
+                    CreatedDate = DateTime.UtcNow,
+                    LastLoginDate = DateTime.UtcNow
+                };
+                _context.Connexions.Add(connexion);
+                await _context.SaveChangesAsync();
+
+                // 2. CRÉER FAMILLE
+                var family = new Family
+                {
+                    FamilyName = request.FamilyName.Trim(),
+                    InviteCode = GenerateInviteCode(),
+                    CreatedDate = DateTime.UtcNow
+                };
+                _context.Families.Add(family);
+                await _context.SaveChangesAsync();
+
+                // 3. CRÉER CITY (si villes fournies)
+                int? birthCityId = null;
+                if (!string.IsNullOrWhiteSpace(request.BirthCity))
+                {
+                    var birthCity = await _context.Cities
+                        .FirstOrDefaultAsync(c => c.Name == request.BirthCity);
+                    
+                    if (birthCity == null)
+                    {
+                        birthCity = new City 
+                        { 
+                            Name = request.BirthCity,
+                            CountryName = request.BirthCountry ?? "Unknown"
+                        };
+                        _context.Cities.Add(birthCity);
+                        await _context.SaveChangesAsync();
+                    }
+                    birthCityId = birthCity.CityID;
+                }
+                else
+                {
+                    // Ville par défaut si non fournie
+                    var defaultCity = await _context.Cities.FirstOrDefaultAsync();
+                    birthCityId = defaultCity?.CityID ?? 1;
+                }
+
+                // 4. CRÉER PERSON
+                var person = new Person
+                {
+                    FirstName = request.FirstName.Trim(),
+                    LastName = request.LastName.Trim(),
+                    Sex = request.Sex,
+                    Birthday = request.BirthDate,
+                    Activity = request.Activity?.Trim(),
+                    Email = request.Email.ToLower().Trim(),
+                    FamilyID = family.FamilyID,
+                    CityID = birthCityId ?? 1,
+                    Alive = true,
+                    Notes = $"Résidence: {request.ResidenceCity}, {request.ResidenceCountry}\nTéléphone: {request.Phone}"
+                };
+                _context.Persons.Add(person);
+                await _context.SaveChangesAsync();
+
+                // 5. LIER CONNEXION → PERSON → FAMILY
+                connexion.IDPerson = person.PersonID;
+                connexion.FamilyID = family.FamilyID;
+                await _context.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+
+                // 6. GÉNÉRER TOKEN FINAL
+                var token = GenerateJwtToken(connexion);
+
+                Console.WriteLine($"✅ Nouvelle famille créée: {family.FamilyName} (Code: {family.InviteCode})");
+                Console.WriteLine($"✅ Admin: {person.FirstName} {person.LastName} (PersonID: {person.PersonID})");
+
+                return Ok(new
+                {
+                    token,
+                    user = new
+                    {
+                        id = connexion.ConnexionID,
+                        email = connexion.Email,
+                        personId = person.PersonID,
+                        familyId = family.FamilyID,
+                        familyName = family.FamilyName,
+                        inviteCode = family.InviteCode,
+                        role = "Admin"
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                Console.WriteLine($"❌ Erreur création famille: {ex.Message}");
+                return StatusCode(500, new { message = "Erreur lors de la création de la famille", error = ex.Message });
+            }
+        }
+
+        // 🆕 ENDPOINT ATOMIQUE : Rejoindre Famille + Inscription Complète
+        [AllowAnonymous]
+        [HttpPost("join-family")]
+        public async Task<ActionResult> JoinFamily([FromBody] RegisterAndJoinFamilyRequest request)
+        {
+            // Validation email unique
+            if (await _context.Connexions.AnyAsync(c => c.Email == request.Email))
+            {
+                return BadRequest(new { message = "Cette adresse email est déjà utilisée" });
+            }
+
+            // Validation code invitation
+            var family = await _context.Families
+                .FirstOrDefaultAsync(f => f.InviteCode == request.InviteCode.ToUpper().Trim());
+            
+            if (family == null)
+            {
+                return BadRequest(new { message = "Code d'invitation invalide" });
+            }
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            
+            try
+            {
+                // 1. CRÉER CONNEXION
+                var connexion = new Connexion
+                {
+                    Email = request.Email.ToLower().Trim(),
+                    Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                    UserName = $"{request.FirstName} {request.LastName}",
+                    Role = "Member", // ⭐ Membre (pas admin)
+                    Level = 1,
+                    IsActive = true,
+                    EmailVerified = false,
+                    ProfileCompleted = true,
+                    CreatedDate = DateTime.UtcNow,
+                    LastLoginDate = DateTime.UtcNow
+                };
+                _context.Connexions.Add(connexion);
+                await _context.SaveChangesAsync();
+
+                // 2. CRÉER CITY (si villes fournies)
+                int? birthCityId = null;
+                if (!string.IsNullOrWhiteSpace(request.BirthCity))
+                {
+                    var birthCity = await _context.Cities
+                        .FirstOrDefaultAsync(c => c.Name == request.BirthCity);
+                    
+                    if (birthCity == null)
+                    {
+                        birthCity = new City 
+                        { 
+                            Name = request.BirthCity,
+                            CountryName = request.BirthCountry ?? "Unknown"
+                        };
+                        _context.Cities.Add(birthCity);
+                        await _context.SaveChangesAsync();
+                    }
+                    birthCityId = birthCity.CityID;
+                }
+                else
+                {
+                    // Ville par défaut
+                    var defaultCity = await _context.Cities.FirstOrDefaultAsync();
+                    birthCityId = defaultCity?.CityID ?? 1;
+                }
+
+                // 3. CRÉER PERSON
+                var person = new Person
+                {
+                    FirstName = request.FirstName.Trim(),
+                    LastName = request.LastName.Trim(),
+                    Sex = request.Sex,
+                    Birthday = request.BirthDate,
+                    Activity = request.Activity?.Trim(),
+                    Email = request.Email.ToLower().Trim(),
+                    FamilyID = family.FamilyID,
+                    CityID = birthCityId ?? 1,
+                    Alive = true,
+                    Notes = $"Résidence: {request.ResidenceCity}, {request.ResidenceCountry}\nTéléphone: {request.Phone}"
+                };
+                _context.Persons.Add(person);
+                await _context.SaveChangesAsync();
+
+                // 4. LIER CONNEXION → PERSON → FAMILY
+                connexion.IDPerson = person.PersonID;
+                connexion.FamilyID = family.FamilyID;
+                await _context.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+
+                // 5. GÉNÉRER TOKEN FINAL
+                var token = GenerateJwtToken(connexion);
+
+                Console.WriteLine($"✅ Nouveau membre rejoint: {family.FamilyName}");
+                Console.WriteLine($"✅ Membre: {person.FirstName} {person.LastName} (PersonID: {person.PersonID})");
+
+                return Ok(new
+                {
+                    token,
+                    user = new
+                    {
+                        id = connexion.ConnexionID,
+                        email = connexion.Email,
+                        personId = person.PersonID,
+                        familyId = family.FamilyID,
+                        familyName = family.FamilyName,
+                        role = "Member"
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                Console.WriteLine($"❌ Erreur rejoindre famille: {ex.Message}");
+                return StatusCode(500, new { message = "Erreur lors de l'inscription à la famille", error = ex.Message });
+            }
+        }
+
         private string GenerateJwtToken(Connexion user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -1744,25 +1853,53 @@ namespace FamilyTreeAPI.Controllers
     
     public class RegisterAndCreateFamilyRequest
     {
+        // Authentification
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+        
+        // Identité
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
-        public string FamilyName { get; set; } = string.Empty;
         public string Sex { get; set; } = "M";
-        public DateTime? Birthday { get; set; }
+        public DateTime? BirthDate { get; set; }
+        
+        // Lieux
+        public string? BirthCountry { get; set; }
+        public string? BirthCity { get; set; }
+        public string? ResidenceCountry { get; set; }
+        public string? ResidenceCity { get; set; }
+        
+        // Contact & Profession
         public string? Activity { get; set; }
+        public string? Phone { get; set; }
+        
+        // Famille
+        public string FamilyName { get; set; } = string.Empty;
     }
     
     public class RegisterAndJoinFamilyRequest
     {
+        // Authentification
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+        
+        // Identité
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
-        public string InviteCode { get; set; } = string.Empty;
         public string Sex { get; set; } = "M";
-        public DateTime? Birthday { get; set; }
+        public DateTime? BirthDate { get; set; }
+        
+        // Lieux
+        public string? BirthCountry { get; set; }
+        public string? BirthCity { get; set; }
+        public string? ResidenceCountry { get; set; }
+        public string? ResidenceCity { get; set; }
+        
+        // Contact & Profession
         public string? Activity { get; set; }
+        public string? Phone { get; set; }
+        
+        // Famille
+        public string InviteCode { get; set; } = string.Empty;
     }
 }
