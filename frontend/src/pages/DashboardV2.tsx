@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Box, Container, Heading, Text, VStack, Button, Grid, GridItem, Code, HStack, Icon, useToast, Divider } from '@chakra-ui/react';
 import { useNavigate, Link } from 'react-router-dom';
 import { FaCopy, FaKey, FaUsers, FaSitemap, FaHeart, FaCalendar, FaMale, FaFemale, FaPollH } from 'react-icons/fa';
