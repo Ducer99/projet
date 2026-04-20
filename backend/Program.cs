@@ -1,7 +1,6 @@
 using FamilyTreeAPI.Data;
 using FamilyTreeAPI.Services;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -21,16 +20,12 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Rate limiting — désactivé en Test (les tests partagent le même serveur)
-var isTestEnv = builder.Environment.IsEnvironment("Test");
-
 // Rate limiting — 10 tentatives / minute sur les routes d'authentification
 builder.Services.AddRateLimiter(options =>
 {
     options.AddFixedWindowLimiter("auth", limiterOptions =>
     {
-        // En Test : limite très haute pour ne pas bloquer les tests
-        limiterOptions.PermitLimit = isTestEnv ? 10000 : 10;
+        limiterOptions.PermitLimit = 10;
         limiterOptions.Window = TimeSpan.FromMinutes(1);
         limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
         limiterOptions.QueueLimit = 0;
@@ -53,19 +48,10 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 // Register PollAudienceService
 builder.Services.AddScoped<PollAudienceService>();
 
-// Database configuration — InMemory pour les tests, Npgsql sinon
-if (builder.Environment.IsEnvironment("Test"))
-{
-    builder.Services.AddDbContext<FamilyTreeContext>(options =>
-        options.UseInMemoryDatabase("FamilyTreeTestDb")
-               .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning)));
-}
-else
-{
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-    builder.Services.AddDbContext<FamilyTreeContext>(options =>
-        options.UseNpgsql(connectionString));
-}
+// Database configuration
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<FamilyTreeContext>(options =>
+    options.UseNpgsql(connectionString));
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"];
