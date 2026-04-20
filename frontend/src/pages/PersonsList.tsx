@@ -226,7 +226,7 @@ const PersonsList = () => {
   }
 
   return (
-    <Box minH="100vh" bg="var(--bg-primary)">
+    <Box minH="100vh" bg="transparent">
       {/* Header avec palette émotionnelle */}
       <Box
         background="var(--gradient-beige)"

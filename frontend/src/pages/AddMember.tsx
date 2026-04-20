@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Box,
   Container,
   VStack,
   Heading,
@@ -9,17 +10,18 @@ import {
   Select,
   Button,
   useToast,
-  Card,
-  CardBody,
   HStack,
   Text,
   Icon,
-  Alert,
-  AlertIcon,
-  AlertDescription
+  Flex,
+  SimpleGrid,
+  Divider,
+  Badge,
+  Textarea,
+  Switch,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
-import { FaUserPlus } from 'react-icons/fa';
+import { FaUserPlus, FaMale, FaFemale, FaTimes } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 
@@ -37,42 +39,41 @@ export default function AddMember() {
     deathDate: '',
     fatherID: null as number | null,
     motherID: null as number | null,
-    cityID: 0
+    cityID: 0,
   });
-  
-  // États pour la saisie manuelle des parents
-  const [fatherMode, setFatherMode] = useState<'select' | 'manual'>('manual');
-  const [motherMode, setMotherMode] = useState<'select' | 'manual'>('manual');
+
   const [fatherFirstName, setFatherFirstName] = useState('');
   const [fatherLastName, setFatherLastName] = useState('');
   const [motherFirstName, setMotherFirstName] = useState('');
   const [motherLastName, setMotherLastName] = useState('');
-  
+
   const [saving, setSaving] = useState(false);
   const toast = useToast();
   const navigate = useNavigate();
   const { t } = useTranslation();
 
+  const set = (field: string, value: any) => setFormData(prev => ({ ...prev, [field]: value }));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      toast({ title: 'Prénom et nom obligatoires', status: 'error', duration: 3000, position: 'top' });
+      return;
+    }
     setSaving(true);
-
     try {
       const personData: any = {
         ...formData,
         birthday: formData.birthday ? new Date(formData.birthday).toISOString() : null,
         deathDate: formData.deathDate ? new Date(formData.deathDate).toISOString() : null,
-        cityID: formData.cityID || 1 // Par défaut ville ID 1
+        cityID: formData.cityID || 1,
       };
-
-      // Gestion des parents selon le mode
-      if (fatherMode === 'manual' && (fatherFirstName || fatherLastName)) {
+      if (fatherFirstName || fatherLastName) {
         personData.fatherFirstName = fatherFirstName;
         personData.fatherLastName = fatherLastName;
         delete personData.fatherID;
       }
-      
-      if (motherMode === 'manual' && (motherFirstName || motherLastName)) {
+      if (motherFirstName || motherLastName) {
         personData.motherFirstName = motherFirstName;
         personData.motherLastName = motherLastName;
         delete personData.motherID;
@@ -81,363 +82,252 @@ export default function AddMember() {
       await api.post('/persons', personData);
 
       toast({
-        title: t('addMemberForm.successTitle'),
-        description: t('addMemberForm.successMessage', { 
-          firstName: formData.firstName, 
-          lastName: formData.lastName 
-        }),
+        title: `${formData.firstName} ${formData.lastName} ajouté !`,
         status: 'success',
         duration: 3000,
+        position: 'top',
       });
-
       navigate('/persons');
     } catch (error: any) {
-      console.error('Erreur lors de l\'ajout:', error);
       toast({
         title: t('addMemberForm.errorTitle'),
         description: error.response?.data?.message || t('addMemberForm.errorMessage'),
         status: 'error',
-        duration: 3000,
+        duration: 4000,
+        position: 'top',
       });
     } finally {
       setSaving(false);
     }
   };
 
+  const inputStyle = {
+    h: '44px',
+    borderRadius: '8px',
+    borderColor: 'gray.200',
+    bg: 'gray.50',
+    _hover: { borderColor: 'purple.300', bg: 'white' },
+    _focus: { borderColor: 'purple.500', bg: 'white', boxShadow: '0 0 0 1px var(--chakra-colors-purple-500)' },
+  };
+
   return (
-    <Container maxW="container.lg" py={8}>
-      <VStack spacing={6} align="stretch">
-        {/* En-tête */}
-        <HStack spacing={3}>
-          <Icon as={FaUserPlus} boxSize={8} color="green.500" />
-          <Heading size="lg" color="gray.800">
-            {t('addMemberForm.title')}
-          </Heading>
-        </HStack>
+    <Box minH="100vh" bg="transparent">
+      {/* Header gradient */}
+      <Box bgGradient="linear(to-r, purple.900, purple.700)" px={6} py={8}>
+        <Container maxW="container.md">
+          <HStack spacing={4}>
+            <Flex
+              w="56px" h="56px"
+              borderRadius="xl"
+              bg="whiteAlpha.200"
+              align="center"
+              justify="center"
+            >
+              <Icon as={FaUserPlus} color="white" fontSize="24px" />
+            </Flex>
+            <Box>
+              <Heading color="white" size="lg">{t('addMemberForm.title')}</Heading>
+              <Text color="whiteAlpha.800" fontSize="sm" mt={1}>
+                {t('addMemberForm.subtitle')}
+              </Text>
+            </Box>
+          </HStack>
+        </Container>
+      </Box>
 
-        <Text color="gray.600" fontSize="lg">
-          {t('addMemberForm.subtitle')}
-        </Text>
+      <Container maxW="container.md" py={8}>
+        <form onSubmit={handleSubmit}>
+          <VStack spacing={6} align="stretch">
 
-        {/* Alerte de clarification */}
-        <Alert 
-          status="info" 
-          variant="left-accent"
-          borderRadius="lg"
-          bg="blue.50"
-          borderColor="blue.300"
-        >
-          <AlertIcon />
-          <AlertDescription fontSize="sm">
-            <Text fontWeight="bold" mb={1}>{t('addMemberForm.infoTitle')}</Text>
-            <Text>
-              {t('addMemberForm.infoDescription')}
-            </Text>
-          </AlertDescription>
-        </Alert>
-
-        {/* Formulaire */}
-        <Card>
-          <CardBody>
-            <form onSubmit={handleSubmit}>
-              <VStack spacing={4}>
-                <Heading size="md" color="gray.700" alignSelf="flex-start">
-                  {t('addMemberForm.personalInfo')}
-                </Heading>
-
-                <HStack spacing={4} w="full">
-                  <FormControl isRequired>
-                    <FormLabel>{t('addMemberForm.firstName')}</FormLabel>
-                    <Input
-                      value={formData.firstName}
-                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    />
-                  </FormControl>
-
-                  <FormControl isRequired>
-                    <FormLabel>{t('addMemberForm.lastName')}</FormLabel>
-                    <Input
-                      value={formData.lastName}
-                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    />
-                  </FormControl>
+            {/* Informations personnelles */}
+            <Box bg="white" borderRadius="xl" shadow="card" border="1px solid" borderColor="purple.50" overflow="hidden">
+              <Box px={6} py={4} borderBottomWidth={1} borderColor="gray.100">
+                <HStack>
+                  <Badge colorScheme="purple" borderRadius="full" px={3} py={1}>1</Badge>
+                  <Text fontWeight="bold" color="gray.700">Informations personnelles</Text>
                 </HStack>
+              </Box>
+              <Box px={6} py={6}>
+                <VStack spacing={5}>
+                  <SimpleGrid columns={2} spacing={4} w="100%">
+                    <FormControl isRequired>
+                      <FormLabel fontSize="sm" color="gray.600" fontWeight="medium">{t('addMemberForm.firstName')}</FormLabel>
+                      <Input {...inputStyle} value={formData.firstName} onChange={(e) => set('firstName', e.target.value)} placeholder="Prénom" />
+                    </FormControl>
+                    <FormControl isRequired>
+                      <FormLabel fontSize="sm" color="gray.600" fontWeight="medium">{t('addMemberForm.lastName')}</FormLabel>
+                      <Input {...inputStyle} value={formData.lastName} onChange={(e) => set('lastName', e.target.value)} placeholder="Nom de famille" />
+                    </FormControl>
+                  </SimpleGrid>
 
-                <HStack spacing={4} w="full">
-                  <FormControl isRequired>
-                    <FormLabel>{t('addMemberForm.sex')}</FormLabel>
-                    <Select
-                      value={formData.sex}
-                      onChange={(e) => setFormData({ ...formData, sex: e.target.value })}
-                    >
-                      <option value="M">{t('addMemberForm.male')}</option>
-                      <option value="F">{t('addMemberForm.female')}</option>
-                    </Select>
-                  </FormControl>
+                  <SimpleGrid columns={2} spacing={4} w="100%">
+                    <FormControl isRequired>
+                      <FormLabel fontSize="sm" color="gray.600" fontWeight="medium">{t('addMemberForm.sex')}</FormLabel>
+                      <Select {...inputStyle} value={formData.sex} onChange={(e) => set('sex', e.target.value)}>
+                        <option value="M">Homme</option>
+                        <option value="F">Femme</option>
+                      </Select>
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel fontSize="sm" color="gray.600" fontWeight="medium">{t('addMemberForm.birthday')}</FormLabel>
+                      <Input {...inputStyle} type="date" value={formData.birthday} onChange={(e) => set('birthday', e.target.value)} />
+                    </FormControl>
+                  </SimpleGrid>
+
+                  <SimpleGrid columns={2} spacing={4} w="100%">
+                    <FormControl>
+                      <FormLabel fontSize="sm" color="gray.600" fontWeight="medium">{t('addMemberForm.email')}</FormLabel>
+                      <Input {...inputStyle} type="email" value={formData.email} onChange={(e) => set('email', e.target.value)} placeholder="email@exemple.com" />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel fontSize="sm" color="gray.600" fontWeight="medium">{t('addMemberForm.activity')}</FormLabel>
+                      <Input {...inputStyle} value={formData.activity} onChange={(e) => set('activity', e.target.value)} placeholder="Profession, activité..." />
+                    </FormControl>
+                  </SimpleGrid>
 
                   <FormControl>
-                    <FormLabel>{t('addMemberForm.birthday')}</FormLabel>
-                    <Input
-                      type="date"
-                      value={formData.birthday}
-                      onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
+                    <FormLabel fontSize="sm" color="gray.600" fontWeight="medium">{t('addMemberForm.notes')}</FormLabel>
+                    <Textarea
+                      value={formData.notes}
+                      onChange={(e) => set('notes', e.target.value)}
+                      placeholder="Notes, biographie courte..."
+                      rows={3}
+                      borderRadius="8px"
+                      borderColor="gray.200"
+                      bg="gray.50"
+                      _hover={{ borderColor: 'purple.300', bg: 'white' }}
+                      _focus={{ borderColor: 'purple.500', bg: 'white', boxShadow: '0 0 0 1px var(--chakra-colors-purple-500)' }}
                     />
                   </FormControl>
+                </VStack>
+              </Box>
+            </Box>
+
+            {/* Parents */}
+            <Box bg="white" borderRadius="xl" shadow="card" border="1px solid" borderColor="purple.50" overflow="hidden">
+              <Box px={6} py={4} borderBottomWidth={1} borderColor="gray.100">
+                <HStack>
+                  <Badge colorScheme="purple" borderRadius="full" px={3} py={1}>2</Badge>
+                  <Text fontWeight="bold" color="gray.700">Parents (optionnel)</Text>
                 </HStack>
+              </Box>
+              <Box px={6} py={6}>
+                <VStack spacing={5}>
+                  {/* Père */}
+                  <Box w="100%" p={4} bg="blue.50" borderRadius="lg" borderWidth={1} borderColor="blue.100">
+                    <HStack mb={3}>
+                      <Icon as={FaMale} color="blue.500" />
+                      <Text fontWeight="semibold" color="blue.700" fontSize="sm">Père</Text>
+                    </HStack>
+                    <SimpleGrid columns={2} spacing={3}>
+                      <FormControl>
+                        <FormLabel fontSize="xs" color="gray.500">Prénom</FormLabel>
+                        <Input size="sm" bg="white" borderRadius="6px" value={fatherFirstName} onChange={(e) => setFatherFirstName(e.target.value)} placeholder="Prénom du père" />
+                      </FormControl>
+                      <FormControl>
+                        <FormLabel fontSize="xs" color="gray.500">Nom</FormLabel>
+                        <Input size="sm" bg="white" borderRadius="6px" value={fatherLastName} onChange={(e) => setFatherLastName(e.target.value)} placeholder="Nom du père" />
+                      </FormControl>
+                    </SimpleGrid>
+                    <Text fontSize="xs" color="blue.500" mt={2}>Un placeholder sera créé s'il n'existe pas encore dans l'arbre.</Text>
+                  </Box>
 
-                <FormControl>
-                  <FormLabel>{t('addMemberForm.email')}</FormLabel>
-                  <Input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
-                </FormControl>
+                  {/* Mère */}
+                  <Box w="100%" p={4} bg="pink.50" borderRadius="lg" borderWidth={1} borderColor="pink.100">
+                    <HStack mb={3}>
+                      <Icon as={FaFemale} color="pink.500" />
+                      <Text fontWeight="semibold" color="pink.700" fontSize="sm">Mère</Text>
+                    </HStack>
+                    <SimpleGrid columns={2} spacing={3}>
+                      <FormControl>
+                        <FormLabel fontSize="xs" color="gray.500">Prénom</FormLabel>
+                        <Input size="sm" bg="white" borderRadius="6px" value={motherFirstName} onChange={(e) => setMotherFirstName(e.target.value)} placeholder="Prénom de la mère" />
+                      </FormControl>
+                      <FormControl>
+                        <FormLabel fontSize="xs" color="gray.500">Nom</FormLabel>
+                        <Input size="sm" bg="white" borderRadius="6px" value={motherLastName} onChange={(e) => setMotherLastName(e.target.value)} placeholder="Nom de la mère" />
+                      </FormControl>
+                    </SimpleGrid>
+                    <Text fontSize="xs" color="pink.500" mt={2}>Un placeholder sera créé s'il n'existe pas encore dans l'arbre.</Text>
+                  </Box>
+                </VStack>
+              </Box>
+            </Box>
 
-                <FormControl>
-                  <FormLabel>{t('addMemberForm.activity')}</FormLabel>
-                  <Input
-                    value={formData.activity}
-                    onChange={(e) => setFormData({ ...formData, activity: e.target.value })}
-                  />
-                </FormControl>
-
-                <FormControl>
-                  <FormLabel>{t('addMemberForm.photoUrl')}</FormLabel>
-                  <Input
-                    value={formData.photoUrl}
-                    onChange={(e) => setFormData({ ...formData, photoUrl: e.target.value })}
-                  />
-                </FormControl>
-
-                <FormControl>
-                  <FormLabel>{t('addMemberForm.notes')}</FormLabel>
-                  <Input
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  />
-                </FormControl>
-
-                {/* Section Parents */}
-                <Heading size="md" color="gray.700" alignSelf="flex-start" pt={4}>
-                  {t('editMember.parentsSection')}
-                </Heading>
-
-                {/* Père */}
-                <Card bg="blue.50" borderColor="blue.200" borderWidth={1}>
-                  <CardBody>
-                    <VStack spacing={3} align="stretch">
-                      <HStack justify="space-between">
-                        <Text fontWeight="bold" color="blue.700">
-                          👨 {t('editMember.father')}
-                        </Text>
-                        <HStack spacing={2}>
-                          <Button
-                            size="sm"
-                            variant={fatherMode === 'select' ? 'solid' : 'outline'}
-                            colorScheme="blue"
-                            onClick={() => setFatherMode('select')}
-                          >
-                            {t('editMember.selectFromList')}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant={fatherMode === 'manual' ? 'solid' : 'outline'}
-                            colorScheme="blue"
-                            onClick={() => setFatherMode('manual')}
-                          >
-                            {t('editMember.enterManually')}
-                          </Button>
-                        </HStack>
-                      </HStack>
-
-                      {fatherMode === 'select' ? (
-                        <FormControl>
-                          <Select
-                            value={formData.fatherID || ''}
-                            onChange={(e) => setFormData({ 
-                              ...formData, 
-                              fatherID: e.target.value ? parseInt(e.target.value) : null 
-                            })}
-                          >
-                            {/* Liste des pères potentiels - à implémenter si nécessaire */}
-                          </Select>
-                        </FormControl>
-                      ) : (
-                        <VStack spacing={3}>
-                          <HStack spacing={3} w="full">
-                            <FormControl>
-                              <FormLabel fontSize="sm">{t('editMember.firstName')}</FormLabel>
-                              <Input
-                                value={fatherFirstName}
-                                onChange={(e) => setFatherFirstName(e.target.value)}
-                                bg="white"
-                              />
-                            </FormControl>
-                            <FormControl>
-                              <FormLabel fontSize="sm">{t('editMember.lastName')}</FormLabel>
-                              <Input
-                                value={fatherLastName}
-                                onChange={(e) => setFatherLastName(e.target.value)}
-                                bg="white"
-                              />
-                            </FormControl>
-                          </HStack>
-                          <Text fontSize="xs" color="blue.600">
-                            ℹ️ {t('editMember.placeholderWillBeCreated')}
-                          </Text>
-                        </VStack>
-                      )}
-                    </VStack>
-                  </CardBody>
-                </Card>
-
-                {/* Mère */}
-                <Card bg="pink.50" borderColor="pink.200" borderWidth={1}>
-                  <CardBody>
-                    <VStack spacing={3} align="stretch">
-                      <HStack justify="space-between">
-                        <Text fontWeight="bold" color="pink.700">
-                          👩 {t('editMember.mother')}
-                        </Text>
-                        <HStack spacing={2}>
-                          <Button
-                            size="sm"
-                            variant={motherMode === 'select' ? 'solid' : 'outline'}
-                            colorScheme="pink"
-                            onClick={() => setMotherMode('select')}
-                          >
-                            {t('editMember.selectFromList')}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant={motherMode === 'manual' ? 'solid' : 'outline'}
-                            colorScheme="pink"
-                            onClick={() => setMotherMode('manual')}
-                          >
-                            {t('editMember.enterManually')}
-                          </Button>
-                        </HStack>
-                      </HStack>
-
-                      {motherMode === 'select' ? (
-                        <FormControl>
-                          <Select
-                            value={formData.motherID || ''}
-                            onChange={(e) => setFormData({ 
-                              ...formData, 
-                              motherID: e.target.value ? parseInt(e.target.value) : null 
-                            })}
-                          >
-                            {/* Liste des mères potentielles - à implémenter si nécessaire */}
-                          </Select>
-                        </FormControl>
-                      ) : (
-                        <VStack spacing={3}>
-                          <HStack spacing={3} w="full">
-                            <FormControl>
-                              <FormLabel fontSize="sm">{t('editMember.firstName')}</FormLabel>
-                              <Input
-                                value={motherFirstName}
-                                onChange={(e) => setMotherFirstName(e.target.value)}
-                                bg="white"
-                              />
-                            </FormControl>
-                            <FormControl>
-                              <FormLabel fontSize="sm">{t('editMember.lastName')}</FormLabel>
-                              <Input
-                                value={motherLastName}
-                                onChange={(e) => setMotherLastName(e.target.value)}
-                                bg="white"
-                              />
-                            </FormControl>
-                          </HStack>
-                          <Text fontSize="xs" color="pink.600">
-                            ℹ️ {t('editMember.placeholderWillBeCreated')}
-                          </Text>
-                        </VStack>
-                      )}
-                    </VStack>
-                  </CardBody>
-                </Card>
-
-                <FormControl display="flex" alignItems="center">
-                  <FormLabel mb="0">{t('addMemberForm.alive')}</FormLabel>
-                  <Select
-                    value={formData.alive ? 'true' : 'false'}
-                    onChange={(e) => setFormData({ ...formData, alive: e.target.value === 'true' })}
-                    w="auto"
-                  >
-                    <option value="true">{t('addMemberForm.aliveYes')}</option>
-                    <option value="false">{t('addMemberForm.aliveNo')}</option>
-                  </Select>
-                </FormControl>
-
-                {/* 🕊️ Message explicatif selon le statut */}
-                {formData.alive ? (
-                  <Alert 
-                    status="info" 
-                    variant="left-accent"
-                    borderRadius="md"
-                    bg="blue.50"
-                  >
-                    <AlertIcon />
-                    <AlertDescription fontSize="sm">
-                      {t('addMemberForm.aliveInfo') || 
-                        '✅ Cette personne pourra s\'inscrire et réclamer son profil plus tard.'}
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <Alert 
-                    status="warning" 
-                    variant="left-accent"
-                    borderRadius="md"
-                    bg="orange.50"
-                  >
-                    <AlertIcon />
-                    <AlertDescription fontSize="sm">
-                      {t('addMemberForm.deceasedInfo') || 
-                        '🕊️ Un profil commémoratif sera créé. Cette personne ne pourra pas s\'inscrire.'}
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {!formData.alive && (
-                  <FormControl>
-                    <FormLabel>{t('addMemberForm.deathDate')}</FormLabel>
-                    <Input
-                      type="date"
-                      value={formData.deathDate}
-                      onChange={(e) => setFormData({ ...formData, deathDate: e.target.value })}
+            {/* Statut */}
+            <Box bg="white" borderRadius="xl" shadow="card" border="1px solid" borderColor="purple.50" overflow="hidden">
+              <Box px={6} py={4} borderBottomWidth={1} borderColor="gray.100">
+                <HStack>
+                  <Badge colorScheme="purple" borderRadius="full" px={3} py={1}>3</Badge>
+                  <Text fontWeight="bold" color="gray.700">Statut vital</Text>
+                </HStack>
+              </Box>
+              <Box px={6} py={6}>
+                <VStack spacing={4} align="stretch">
+                  <HStack justify="space-between" p={4} bg={formData.alive ? 'green.50' : 'orange.50'} borderRadius="lg">
+                    <Box>
+                      <Text fontWeight="semibold" fontSize="sm" color={formData.alive ? 'green.700' : 'orange.700'}>
+                        {formData.alive ? 'En vie' : 'Décédé(e)'}
+                      </Text>
+                      <Text fontSize="xs" color="gray.500" mt={0.5}>
+                        {formData.alive
+                          ? 'Cette personne pourra réclamer son profil plus tard.'
+                          : 'Un profil commémoratif sera créé.'}
+                      </Text>
+                    </Box>
+                    <Switch
+                      isChecked={formData.alive}
+                      onChange={(e) => set('alive', e.target.checked)}
+                      colorScheme="green"
+                      size="lg"
                     />
-                  </FormControl>
-                )}
+                  </HStack>
 
-                <HStack spacing={4} w="full" pt={4}>
-                  <Button
-                    variant="outline"
-                    colorScheme="gray"
-                    onClick={() => navigate('/persons')}
-                    flex={1}
-                  >
-                    {t('addMemberForm.cancel')}
-                  </Button>
-                  <Button
-                    type="submit"
-                    colorScheme="purple"
-                    isLoading={saving}
-                    loadingText={t('addMemberForm.submitting')}
-                    flex={1}
-                    leftIcon={<FaUserPlus />}
-                  >
-                    {t('addMemberForm.submit')}
-                  </Button>
-                </HStack>
-              </VStack>
-            </form>
-          </CardBody>
-        </Card>
-      </VStack>
-    </Container>
+                  {!formData.alive && (
+                    <FormControl>
+                      <FormLabel fontSize="sm" color="gray.600" fontWeight="medium">{t('addMemberForm.deathDate')}</FormLabel>
+                      <Input {...inputStyle} type="date" value={formData.deathDate} onChange={(e) => set('deathDate', e.target.value)} />
+                    </FormControl>
+                  )}
+                </VStack>
+              </Box>
+            </Box>
+
+            <Divider />
+
+            {/* Actions */}
+            <HStack spacing={4}>
+              <Button
+                flex={1}
+                variant="outline"
+                colorScheme="gray"
+                h="48px"
+                borderRadius="8px"
+                leftIcon={<Icon as={FaTimes} />}
+                onClick={() => navigate('/persons')}
+              >
+                {t('addMemberForm.cancel')}
+              </Button>
+              <Button
+                type="submit"
+                flex={2}
+                h="48px"
+                borderRadius="8px"
+                bgGradient="linear(to-r, purple.500, purple.700)"
+                color="white"
+                fontWeight="semibold"
+                leftIcon={<Icon as={FaUserPlus} />}
+                isLoading={saving}
+                loadingText="Ajout en cours..."
+                _hover={{ bgGradient: 'linear(to-r, purple.900, purple.700)', transform: 'translateY(-1px)', boxShadow: 'lg' }}
+                transition="all 0.2s"
+              >
+                {t('addMemberForm.submit')}
+              </Button>
+            </HStack>
+          </VStack>
+        </form>
+      </Container>
+    </Box>
   );
 }

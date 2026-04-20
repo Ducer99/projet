@@ -20,7 +20,7 @@ import {
 import { FaUsers, FaPlus, FaKey, FaArrowRight } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
+import api from '../services/api';
 
 const JoinOrCreateFamily: React.FC = () => {
   const { t } = useTranslation();
@@ -31,9 +31,6 @@ const JoinOrCreateFamily: React.FC = () => {
   const [familyName, setFamilyName] = useState('');
   const [invitationCode, setInvitationCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  // Récupérer le token depuis localStorage
-  const token = localStorage.getItem('token');
 
   const handleCreateFamily = async () => {
     if (!familyName.trim()) {
@@ -50,14 +47,9 @@ const JoinOrCreateFamily: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(
-        'http://localhost:5000/api/families/create',
-        { familyName: familyName.trim() },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      const response = await api.post(
+        '/families/create',
+        { familyName: familyName.trim() }
       );
 
       toast({
@@ -69,9 +61,13 @@ const JoinOrCreateFamily: React.FC = () => {
       });
 
       // Mettre à jour le localStorage avec la nouvelle familyID
-      const userData = JSON.parse(localStorage.getItem('user') || '{}');
-      userData.FamilyID = response.data.familyID;
-      localStorage.setItem('user', JSON.stringify(userData));
+      try {
+        const userData = JSON.parse(localStorage.getItem('user') || '{}');
+        userData.FamilyID = response.data.familyID;
+        localStorage.setItem('user', JSON.stringify(userData));
+      } catch {
+        localStorage.removeItem('user');
+      }
 
       // Rediriger vers le dashboard
       setTimeout(() => {
@@ -105,14 +101,9 @@ const JoinOrCreateFamily: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(
-        'http://localhost:5000/api/families/join',
-        { invitationCode: invitationCode.trim() },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      const response = await api.post(
+        '/families/join',
+        { invitationCode: invitationCode.trim() }
       );
 
       toast({
@@ -124,10 +115,14 @@ const JoinOrCreateFamily: React.FC = () => {
       });
 
       // Mettre à jour le localStorage avec la nouvelle familyID
-      const userData = JSON.parse(localStorage.getItem('user') || '{}');
-      userData.FamilyID = response.data.familyID;
-      userData.FamilyName = response.data.familyName;
-      localStorage.setItem('user', JSON.stringify(userData));
+      try {
+        const userData = JSON.parse(localStorage.getItem('user') || '{}');
+        userData.FamilyID = response.data.familyID;
+        userData.FamilyName = response.data.familyName;
+        localStorage.setItem('user', JSON.stringify(userData));
+      } catch {
+        localStorage.removeItem('user');
+      }
 
       // Rediriger vers le dashboard
       setTimeout(() => {
@@ -153,13 +148,13 @@ const JoinOrCreateFamily: React.FC = () => {
   };
 
   return (
-    <Box minH="100vh" bg="gray.50">
+    <Box minH="100vh" bg="transparent">
       <Container maxW="container.md" py={20}>
         <VStack spacing={8} align="stretch">
           {/* Header */}
           <VStack spacing={3} textAlign="center">
-            <Icon as={FaUsers} boxSize={16} color="primary.500" />
-            <Heading size="2xl" bgGradient="linear(to-r, primary.500, secondary.500)" bgClip="text">
+            <Icon as={FaUsers} boxSize={16} color="purple.600" />
+            <Heading size="2xl" bgGradient="linear(to-r, purple.600, purple.500)" bgClip="text">
               Bienvenue ! 🎉
             </Heading>
             <Text fontSize="lg" color="gray.600" maxW="500px">
@@ -178,14 +173,14 @@ const JoinOrCreateFamily: React.FC = () => {
                 _hover={{
                   transform: 'translateY(-4px)',
                   shadow: 'xl',
-                  borderColor: 'secondary.500',
+                  borderColor: 'purple.500',
                 }}
                 borderWidth={2}
                 borderColor="transparent"
               >
                 <CardBody>
                   <Flex align="center" gap={4}>
-                    <Icon as={FaKey} boxSize={10} color="secondary.500" />
+                    <Icon as={FaKey} boxSize={10} color="purple.500" />
                     <Box flex="1">
                       <Heading size="md" mb={2}>
                         💌 J'ai un code d'invitation
@@ -194,7 +189,7 @@ const JoinOrCreateFamily: React.FC = () => {
                         Un membre de votre famille vous a envoyé un lien ou un code ? Collez-le ici pour les rejoindre.
                       </Text>
                     </Box>
-                    <Icon as={FaArrowRight} color="secondary.500" />
+                    <Icon as={FaArrowRight} color="purple.500" />
                   </Flex>
                 </CardBody>
               </Card>
@@ -207,14 +202,14 @@ const JoinOrCreateFamily: React.FC = () => {
                 _hover={{
                   transform: 'translateY(-4px)',
                   shadow: 'xl',
-                  borderColor: 'primary.500',
+                  borderColor: 'purple.600',
                 }}
                 borderWidth={2}
                 borderColor="transparent"
               >
                 <CardBody>
                   <Flex align="center" gap={4}>
-                    <Icon as={FaPlus} boxSize={10} color="primary.500" />
+                    <Icon as={FaPlus} boxSize={10} color="purple.600" />
                     <Box flex="1">
                       <Heading size="md" mb={2}>
                         🌳 Créer une nouvelle famille
@@ -223,7 +218,7 @@ const JoinOrCreateFamily: React.FC = () => {
                         Commencez votre propre arbre généalogique. Vous serez le premier membre et pourrez inviter d'autres personnes.
                       </Text>
                     </Box>
-                    <Icon as={FaArrowRight} color="primary.500" />
+                    <Icon as={FaArrowRight} color="purple.600" />
                   </Flex>
                 </CardBody>
               </Card>
@@ -266,10 +261,10 @@ const JoinOrCreateFamily: React.FC = () => {
                         <Button
                           flex="1"
                           size="lg"
-                          bgGradient="linear(to-r, primary.500, secondary.500)"
+                          bgGradient="linear(to-r, purple.600, purple.500)"
                           color="white"
                           _hover={{
-                            bgGradient: 'linear(to-r, primary.600, secondary.600)',
+                            bgGradient: 'linear(to-r, purple.700, purple.600)',
                             transform: 'translateY(-2px)',
                             shadow: 'lg',
                           }}
@@ -325,10 +320,10 @@ const JoinOrCreateFamily: React.FC = () => {
                         <Button
                           flex="1"
                           size="lg"
-                          bgGradient="linear(to-r, secondary.500, primary.500)"
+                          bgGradient="linear(to-r, purple.500, purple.600)"
                           color="white"
                           _hover={{
-                            bgGradient: 'linear(to-r, secondary.600, primary.600)',
+                            bgGradient: 'linear(to-r, purple.600, purple.700)',
                             transform: 'translateY(-2px)',
                             shadow: 'lg',
                           }}

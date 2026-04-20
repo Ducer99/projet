@@ -7,6 +7,9 @@ import {
   FormLabel,
   Heading,
   Input,
+  InputGroup,
+  InputRightElement,
+  IconButton,
   Radio,
   RadioGroup,
   Stack,
@@ -23,7 +26,7 @@ import {
   AlertDescription,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
-import { FaHome, FaKey, FaUsers } from 'react-icons/fa';
+import { FaHome, FaKey, FaUsers, FaEye, FaEyeSlash } from 'react-icons/fa';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -52,6 +55,8 @@ interface JoinFamilyData {
 const FamilySetup = () => {
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [loading, setLoading] = useState(false);
+  const [showCreatePassword, setShowCreatePassword] = useState(false);
+  const [showJoinPassword, setShowJoinPassword] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const navigate = useNavigate();
@@ -207,7 +212,7 @@ const FamilySetup = () => {
   }
 
   return (
-    <Box minH="100vh" bg="gray.50" py={8}>
+    <Box minH="100vh" bg="transparent" py={8}>
       <Container maxW="2xl" py={8}>
         <VStack spacing={8}>
         <Box textAlign="center">
@@ -287,11 +292,25 @@ const FamilySetup = () => {
 
                 <FormControl isRequired>
                   <FormLabel>Mot de passe</FormLabel>
-                  <Input
-                    type="password"
-                    value={createData.password}
-                    onChange={(e) => setCreateData({ ...createData, password: e.target.value })}
-                  />
+                  <InputGroup>
+                    <Input
+                      type={showCreatePassword ? 'text' : 'password'}
+                      value={createData.password}
+                      onChange={(e) => setCreateData({ ...createData, password: e.target.value })}
+                    />
+                    <InputRightElement>
+                      <IconButton
+                        aria-label={showCreatePassword ? 'Masquer' : 'Afficher'}
+                        icon={<Icon as={showCreatePassword ? FaEyeSlash : FaEye} />}
+                        variant="ghost"
+                        size="sm"
+                        color="purple.400"
+                        _hover={{ color: 'purple.600' }}
+                        onClick={() => setShowCreatePassword(v => !v)}
+                        tabIndex={-1}
+                      />
+                    </InputRightElement>
+                  </InputGroup>
                 </FormControl>
 
                 <HStack w="100%" spacing={4}>
@@ -379,11 +398,25 @@ const FamilySetup = () => {
 
                 <FormControl isRequired>
                   <FormLabel>Mot de passe</FormLabel>
-                  <Input
-                    type="password"
-                    value={joinData.password}
-                    onChange={(e) => setJoinData({ ...joinData, password: e.target.value })}
-                  />
+                  <InputGroup>
+                    <Input
+                      type={showJoinPassword ? 'text' : 'password'}
+                      value={joinData.password}
+                      onChange={(e) => setJoinData({ ...joinData, password: e.target.value })}
+                    />
+                    <InputRightElement>
+                      <IconButton
+                        aria-label={showJoinPassword ? 'Masquer' : 'Afficher'}
+                        icon={<Icon as={showJoinPassword ? FaEyeSlash : FaEye} />}
+                        variant="ghost"
+                        size="sm"
+                        color="purple.400"
+                        _hover={{ color: 'purple.600' }}
+                        onClick={() => setShowJoinPassword(v => !v)}
+                        tabIndex={-1}
+                      />
+                    </InputRightElement>
+                  </InputGroup>
                 </FormControl>
 
                 <HStack w="100%" spacing={4}>

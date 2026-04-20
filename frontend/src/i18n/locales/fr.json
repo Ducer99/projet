@@ -28,6 +28,7 @@
     "share": "Partager",
     "copy": "Copier",
     "copied": "Copié",
+    "actions": "Actions",
     "required": "Requis",
     "optional": "Optionnel",
     "home": "Accueil",
@@ -744,7 +745,8 @@
     "automaticFirstPersonSelection": "Sélection automatique de la première personne...",
     "previousPageInHistory": "Page précédente dans l'historique",
     "historyLabel": "Historique:",
-    "beginning": "Début"
+    "beginning": "Début",
+    "noDataAvailable": "Aucune donnée disponible"
   },
   
   "weddings": {
@@ -1069,6 +1071,9 @@
     "gender": "Sexe",
     "male": "Homme",
     "female": "Femme",
+    "tabGeneral": "Général",
+    "tabContact": "Contact",
+    "tabBiography": "Biographie",
     "claritySimplicity": "Clarté et simplicité (Nielsen #4)",
     "birthdate": "Date de naissance",
     "requiredField": "Champ obligatoire",

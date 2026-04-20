@@ -14,17 +14,20 @@ import {
   Icon,
   Flex,
   Divider,
-  Tooltip,
 } from '@chakra-ui/react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
-import { FaUsers, FaGoogle } from 'react-icons/fa';
+import { GoogleLogin } from '@react-oauth/google';
+import { FaUsers, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { InputGroup, InputRightElement, IconButton } from '@chakra-ui/react';
+import api from '../services/api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
   const toast = useToast();
@@ -36,7 +39,7 @@ const Login = () => {
 
     try {
       const response = await login(email, password);
-      
+
       toast({
         title: t('auth.welcomeBack'),
         description: t('auth.welcomeBackDescription'),
@@ -44,7 +47,6 @@ const Login = () => {
         duration: 3000,
       });
 
-      // 🚀 Smart Redirect Flow: Vérifier si l'utilisateur a besoin d'un Family Onboarding
       if (response?.needsFamilyOnboarding === true) {
         navigate('/family-attachment');
       } else {
@@ -62,30 +64,19 @@ const Login = () => {
     }
   };
 
-  // ⏸️ EN PAUSE - Gestion du login Google OAuth
-  /*
-  const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
-    if (!credentialResponse.credential) {
-      toast({
-        title: t('auth.error'),
-        description: 'Token Google manquant',
-        status: 'error',
-        duration: 5000,
-      });
-      return;
-    }
+  const handleGoogleSuccess = async (credentialResponse: { credential?: string }) => {
+    if (!credentialResponse.credential) return;
 
     setIsLoading(true);
-
     try {
-      // Envoyer le token Google au backend pour validation
       const response = await api.post('/auth/google', {
         token: credentialResponse.credential,
       });
 
-      // Sauvegarder le token JWT et les infos utilisateur
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+      try {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+      } catch { /* storage quota — session active en mémoire */ }
 
       toast({
         title: t('auth.welcomeBack'),
@@ -94,17 +85,14 @@ const Login = () => {
         duration: 3000,
       });
 
-      // Smart Redirect Flow
-      const needsFamilyOnboarding = response.data.needsFamilyOnboarding || false;
-      
-      if (needsFamilyOnboarding) {
+      if (response.data.needsFamilyOnboarding) {
         navigate('/family-attachment');
       } else {
         navigate('/dashboard');
       }
     } catch (error: any) {
       toast({
-        title: t('auth.error'),
+        title: 'Erreur Google',
         description: error.response?.data?.message || 'Erreur lors de la connexion Google',
         status: 'error',
         duration: 5000,
@@ -113,16 +101,6 @@ const Login = () => {
       setIsLoading(false);
     }
   };
-
-  const handleGoogleError = () => {
-    toast({
-      title: t('auth.error'),
-      description: 'Échec de la connexion Google',
-      status: 'error',
-      duration: 5000,
-    });
-  };
-  */
 
   return (
     <Flex minH="100vh" overflow="hidden">
@@ -137,14 +115,10 @@ const Login = () => {
         _before={{
           content: '""',
           position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          bgGradient: 'linear(to-br, rgba(99, 102, 241, 0.85), rgba(139, 92, 246, 0.75))',
+          top: 0, left: 0, right: 0, bottom: 0,
+          bgGradient: 'linear(to-br, rgba(76, 29, 149, 0.9), rgba(109, 40, 217, 0.8))',
         }}
       >
-        {/* Contenu sur l'image */}
         <Flex
           position="relative"
           zIndex={1}
@@ -155,15 +129,11 @@ const Login = () => {
           px={12}
           color="white"
         >
-          {/* Logo */}
           <HStack spacing={3} mb={8}>
             <Icon as={FaUsers} boxSize={12} />
-            <Heading size="2xl" fontWeight="bold">
-              Kinship Haven
-            </Heading>
+            <Heading size="2xl" fontWeight="bold">Kinship Haven</Heading>
           </HStack>
 
-          {/* Phrase d'accroche */}
           <Text
             fontSize="2xl"
             fontWeight="medium"
@@ -175,157 +145,173 @@ const Login = () => {
             Connectez-vous pour explorer votre histoire familiale
           </Text>
 
-          {/* Features */}
           <VStack spacing={4} mt={12} align="flex-start" maxW="400px">
-            <HStack spacing={3}>
-              <Box w="8px" h="8px" borderRadius="full" bg="white" />
-              <Text fontSize="md">Arbre généalogique interactif</Text>
-            </HStack>
-            <HStack spacing={3}>
-              <Box w="8px" h="8px" borderRadius="full" bg="white" />
-              <Text fontSize="md">Albums photos partagés</Text>
-            </HStack>
-            <HStack spacing={3}>
-              <Box w="8px" h="8px" borderRadius="full" bg="white" />
-              <Text fontSize="md">Événements familiaux</Text>
-            </HStack>
-            <HStack spacing={3}>
-              <Box w="8px" h="8px" borderRadius="full" bg="white" />
-              <Text fontSize="md">Collaboration en temps réel</Text>
-            </HStack>
+            {['Arbre généalogique interactif', 'Albums photos partagés', 'Événements familiaux', 'Collaboration en temps réel'].map(f => (
+              <HStack key={f} spacing={3}>
+                <Box w="8px" h="8px" borderRadius="full" bg="white" />
+                <Text fontSize="md">{f}</Text>
+              </HStack>
+            ))}
           </VStack>
         </Flex>
       </Box>
 
-      {/* Partie Droite - Formulaire (Centrage Vertical Parfait) */}
+      {/* Partie Droite - Formulaire */}
       <Flex
         flex="1"
-        bg="white"
+        bg="#F7F5FF"
         h="100vh"
         align="center"
         justify="center"
         px={{ base: 6, md: 12 }}
         overflow="hidden"
       >
-        <VStack spacing={8} w="100%" maxW="400px">
+        <Box
+          bg="white"
+          borderRadius="3xl"
+          p={{ base: 6, md: 8 }}
+          w="100%"
+          maxW="440px"
+          shadow="xl"
+          border="1px solid"
+          borderColor="purple.100"
+        >
+        <VStack spacing={6} w="100%">
           {/* En-tête */}
           <VStack spacing={2} w="100%" align="flex-start">
-            <Heading size="xl" color="gray.800" fontWeight="bold">
-              Bon retour parmi nous !
+            <HStack spacing={2} mb={1}>
+              <Icon as={FaUsers} color="purple.500" boxSize={5} />
+              <Text fontSize="xs" fontWeight="700" color="purple.500" letterSpacing="0.08em" textTransform="uppercase">
+                Family Tree
+              </Text>
+            </HStack>
+            <Heading size="xl" color="#1A162E" fontWeight="800" letterSpacing="-0.03em">
+              Bon retour parmi nous 👋
             </Heading>
-          <Text color="gray.600" fontSize="md">
-            Connectez-vous pour accéder à votre espace famille
-          </Text>
-        </VStack>
+            <Text color="purple.400" fontSize="md" fontWeight="500">
+              Connectez-vous pour accéder à votre espace famille
+            </Text>
+          </VStack>
 
-        {/* Bouton Google OAuth - Visible mais désactivé (en développement) */}
-        <Tooltip 
-          label="🚧 Connexion Google bientôt disponible" 
-          placement="top"
-          hasArrow
-          bg="purple.600"
-        >
-          <Box w="100%">
-            <Button
-              w="100%"
-              h="48px"
-              bg="white"
-              border="1px solid"
-              borderColor="gray.300"
-              color="gray.500"
-              leftIcon={<Icon as={FaGoogle} />}
-              fontSize="md"
-              fontWeight="500"
-              isDisabled={true}
-              cursor="not-allowed"
-              opacity={0.6}
-              _hover={{ bg: 'white' }}
-            >
-              Continuer avec Google
-            </Button>
+          {/* Bouton Google */}
+          <Box w="100%" display="flex" justifyContent="center">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() =>
+                toast({
+                  title: 'Échec connexion Google',
+                  status: 'error',
+                  duration: 3000,
+                })
+              }
+              theme="outline"
+              size="large"
+              text="continue_with"
+              shape="rectangular"
+              width="400"
+              locale="fr"
+            />
           </Box>
-        </Tooltip>
 
-        {/* Divider */}
-        <HStack w="100%" spacing={4}>
-          <Divider borderColor="gray.300" />
-          <Text fontSize="sm" color="gray.500" whiteSpace="nowrap">
-            ou par email
-          </Text>
-          <Divider borderColor="gray.300" />
-        </HStack>
+          {/* Divider */}
+          <HStack w="100%" spacing={4}>
+            <Divider borderColor="gray.300" />
+            <Text fontSize="sm" color="gray.500" whiteSpace="nowrap">
+              ou par email
+            </Text>
+            <Divider borderColor="gray.300" />
+          </HStack>
 
-          {/* Formulaire */}
+          {/* Formulaire email/mot de passe */}
           <form onSubmit={handleSubmit} style={{ width: '100%' }}>
             <VStack spacing={5} w="100%">
               <FormControl isRequired>
-                <FormLabel color="gray.700" fontWeight="medium" fontSize="sm">
+                <FormLabel color="#3D3856" fontWeight="600" fontSize="sm">
                   {t('auth.email')}
                 </FormLabel>
                 <Input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  h="48px"
-                  borderRadius="8px"
-                  borderColor="gray.300"
-                  _hover={{ borderColor: 'gray.400' }}
+                  h="52px"
+                  borderRadius="xl"
+                  borderColor="#E8E6F0"
+                  borderWidth="1.5px"
+                  bg="white"
+                  _hover={{ borderColor: 'purple.300' }}
                   _focus={{
-                    borderColor: 'primary.500',
-                    boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)',
+                    borderColor: 'purple.500',
+                    boxShadow: '0 0 0 2px rgba(139, 92, 246, 0.2)',
                   }}
                 />
               </FormControl>
 
               <FormControl isRequired>
                 <Flex justify="space-between" align="center" mb={2}>
-                  <FormLabel color="gray.700" fontWeight="medium" fontSize="sm" mb={0}>
+                  <FormLabel color="#3D3856" fontWeight="600" fontSize="sm" mb={0}>
                     {t('auth.password')}
                   </FormLabel>
                   <ChakraLink
                     as={Link}
                     to="/forgot-password"
                     fontSize="xs"
-                    color="primary.500"
-                    fontWeight="medium"
-                    _hover={{ color: 'primary.600', textDecoration: 'underline' }}
+                    color="purple.600"
+                    fontWeight="600"
+                    _hover={{ color: 'purple.700', textDecoration: 'underline' }}
                   >
                     Mot de passe oublié ?
                   </ChakraLink>
                 </Flex>
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  h="48px"
-                  borderRadius="8px"
-                  borderColor="gray.300"
-                  _hover={{ borderColor: 'gray.400' }}
-                  _focus={{
-                    borderColor: 'primary.500',
-                    boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)',
-                  }}
-                />
+                <InputGroup>
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    h="52px"
+                    borderRadius="xl"
+                    borderColor="#E8E6F0"
+                    borderWidth="1.5px"
+                    bg="white"
+                    pr="52px"
+                    _hover={{ borderColor: 'purple.300' }}
+                    _focus={{
+                      borderColor: 'purple.500',
+                      boxShadow: '0 0 0 2px rgba(139, 92, 246, 0.2)',
+                    }}
+                  />
+                  <InputRightElement h="52px" pr={1}>
+                    <IconButton
+                      aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                      icon={<Icon as={showPassword ? FaEyeSlash : FaEye} />}
+                      variant="ghost"
+                      size="sm"
+                      color="purple.400"
+                      _hover={{ color: 'purple.600', bg: 'purple.50' }}
+                      borderRadius="lg"
+                      onClick={() => setShowPassword(v => !v)}
+                      tabIndex={-1}
+                    />
+                  </InputRightElement>
+                </InputGroup>
               </FormControl>
 
               <Button
                 type="submit"
                 w="100%"
-                h="48px"
-                bgGradient="linear(to-r, primary.500, secondary.500)"
+                h="52px"
+                bgGradient="linear(to-r, purple.700, purple.500)"
                 color="white"
-                fontWeight="semibold"
-                borderRadius="8px"
+                fontWeight="700"
+                borderRadius="xl"
+                fontSize="md"
                 isLoading={isLoading}
                 loadingText={t('auth.loggingIn')}
                 _hover={{
-                  bgGradient: 'linear(to-r, primary.600, secondary.600)',
-                  transform: 'translateY(-1px)',
-                  boxShadow: '0 8px 16px rgba(139, 92, 246, 0.3)',
+                  bgGradient: 'linear(to-r, purple.800, purple.600)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 8px 24px rgba(109, 40, 217, 0.4)',
                 }}
-                _active={{
-                  transform: 'translateY(0)',
-                }}
+                _active={{ transform: 'translateY(0)' }}
                 transition="all 0.2s"
               >
                 {t('auth.loginButton')}
@@ -333,13 +319,12 @@ const Login = () => {
             </VStack>
           </form>
 
-          {/* Lien vers inscription */}
           <Text fontSize="sm" color="gray.600">
             Nouveau sur Kinship Haven ?{' '}
             <ChakraLink
               as={Link}
               to="/register"
-              color="primary.500"
+              color="purple.600"
               fontWeight="medium"
               _hover={{ color: 'primary.600', textDecoration: 'underline' }}
             >
@@ -347,14 +332,14 @@ const Login = () => {
             </ChakraLink>
           </Text>
 
-          {/* Footer légal */}
           <Text fontSize="xs" color="gray.500" textAlign="center" mt={4}>
             En vous connectant, vous acceptez nos{' '}
-            <ChakraLink color="primary.500" fontWeight="medium">
+            <ChakraLink color="purple.600" fontWeight="medium">
               Conditions d'utilisation
             </ChakraLink>
           </Text>
         </VStack>
+        </Box>
       </Flex>
     </Flex>
   );

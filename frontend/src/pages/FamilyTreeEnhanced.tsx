@@ -38,7 +38,7 @@ import {
   ViewIcon
 } from '@chakra-ui/icons';
 import { useTranslation } from 'react-i18next';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import FamilyTreeToolbar from '../components/FamilyTreeToolbar';
 
@@ -93,14 +93,16 @@ const FamilyTreeEnhanced: React.FC = () => {
   
   // React Router
   const location = useLocation();
+  const navigate = useNavigate();
   
+  const fetchedRef = useRef(false);
+
   // States
   const [persons, setPersons] = useState<Person[]>([]);
   const [marriages, setMarriages] = useState<Marriage[]>([]);
   const [focusPersonID, setFocusPersonID] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showSiblings, setShowSiblings] = useState(false);
-  const [loopDetectionEnabled] = useState(true);
   const [detectedLoops, setDetectedLoops] = useState<number[][]>([]);
   const [navigationHistory, setNavigationHistory] = useState<NavigationHistory[]>([]);
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState(-1);
@@ -120,16 +122,41 @@ const FamilyTreeEnhanced: React.FC = () => {
   // Colors with gender distinction and clean up unused variables
   // ⚠️ NOTE: getGenderColors() supprimée car remplacée par le nouveau design moderne avec bordure colorée
 
-  // Load data
+  // Load data — useRef guard évite le double appel en React 18 Strict Mode
   useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+    console.log('🌳 [Tree] Chargement initial des données...');
     fetchPersons();
     fetchMarriages();
   }, []);
 
-  // Calculate stats whenever data changes
+  // Calculate stats + boucles en un seul cycle quand les données changent
   useEffect(() => {
+    if (persons.length === 0) return;
     calculateStats();
+    detectGenealogicalLoops();
   }, [persons, marriages]);
+
+  // 🔍 Log des relations quand le focus change (une seule fois par changement)
+  useEffect(() => {
+    if (!focusPersonID || persons.length === 0) return;
+    const fp = persons.find(p => p.personID === focusPersonID);
+    if (!fp) return;
+    const fa = fp.fatherID ? persons.find(p => p.personID === fp.fatherID) : null;
+    const mo = fp.motherID ? persons.find(p => p.personID === fp.motherID) : null;
+    const ch = persons.filter(p => p.fatherID === fp.personID || p.motherID === fp.personID);
+    const sp = getSpouses(fp);
+    const sib = getSiblings(fp);
+    console.group(`🔍 [Tree] Focus: #${fp.personID} ${fp.firstName} ${fp.lastName}`);
+    console.log('  fatherID:', fp.fatherID ?? '—', fa ? `→ ${fa.firstName} ${fa.lastName}` : '(non trouvé)');
+    console.log('  motherID:', fp.motherID ?? '—', mo ? `→ ${mo.firstName} ${mo.lastName}` : '(non trouvé)');
+    console.log('  Conjoints:', sp.length, sp.map(s => `#${s.personID} ${s.firstName} ${s.lastName}`));
+    console.log('  Enfants:', ch.length, ch.map(c => `#${c.personID} ${c.firstName} ${c.lastName}`));
+    console.log('  Frères/sœurs:', sib.length, sib.map(s => `#${s.personID} ${s.firstName} ${s.lastName}`));
+    if (detectedLoops.length > 0) console.warn('  ⚠️ Boucles:', detectedLoops);
+    console.groupEnd();
+  }, [focusPersonID, persons]);
 
   // 🎯 Détection du paramètre focusId dans l'URL pour centrer sur une personne spécifique
   useEffect(() => {
@@ -138,54 +165,48 @@ const FamilyTreeEnhanced: React.FC = () => {
     
     if (focusId && persons.length > 0) {
       const personId = parseInt(focusId, 10);
+      console.log(`🔗 [Tree] focusId URL détecté: ${personId}`);
       const person = persons.find(p => p.personID === personId);
-      
+
       if (person) {
-        console.log(`🎯 Navigation depuis Dashboard : Focus sur ${person.firstName} ${person.lastName} (ID: ${personId})`);
+        console.log(`🔗 [Tree] Focus via URL → ${person.firstName} ${person.lastName}`);
         setFocusPersonID(personId);
-        
-        // Ajouter à l'historique de navigation
-        const newHistoryEntry: NavigationHistory = {
-          personID: personId,
-          personName: `${person.firstName} ${person.lastName}`
-        };
-        setNavigationHistory([newHistoryEntry]);
+        setNavigationHistory([{ personID: personId, personName: `${person.firstName} ${person.lastName}` }]);
         setCurrentHistoryIndex(0);
       } else {
-        console.warn(`⚠️ Personne avec ID ${personId} non trouvée dans l'arbre`);
+        console.warn(`⚠️ [Tree] focusId=${personId} non trouvé dans les ${persons.length} personnes`);
       }
     }
   }, [location.search, persons]);
 
   const fetchPersons = async () => {
     try {
+      console.log('👥 [Tree] GET /persons...');
       const response = await api.get('/persons');
       const personsData = response.data || [];
-      
+      console.log(`👥 [Tree] ${personsData.length} personnes chargées:`, personsData.map((p: Person) => `#${p.personID} ${p.firstName} ${p.lastName} (père:${p.fatherID ?? '—'} mère:${p.motherID ?? '—'})`));
+
       setPersons(personsData);
-      
-      console.log('Persons loaded:', personsData);
-      
-      // Définir automatiquement le premier focus sur la première personne disponible
-      // Mais pas sur l'utilisateur connecté, plutôt sur Ruben ou la première personne logique
+
+      // Focus sur la personne de l'utilisateur connecté via idPerson
       if (personsData.length > 0 && focusPersonID === null) {
-        // Chercher Ruben en priorité
-        const ruben = personsData.find((p: Person) => 
-          p.firstName?.toLowerCase().includes('ruben') || 
-          p.lastName?.toLowerCase().includes('kamo')
-        );
-        
-        // Sinon, chercher une personne sans parents (racine de l'arbre)
-        const rootPerson = personsData.find((p: Person) => !p.fatherID && !p.motherID);
-        
-        // Sinon, prendre la première personne
-        const targetPerson = ruben || rootPerson || personsData[0];
-        
+        let loggedInUser: any = {};
+        try { loggedInUser = JSON.parse(localStorage.getItem('user') || '{}'); } catch {}
+        console.log('🔑 [Tree] User localStorage:', loggedInUser);
+
+        const idPerson = loggedInUser.idPerson;
+        console.log(`🎯 [Tree] idPerson depuis localStorage: ${idPerson}`);
+
+        const targetPerson = (idPerson && personsData.find((p: Person) => p.personID === idPerson))
+          || personsData[0];
+
+        console.log(`🎯 [Tree] Focus initial → #${targetPerson.personID} ${targetPerson.firstName} ${targetPerson.lastName}`);
         setFocusPersonID(targetPerson.personID);
-        console.log('Auto-focus set to:', targetPerson);
+        setNavigationHistory([{ personID: targetPerson.personID, personName: `${targetPerson.firstName} ${targetPerson.lastName}` }]);
+        setCurrentHistoryIndex(0);
       }
-    } catch (error) {
-      console.error('Error fetching persons:', error);
+    } catch (err) {
+      console.error('❌ [Tree] Erreur fetchPersons:', err);
     }
   };
 
@@ -198,7 +219,11 @@ const FamilyTreeEnhanced: React.FC = () => {
   // Navigation functions
   const navigateToFocus = (personID: number) => {
     const person = persons.find(p => p.personID === personID);
-    if (!person) return;
+    if (!person) {
+      console.warn(`⚠️ [Tree] navigateToFocus: personne #${personID} introuvable`);
+      return;
+    }
+    console.log(`🔀 [Tree] Navigation → #${personID} ${person.firstName} ${person.lastName}`);
 
     // Add to navigation history
     const newHistoryEntry = {
@@ -230,6 +255,7 @@ const FamilyTreeEnhanced: React.FC = () => {
 
   // Calculate statistics
   const calculateStats = () => {
+    console.log(`📊 [Tree] calculateStats — ${persons.length} personnes, ${marriages.length} mariages`);
     const totalPersons = persons.length;
     
     // 🔧 CORRECTION BUG POLYGAMIE - Calcul basé sur les enfants avec différents partenaires
@@ -274,31 +300,18 @@ const FamilyTreeEnhanced: React.FC = () => {
       maxGeneration = Math.max(maxGeneration, calculateGeneration(root.personID));
     });
 
+    console.log(`📊 [Tree] Stats → ${totalPersons} personnes, ${totalMarriages} unions, ${polygamousPersons} polygames, ${maxGeneration + 1} générations`);
     setStats({
       totalPersons,
       totalMarriages,
       polygamousPersons,
       generations: maxGeneration + 1
     });
-
-    // 🛡️ Détection automatique des boucles lors du calcul des stats
-    if (loopDetectionEnabled) {
-      detectGenealogicalLoops();
-    }
-
-    console.log(`📊 Stats corrigées: ${totalPersons} personnes, ${totalMarriages} unions, ${polygamousPersons} polygames`);
-    
-    // 🔍 DEBUG DÉTAILLÉ DES MÉTRIQUES
-    if (polygamousPersons > 0) {
-      polygamousCount.forEach((spouseSet, personID) => {
-        const person = persons.find(p => p.personID === personID);
-        console.log(`🔄 Polygame détecté: ${person?.firstName} ${person?.lastName} avec ${spouseSet.size} conjoints`);
-      });
-    }
   };
 
   // 🛡️ ALGORITHME DE DÉTECTION DE BOUCLES GÉNÉALOGIQUES
   const detectGenealogicalLoops = () => {
+    console.log('🛡️ [Tree] Détection des boucles généalogiques...');
     const loops: number[][] = [];
     const visitedGlobal = new Set<number>();
     
@@ -361,9 +374,10 @@ const FamilyTreeEnhanced: React.FC = () => {
     }
     
     setDetectedLoops(loops);
-    
     if (loops.length > 0) {
-      console.warn("🛡️ Boucles généalogiques détectées:", loops);
+      console.warn(`🛡️ [Tree] ${loops.length} boucle(s) détectée(s):`, loops);
+    } else {
+      console.log('🛡️ [Tree] Aucune boucle généalogique détectée');
     }
     
     return loops;
@@ -502,7 +516,6 @@ const FamilyTreeEnhanced: React.FC = () => {
     
     // 🚨 VALIDATION DE COHÉRENCE DES DATES
     if (person.deathDate && new Date(person.deathDate) < birth) {
-      console.warn(`⚠️ Incohérence de dates pour ${person.firstName} ${person.lastName}: décès avant naissance`);
       return null;
     }
     
@@ -660,7 +673,7 @@ const FamilyTreeEnhanced: React.FC = () => {
         borderLeftWidth="4px"
         borderLeftColor={genderColor}
         cursor="pointer"
-        onClick={() => !isMainFocus && navigateToFocus(person.personID)}
+        onClick={() => isMainFocus ? navigate(`/person/${person.personID}`) : navigateToFocus(person.personID)}
         transition="all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
         _hover={{ 
           transform: 'translateY(-2px)', 
@@ -882,8 +895,6 @@ const FamilyTreeEnhanced: React.FC = () => {
     );
   }
 
-  console.log('Current focus person:', focusPerson);
-
   const father = getFather(focusPerson);
   const mother = getMother(focusPerson);
   const spouses = getSpouses(focusPerson);
@@ -1038,7 +1049,6 @@ const FamilyTreeEnhanced: React.FC = () => {
             </HStack>
           )}
 
-          {/* Siblings row (if enabled) - ENHANCED */}
           {showSiblings && siblings.length > 0 && (
             <HStack justify="center" spacing={8} mb={6}>
               <VStack>

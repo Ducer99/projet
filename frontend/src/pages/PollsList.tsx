@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,7 +8,9 @@ import {
   Button,
   Card,
   CardBody,
+  Container,
   Heading,
+  Icon,
   Text,
   VStack,
   HStack,
@@ -21,6 +23,7 @@ import {
   FormLabel,
 } from '@chakra-ui/react';
 import { AddIcon } from '@chakra-ui/icons';
+import { FaVoteYea } from 'react-icons/fa';
 
 interface Poll {
   pollID: number;
@@ -42,15 +45,15 @@ const PollsList: React.FC = () => {
   const [polls, setPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
   const [showClosed, setShowClosed] = useState(false);
+  const prevShowClosedRef = useRef<boolean | undefined>(undefined);
 
   useEffect(() => {
-    console.log('PollsList - isAuthenticated:', isAuthenticated);
+    if (prevShowClosedRef.current === showClosed) return;
+    prevShowClosedRef.current = showClosed;
     if (!isAuthenticated) {
-      console.log('User not authenticated, redirecting to login');
       navigate('/login');
       return;
     }
-    console.log('User authenticated, fetching polls');
     fetchPolls();
   }, [showClosed]);
 
@@ -120,52 +123,54 @@ const PollsList: React.FC = () => {
   }
 
   return (
-    <Box maxW="1200px" mx="auto" p={6}>
-      {/* Header */}
-      <VStack align="stretch" spacing={4} mb={8}>
-        <HStack justify="space-between" align="flex-start" flexWrap="wrap" gap={4}>
-          <Box>
-            <Heading
-              as="h1"
-              size="xl"
-              color="#A3B18A"
-              fontFamily="'Cormorant Garamond', serif"
+    <Box minH="100vh" bg="transparent">
+      {/* Header gradient */}
+      <Box bgGradient="linear(to-r, purple.900, purple.700)" py={8}>
+        <Container maxW="container.xl">
+          <HStack justify="space-between" align="center" flexWrap="wrap" gap={4}>
+            <HStack spacing={4}>
+              <Box w="52px" h="52px" borderRadius="xl" bg="whiteAlpha.200" display="flex" alignItems="center" justifyContent="center" border="1px solid" borderColor="whiteAlpha.300">
+                <Icon as={FaVoteYea} color="white" boxSize={5} />
+              </Box>
+              <Box>
+                <Heading size="lg" color="white" fontWeight="700">{t('polls.title')}</Heading>
+                <Text color="whiteAlpha.700" fontSize="sm" mt={0.5}>{t('polls.subtitle')}</Text>
+              </Box>
+            </HStack>
+            <Button
+              leftIcon={<AddIcon />}
+              bg="whiteAlpha.200"
+              color="white"
+              border="1px solid"
+              borderColor="whiteAlpha.300"
+              _hover={{ bg: 'whiteAlpha.300', transform: 'translateY(-1px)' }}
               fontWeight="600"
+              onClick={() => navigate('/polls/create')}
             >
-              {t('polls.title')}
-            </Heading>
-            <Text fontSize="lg" color="#8B7355" mt={2}>
-              {t('polls.subtitle')}
-            </Text>
-          </Box>
-          <Button
-            leftIcon={<AddIcon />}
-            bg="#A3B18A"
-            color="white"
-            size="lg"
-            onClick={() => navigate('/polls/create')}
-            _hover={{ bg: '#8B9A7A' }}
-            borderRadius="12px"
-            px={6}
-          >
-            {t('polls.createPoll')}
-          </Button>
-        </HStack>
+              {t('polls.createPoll')}
+            </Button>
+          </HStack>
+        </Container>
+      </Box>
 
+    <Box maxW="1200px" mx="auto" p={6}>
+      <VStack align="stretch" spacing={4} mb={8}>
         {/* Introduction */}
         <Box
-          bg="#FFFFF0"
-          border="2px solid #EDE8E3"
-          borderRadius="16px"
+          bg="white"
+          border="1px solid"
+          borderColor="purple.100"
+          borderRadius="2xl"
           p={6}
+          shadow="card"
         >
-          <Text color="#5A5A5A" mb={3}>
+          <Text color="purple.800" mb={3} fontWeight="500">
             {t('polls.introDescription')}
           </Text>
-          <Text color="#8B7355" fontSize="sm" mb={2}>
+          <Text color="purple.500" fontSize="sm" mb={2}>
             {t('polls.typeInfo')}
           </Text>
-          <Text color="#A3B18A" fontWeight="500" fontStyle="italic">
+          <Text color="purple.400" fontWeight="500" fontStyle="italic">
             {t('polls.everyVoteCounts')}
           </Text>
         </Box>
@@ -328,6 +333,7 @@ const PollsList: React.FC = () => {
           })}
         </VStack>
       )}
+    </Box>
     </Box>
   );
 };

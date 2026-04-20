@@ -1,24 +1,23 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+// @ts-ignore – future flags pour supprimer les warnings React Router v6→v7
 import { Box } from '@chakra-ui/react';
 import { AuthProvider } from './contexts/AuthContext';
 import Header from './components/Header';
 import Login from './pages/Login';
 import Register from './pages/RegisterV4Premium';
-import RegisterSimple from './pages/RegisterSimple';
 import JoinOrCreateFamily from './pages/JoinOrCreateFamily';
 import VerifyEmail from './pages/VerifyEmail';
 import CompleteProfile from './pages/CompleteProfile';
 import FamilyAttachment from './pages/FamilyAttachment';
 import ForgotPassword from './pages/ForgotPassword';
 import FamilySetup from './pages/FamilySetup';
-import Dashboard from './pages/DashboardV3'; // ⭐ Version Refonte UI - Soft UI Design + Bottom Nav Mobile
+import Dashboard from './pages/DashboardV3';
 import FamilyTreeEnhanced from './pages/FamilyTreeEnhanced';
 import RelationsExplainer from './pages/RelationsExplainer';
-import PersonProfile from './pages/PersonProfileV2'; // ⭐ Version Moderne
-import PersonsList from './pages/PersonsList';
+import PersonProfile from './pages/PersonProfileV2';
 import MembersManagementDashboard from './pages/MembersManagementDashboard';
 import PublicPersonsList from './pages/PublicPersonsList';
-import MyProfile from './pages/MyProfileV3'; // ⭐ Version Refonte UI - Design System EditMember
+import MyProfile from './pages/MyProfileV3';
 import AddMember from './pages/AddMember';
 import EditMember from './pages/EditMember';
 import EventsCalendar from './pages/EventsCalendar';
@@ -32,234 +31,63 @@ import PollsList from './pages/PollsList';
 import CreatePoll from './pages/CreatePoll';
 import PollDetail from './pages/PollDetail';
 import LanguageSettings from './pages/LanguageSettings';
-import LoopDetectionTest from './components/LoopDetectionTest';
 import PrivateRoute from './components/PrivateRoute';
+import Privacy from './pages/Privacy';
+import CookieBanner from './components/CookieBanner';
 
 function App() {
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthProvider>
         <Box minH="100vh">
           <Header />
+          <CookieBanner />
           <Routes>
+            {/* Auth publique */}
+            <Route path="/privacy" element={<Privacy />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/register-simple" element={<RegisterSimple />} />
-            <Route path="/join-or-create-family" element={<JoinOrCreateFamily />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/find-id" element={<PublicPersonsList />} />
+
+            {/* Onboarding */}
+            <Route path="/join-or-create-family" element={<JoinOrCreateFamily />} />
             <Route path="/complete-profile" element={<CompleteProfile />} />
             <Route path="/family-attachment" element={<FamilyAttachment />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/family-setup" element={<FamilySetup />} />
-            <Route path="/find-id" element={<PublicPersonsList />} />
-            <Route
-              path="/dashboard"
-              element={
-                <PrivateRoute>
-                  <Dashboard />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/family-tree"
-              element={
-                <PrivateRoute>
-                  <FamilyTreeEnhanced />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/family-tree-organic"
-              element={
-                <PrivateRoute>
-                  <FamilyTreeEnhanced />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/family-tree-dynamic"
-              element={
-                <PrivateRoute>
-                  <FamilyTreeEnhanced />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/test-architecture"
-              element={
-                <PrivateRoute>
-                  <LoopDetectionTest />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/relations-explainer"
-              element={
-                <PrivateRoute>
-                  <RelationsExplainer />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/persons"
-              element={
-                <PrivateRoute>
-                  <MembersManagementDashboard />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/persons-old"
-              element={
-                <PrivateRoute>
-                  <PersonsList />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/members-dashboard"
-              element={
-                <PrivateRoute>
-                  <MembersManagementDashboard />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/person/:id"
-              element={
-                <PrivateRoute>
-                  <PersonProfile />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/my-profile"
-              element={
-                <PrivateRoute>
-                  <MyProfile />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/language-settings"
-              element={
-                <PrivateRoute>
-                  <LanguageSettings />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/add-member"
-              element={
-                <PrivateRoute>
-                  <AddMember />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/edit-member/:id"
-              element={
-                <PrivateRoute>
-                  <EditMember />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/events"
-              element={
-                <PrivateRoute>
-                  <EventsCalendar />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/events/new"
-              element={
-                <PrivateRoute>
-                  <EventForm />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/events/edit/:id"
-              element={
-                <PrivateRoute>
-                  <EventForm />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/weddings"
-              element={
-                <PrivateRoute>
-                  <WeddingsList />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/weddings/new"
-              element={
-                <PrivateRoute>
-                  <WeddingForm />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/weddings/edit/:id"
-              element={
-                <PrivateRoute>
-                  <WeddingForm />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/albums"
-              element={
-                <PrivateRoute>
-                  <AlbumsList />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/albums/new"
-              element={
-                <PrivateRoute>
-                  <AlbumForm />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/albums/:id"
-              element={
-                <PrivateRoute>
-                  <AlbumDetail />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/polls"
-              element={
-                <PrivateRoute>
-                  <PollsList />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/polls/create"
-              element={
-                <PrivateRoute>
-                  <CreatePoll />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/polls/:id"
-              element={
-                <PrivateRoute>
-                  <PollDetail />
-                </PrivateRoute>
-              }
-            />
+
+            {/* App protégée */}
+            <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+            <Route path="/family-tree" element={<PrivateRoute><FamilyTreeEnhanced /></PrivateRoute>} />
+            <Route path="/relations-explainer" element={<PrivateRoute><RelationsExplainer /></PrivateRoute>} />
+            <Route path="/persons" element={<PrivateRoute><MembersManagementDashboard /></PrivateRoute>} />
+            <Route path="/person/:id" element={<PrivateRoute><PersonProfile /></PrivateRoute>} />
+            <Route path="/my-profile" element={<PrivateRoute><MyProfile /></PrivateRoute>} />
+            <Route path="/add-member" element={<PrivateRoute><AddMember /></PrivateRoute>} />
+            <Route path="/edit-member/:id" element={<PrivateRoute><EditMember /></PrivateRoute>} />
+            <Route path="/language-settings" element={<PrivateRoute><LanguageSettings /></PrivateRoute>} />
+
+            {/* Événements */}
+            <Route path="/events" element={<PrivateRoute><EventsCalendar /></PrivateRoute>} />
+            <Route path="/events/new" element={<PrivateRoute><EventForm /></PrivateRoute>} />
+            <Route path="/events/edit/:id" element={<PrivateRoute><EventForm /></PrivateRoute>} />
+
+            {/* Mariages */}
+            <Route path="/weddings" element={<PrivateRoute><WeddingsList /></PrivateRoute>} />
+            <Route path="/weddings/new" element={<PrivateRoute><WeddingForm /></PrivateRoute>} />
+            <Route path="/weddings/edit/:id" element={<PrivateRoute><WeddingForm /></PrivateRoute>} />
+
+            {/* Albums */}
+            <Route path="/albums" element={<PrivateRoute><AlbumsList /></PrivateRoute>} />
+            <Route path="/albums/new" element={<PrivateRoute><AlbumForm /></PrivateRoute>} />
+            <Route path="/albums/:id" element={<PrivateRoute><AlbumDetail /></PrivateRoute>} />
+
+            {/* Sondages */}
+            <Route path="/polls" element={<PrivateRoute><PollsList /></PrivateRoute>} />
+            <Route path="/polls/create" element={<PrivateRoute><CreatePoll /></PrivateRoute>} />
+            <Route path="/polls/:id" element={<PrivateRoute><PollDetail /></PrivateRoute>} />
+
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Box>

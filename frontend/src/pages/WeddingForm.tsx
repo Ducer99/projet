@@ -241,7 +241,7 @@ const WeddingForm = () => {
   const selectedWoman = women.find(w => w.personID.toString() === formData.womanID);
 
   return (
-    <Box minH="100vh" bg="gray.50" py={8}>
+    <Box minH="100vh" bg="transparent" py={8}>
       <Container maxW="container.lg">
         <VStack spacing={6} align="stretch">
           {/* Header */}
@@ -309,7 +309,9 @@ const WeddingForm = () => {
                         <HStack justify="space-between">
                           <Text fontWeight="bold" color="blue.700">{t('weddings.unionTypeLabel')}</Text>
                           <Tooltip label={t('weddings.unionTypeTooltip')}>
-                            <Icon as={FaInfoCircle} color="blue.500" cursor="help" />
+                            <Box as="span" display="inline-flex">
+                              <Icon as={FaInfoCircle} color="blue.500" cursor="help" />
+                            </Box>
                           </Tooltip>
                         </HStack>
                         <HStack>

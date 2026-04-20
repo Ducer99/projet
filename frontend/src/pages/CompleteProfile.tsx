@@ -201,7 +201,7 @@ export default function CompleteProfile() {
   };
 
   return (
-    <Box minH="100vh" bgGradient="linear(to-br, purple.600, purple.800)" py={12}>
+    <Box minH="100vh" bgGradient="linear(to-br, purple.900, purple.700)" py={12}>
       <Container maxW="3xl">
         <Card bg="white" borderRadius="2xl" boxShadow="2xl" overflow="hidden">
           <CardBody p={8}>

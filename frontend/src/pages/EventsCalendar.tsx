@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Container,
@@ -50,6 +50,7 @@ const EventsCalendar = () => {
   const [filterLineage, setFilterLineage] = useState<string>('');
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const fetchedRef = useRef(false);
   const toast = useToast();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -115,19 +116,18 @@ const EventsCalendar = () => {
         }
       }
       
-      // Filtre par lignée
+      // Filtre par lignée (basé sur le nom de famille de l'utilisateur connecté)
       if (filterLineage && filterLineage !== 'ALL') {
         const person = extractPersonFromEvent(event);
         if (person) {
-          const mainFamilyNames = ['KAMO', 'YAMO', 'NGUIDUM']; // Adapter selon votre famille
+          let currentUser: any = {};
+          try { currentUser = JSON.parse(localStorage.getItem('user') || '{}'); } catch {}
+          const mainFamilyName = (currentUser.personName?.split(' ').pop() || '').toUpperCase();
           const personFamilyName = person.lastName.toUpperCase();
-          
-          if (filterLineage === 'MAIN' && !mainFamilyNames.includes(personFamilyName)) {
-            return false;
-          }
-          if (filterLineage === 'SPOUSE' && mainFamilyNames.includes(personFamilyName)) {
-            return false;
-          }
+          const isMain = mainFamilyName && personFamilyName === mainFamilyName;
+
+          if (filterLineage === 'MAIN' && !isMain) return false;
+          if (filterLineage === 'SPOUSE' && isMain) return false;
         }
       }
       
@@ -219,6 +219,8 @@ const EventsCalendar = () => {
   };
 
   useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
     loadEvents();
   }, []);
 
@@ -277,16 +279,16 @@ const EventsCalendar = () => {
       
       // Filtre par lignée/branche
       if (filterLineage) {
-        const eventPersons = persons.filter(p => 
+        let currentUser: any = {};
+        try { currentUser = JSON.parse(localStorage.getItem('user') || '{}'); } catch {}
+        const mainFamilyName = (currentUser.personName?.split(' ').pop() || '').toUpperCase();
+        const eventPersons = persons.filter(p =>
           event.title.toLowerCase().includes(`${p.firstName} ${p.lastName}`.toLowerCase())
         );
         const hasLineageMatch = eventPersons.some(p => {
-          // Logique simplifiée pour déterminer la lignée basée sur le nom de famille
-          const mainFamilyNames = ['DUPONT', 'MARTIN', 'NGUIDUM', 'KAMO YAMO']; // À adapter selon vos données
-          if (filterLineage === 'MAIN') {
-            return mainFamilyNames.includes(p.lastName.toUpperCase());
-          }
-          return !mainFamilyNames.includes(p.lastName.toUpperCase());
+          const isMain = mainFamilyName && p.lastName.toUpperCase() === mainFamilyName;
+          if (filterLineage === 'MAIN') return isMain;
+          return !isMain;
         });
         if (!hasLineageMatch) return false;
       }
@@ -350,46 +352,67 @@ const EventsCalendar = () => {
   }
 
   return (
+    <Box minH="100vh" bg="transparent">
+      {/* Header gradient */}
+      <Box bgGradient="linear(to-r, purple.900, purple.700)" py={8}>
+        <Container maxW="container.xl">
+          <Flex justify="space-between" align="center" wrap="wrap" gap={4}>
+            <HStack spacing={4}>
+              <Box w="52px" h="52px" borderRadius="xl" bg="whiteAlpha.200" display="flex" alignItems="center" justifyContent="center" border="1px solid" borderColor="whiteAlpha.300">
+                <CalendarIcon color="white" boxSize={5} />
+              </Box>
+              <Box>
+                <Heading size="lg" color="white" fontWeight="700">{t('events.title')}</Heading>
+                <Text color="whiteAlpha.700" fontSize="sm" mt={0.5}>{t('navigation.events')}</Text>
+              </Box>
+            </HStack>
+            <HStack spacing={2} flexWrap="wrap">
+              <Button
+                leftIcon={<ViewIcon />}
+                variant={viewMode === 'calendar' ? 'solid' : 'ghost'}
+                bg={viewMode === 'calendar' ? 'white' : 'transparent'}
+                color={viewMode === 'calendar' ? 'purple.800' : 'white'}
+                _hover={{ bg: viewMode === 'calendar' ? 'white' : 'whiteAlpha.200' }}
+                size="sm"
+                onClick={() => setViewMode('calendar')}
+              >
+                Vue Calendrier
+              </Button>
+              <Button
+                leftIcon={<CalendarIcon />}
+                variant={viewMode === 'list' ? 'solid' : 'ghost'}
+                bg={viewMode === 'list' ? 'white' : 'transparent'}
+                color={viewMode === 'list' ? 'purple.800' : 'white'}
+                _hover={{ bg: viewMode === 'list' ? 'white' : 'whiteAlpha.200' }}
+                size="sm"
+                onClick={() => setViewMode('list')}
+              >
+                Vue Agenda
+              </Button>
+              <Tooltip
+                label="💡 Les anniversaires et mariages se répètent automatiquement chaque année !"
+                placement="bottom"
+                hasArrow
+              >
+                <Button
+                  leftIcon={<AddIcon />}
+                  bg="whiteAlpha.200"
+                  color="white"
+                  border="1px solid"
+                  borderColor="whiteAlpha.300"
+                  _hover={{ bg: 'whiteAlpha.300' }}
+                  fontWeight="600"
+                  onClick={() => navigate('/events/new')}
+                >
+                  {t('events.addEvent')}
+                </Button>
+              </Tooltip>
+            </HStack>
+          </Flex>
+        </Container>
+      </Box>
+
     <Container maxW="container.xl" py={8}>
-      {/* Header */}
-      <Flex justify="space-between" align="center" mb={6}>
-        <Heading size="lg" color="blue.700">
-          📅 {t('events.title')}
-        </Heading>
-        <HStack spacing={3}>
-          <Button
-            leftIcon={<ViewIcon />}
-            variant={viewMode === 'calendar' ? 'solid' : 'outline'}
-            colorScheme="blue"
-            size="sm"
-            onClick={() => setViewMode('calendar')}
-          >
-            Vue Calendrier
-          </Button>
-          <Button
-            leftIcon={<CalendarIcon />}
-            variant={viewMode === 'list' ? 'solid' : 'outline'}
-            colorScheme="blue"
-            size="sm"
-            onClick={() => setViewMode('list')}
-          >
-            Vue Agenda
-          </Button>
-          <Tooltip 
-            label="💡 Les anniversaires et mariages se répètent automatiquement chaque année !" 
-            placement="bottom"
-            hasArrow
-          >
-            <Button
-              leftIcon={<AddIcon />}
-              colorScheme="blue"
-              onClick={() => navigate('/events/new')}
-            >
-              {t('events.addEvent')}
-            </Button>
-          </Tooltip>
-        </HStack>
-      </Flex>
 
       {/* Filtres avancés */}
       <VStack align="stretch" spacing={4} mb={6}>
@@ -908,6 +931,7 @@ const EventsCalendar = () => {
         </ModalContent>
       </Modal>
     </Container>
+    </Box>
   );
 };
 

@@ -117,7 +117,7 @@ export default function FamilyAttachment() {
   return (
     <Box
       minH="100vh"
-      bgGradient="linear(to-br, purple.600, purple.800)"
+      bgGradient="linear(to-br, purple.900, purple.700)"
       py={12}
     >
       <Container maxW="2xl">

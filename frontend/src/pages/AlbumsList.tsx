@@ -14,7 +14,7 @@ import {
   Spinner,
   Center
 } from '@chakra-ui/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FaPlus, FaImages, FaCalendar, FaUser } from 'react-icons/fa';
@@ -38,8 +38,11 @@ const AlbumsList = () => {
   const navigate = useNavigate();
   const toast = useToast();
   const { t, i18n } = useTranslation();
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
     loadAlbums();
   }, []);
 
@@ -72,31 +75,39 @@ const AlbumsList = () => {
   }
 
   return (
-    <Container maxW="container.xl" py={8}>
-      {/* Header */}
-      <Box mb={8}>
-        <HStack justify="space-between" align="center" mb={4}>
-          <VStack align="flex-start" spacing={1}>
-            <Heading size="xl" color="gray.800">
-              {t('albums.photoAlbums')}
-            </Heading>
-            <Text color="gray.600" fontSize="md">
-              {t('albums.albumCount', { count: albums.length })} · {t('albums.familyMemories')}
-            </Text>
-          </VStack>
-          <Button
-            leftIcon={<Icon as={FaPlus} />}
-            colorScheme="orange"
-            size="lg"
-            onClick={() => navigate('/albums/new')}
-            boxShadow="md"
-            _hover={{ transform: 'translateY(-2px)', boxShadow: 'lg' }}
-            transition="all 0.2s"
-          >
-            {t('albums.newAlbum')}
-          </Button>
-        </HStack>
+    <Box minH="100vh" bg="transparent">
+      {/* Header gradient */}
+      <Box bgGradient="linear(to-r, purple.900, purple.700)" py={8}>
+        <Container maxW="container.xl">
+          <HStack justify="space-between" align="center" flexWrap="wrap" gap={4}>
+            <HStack spacing={4}>
+              <Box w="52px" h="52px" borderRadius="xl" bg="whiteAlpha.200" display="flex" alignItems="center" justifyContent="center" border="1px solid" borderColor="whiteAlpha.300">
+                <Icon as={FaImages} color="white" boxSize={5} />
+              </Box>
+              <Box>
+                <Heading size="lg" color="white" fontWeight="700">{t('albums.photoAlbums')}</Heading>
+                <Text color="whiteAlpha.700" fontSize="sm" mt={0.5}>
+                  {t('albums.albumCount', { count: albums.length })} · {t('albums.familyMemories')}
+                </Text>
+              </Box>
+            </HStack>
+            <Button
+              leftIcon={<Icon as={FaPlus} />}
+              bg="whiteAlpha.200"
+              color="white"
+              border="1px solid"
+              borderColor="whiteAlpha.300"
+              _hover={{ bg: 'whiteAlpha.300', transform: 'translateY(-1px)' }}
+              fontWeight="600"
+              onClick={() => navigate('/albums/new')}
+            >
+              {t('albums.newAlbum')}
+            </Button>
+          </HStack>
+        </Container>
       </Box>
+
+    <Container maxW="container.xl" py={8}>
 
       {/* Albums Grid */}
       {albums.length === 0 ? (
@@ -257,6 +268,7 @@ const AlbumsList = () => {
         </Grid>
       )}
     </Container>
+    </Box>
   );
 };
 

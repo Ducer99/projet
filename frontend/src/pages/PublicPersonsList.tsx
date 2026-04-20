@@ -15,7 +15,7 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { Person } from '../types';
 
 const PublicPersonsList = () => {
@@ -28,7 +28,7 @@ const PublicPersonsList = () => {
     const fetchPersons = async () => {
       try {
         // Appel sans authentification
-        const response = await axios.get('http://localhost:5000/api/persons');
+        const response = await api.get('/persons');
         setPersons(response.data);
       } catch (error) {
         toast({

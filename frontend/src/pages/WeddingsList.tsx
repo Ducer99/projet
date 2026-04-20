@@ -80,7 +80,8 @@ const WeddingsList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const cancelRef = useRef<HTMLButtonElement>(null);
-  
+  const fetchedRef = useRef(false);
+
   // Responsive: basculer entre cartes (mobile) et tableau (desktop)
   const isMobile = useBreakpointValue({ base: true, md: false });
 
@@ -94,6 +95,8 @@ const WeddingsList = () => {
   };
 
   useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
     loadMarriages();
   }, []);
 
@@ -172,26 +175,38 @@ const WeddingsList = () => {
   };
 
   return (
-    <Box minH="100vh" bg="gray.50">
-      <Container maxW="container.xl" py={8}>
-        <VStack spacing={6} align="stretch">
-          {/* Header */}
+    <Box minH="100vh" bg="transparent">
+      {/* Header gradient */}
+      <Box bgGradient="linear(to-r, purple.900, purple.700)" py={8}>
+        <Container maxW="container.xl">
           <Flex justify="space-between" align="center" wrap="wrap" gap={4}>
-            <HStack>
-              <Icon as={FaHeart} boxSize={8} color="pink.500" />
-              <Heading size="lg" color="gray.700">
-                {t('weddings.title')}
-              </Heading>
+            <HStack spacing={4}>
+              <Box w="52px" h="52px" borderRadius="xl" bg="whiteAlpha.200" display="flex" alignItems="center" justifyContent="center" border="1px solid" borderColor="whiteAlpha.300">
+                <Icon as={FaHeart} color="white" boxSize={5} />
+              </Box>
+              <Box>
+                <Heading size="lg" color="white" fontWeight="700">{t('weddings.title')}</Heading>
+                <Text color="whiteAlpha.700" fontSize="sm" mt={0.5}>{t('navigation.weddings')}</Text>
+              </Box>
             </HStack>
             <Button
               leftIcon={<FaPlus />}
-              colorScheme="pink"
+              bg="whiteAlpha.200"
+              color="white"
+              border="1px solid"
+              borderColor="whiteAlpha.300"
+              _hover={{ bg: 'whiteAlpha.300', transform: 'translateY(-1px)' }}
               onClick={() => navigate('/weddings/new')}
-              size="lg"
+              fontWeight="600"
             >
               {t('weddings.createNewUnion')}
             </Button>
           </Flex>
+        </Container>
+      </Box>
+
+      <Container maxW="container.xl" py={8}>
+        <VStack spacing={6} align="stretch">
 
           {/* Stats améliorées */}
           <HStack spacing={4} wrap="wrap">

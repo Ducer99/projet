@@ -120,11 +120,14 @@ const MembersManagementDashboard = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [personToDelete, setPersonToDelete] = useState<PersonWithPermissions | null>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
-  
+  const fetchedRef = useRef(false);
+
   // Responsive: basculer entre cartes (mobile) et tableau (desktop)
   const isMobile = useBreakpointValue({ base: true, md: false });
 
   useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
     fetchPersons();
   }, []);
 
@@ -809,7 +812,7 @@ const MembersManagementDashboard = () => {
     return (
       <Container maxW="container.xl" py={10}>
         <VStack spacing={4}>
-          <Spinner size="xl" color="var(--emotional-sage)" thickness="4px" />
+          <Spinner size="xl" color="#8B5CF6" thickness="4px" />
           <Text color="gray.600">{t('common.loading')}</Text>
         </VStack>
       </Container>
@@ -817,83 +820,65 @@ const MembersManagementDashboard = () => {
   }
 
   return (
-    <Box minH="100vh" bg="var(--bg-primary)">
-      {/* Header avec palette émotionnelle */}
+    <Box minH="100vh" bg="transparent">
+      {/* Header gradient */}
       <Box
-        background="var(--gradient-beige)"
-        borderBottom="1px solid var(--border-color)"
+        bgGradient="linear(to-r, purple.900, purple.700)"
         py={6}
         position="sticky"
         top={0}
         zIndex={10}
-        backdropFilter="blur(10px)"
+        shadow="header"
       >
         <Container maxW="container.xl">
           <VStack align="stretch" spacing={4}>
-            <HStack justify="space-between" align="center">
+            <HStack justify="space-between" align="center" flexWrap="wrap" gap={3}>
               <HStack spacing={4}>
-                <Box
-                  w="4px"
-                  h="40px"
-                  background="var(--gradient-sage)"
-                  borderRadius="full"
-                />
+                <Box w="48px" h="48px" borderRadius="xl" bg="whiteAlpha.200" display="flex" alignItems="center" justifyContent="center" border="1px solid" borderColor="whiteAlpha.300">
+                  <Icon as={FaUserFriends} color="white" boxSize={5} />
+                </Box>
                 <VStack align="start" spacing={0}>
-                  <Heading
-                    size="lg"
-                    color="var(--text-primary)"
-                    fontWeight="600"
-                  >
+                  <Heading size="lg" color="white" fontWeight="700">
                     {t('members.managementDashboard')}
                   </Heading>
-                  <HStack spacing={2} color="var(--text-secondary)">
-                    <Text fontSize="sm">
-                      {filteredAndSortedPersons.length} {t('members.filteredResults')} / {persons.length} {t('members.totalMembers')}
-                    </Text>
-                  </HStack>
+                  <Text fontSize="sm" color="whiteAlpha.700">
+                    {filteredAndSortedPersons.length} {t('members.filteredResults')} / {persons.length} {t('members.totalMembers')}
+                  </Text>
                 </VStack>
               </HStack>
 
-              <HStack spacing={3}>
+              <HStack spacing={2} flexWrap="wrap">
                 <Button
-                  background="var(--gradient-sage)"
+                  bg="whiteAlpha.200"
                   color="white"
+                  border="1px solid"
+                  borderColor="whiteAlpha.300"
                   leftIcon={<FaUserPlus />}
                   onClick={handleAddPerson}
-                  _hover={{
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 8px 16px rgba(163, 177, 138, 0.3)',
-                  }}
-                  transition="all 0.3s ease"
+                  _hover={{ bg: 'whiteAlpha.300', transform: 'translateY(-1px)' }}
                   size="md"
-                  fontWeight="500"
+                  fontWeight="600"
                 >
                   {t('members.addMember')}
                 </Button>
 
                 <Button
-                  bg="white"
-                  border="1px solid var(--border-color)"
+                  variant="ghost"
+                  color="whiteAlpha.900"
                   leftIcon={<FaLock />}
                   onClick={() => navigate(`/person/${user?.idPerson}`)}
-                  _hover={{
-                    bg: 'var(--emotional-beige-light)',
-                    transform: 'translateY(-2px)',
-                  }}
-                  transition="all 0.3s ease"
+                  _hover={{ bg: 'whiteAlpha.200' }}
                   size="md"
                 >
                   {t('members.myProfile')}
                 </Button>
 
                 <Button
-                  bg="white"
-                  border="1px solid var(--border-color)"
+                  variant="ghost"
+                  color="whiteAlpha.700"
                   leftIcon={<FaArrowLeft />}
                   onClick={() => navigate('/')}
-                  _hover={{
-                    bg: 'gray.50',
-                  }}
+                  _hover={{ bg: 'whiteAlpha.200' }}
                   size="md"
                 >
                   {t('common.back')}
@@ -902,26 +887,26 @@ const MembersManagementDashboard = () => {
             </HStack>
 
             {/* Statistiques rapides */}
-            <StatGroup bg="white" borderRadius="12px" p={4} boxShadow="0 2px 8px rgba(0,0,0,0.04)">
+            <StatGroup bg="whiteAlpha.150" borderRadius="xl" p={4}>
               <Stat>
-                <StatLabel>{t('members.totalMembers')}</StatLabel>
-                <StatNumber>{statistics.total}</StatNumber>
+                <StatLabel color="whiteAlpha.700">{t('members.totalMembers')}</StatLabel>
+                <StatNumber color="white">{statistics.total}</StatNumber>
               </Stat>
               <Stat>
-                <StatLabel>{t('members.alive')}</StatLabel>
-                <StatNumber color="green.500">{statistics.alive}</StatNumber>
+                <StatLabel color="whiteAlpha.700">{t('members.alive')}</StatLabel>
+                <StatNumber color="green.300">{statistics.alive}</StatNumber>
               </Stat>
               <Stat>
-                <StatLabel>{t('members.deceased')}</StatLabel>
-                <StatNumber color="gray.500">{statistics.deceased}</StatNumber>
+                <StatLabel color="whiteAlpha.700">{t('members.deceased')}</StatLabel>
+                <StatNumber color="whiteAlpha.600">{statistics.deceased}</StatNumber>
               </Stat>
               <Stat>
-                <StatLabel>{t('members.mainLineage')}</StatLabel>
-                <StatNumber color="yellow.500">{statistics.mainLineage}</StatNumber>
+                <StatLabel color="whiteAlpha.700">{t('members.mainLineage')}</StatLabel>
+                <StatNumber color="yellow.300">{statistics.mainLineage}</StatNumber>
               </Stat>
               <Stat>
-                <StatLabel>{t('members.averageAge')}</StatLabel>
-                <StatNumber>{Math.round(statistics.averageAge) || 0} {t('common.years')}</StatNumber>
+                <StatLabel color="whiteAlpha.700">{t('members.averageAge')}</StatLabel>
+                <StatNumber color="white">{Math.round(statistics.averageAge) || 0} {t('common.years')}</StatNumber>
               </Stat>
             </StatGroup>
           </VStack>
@@ -942,8 +927,8 @@ const MembersManagementDashboard = () => {
           <VStack spacing={4} align="stretch">
             <HStack justify="space-between">
               <HStack spacing={2}>
-                <Icon as={FaFilter} color="var(--emotional-sage)" />
-                <Text fontWeight="600" color="var(--text-primary)">{t('members.filtersAndSearch')}</Text>
+                <Icon as={FaFilter} color="#8B5CF6" />
+                <Text fontWeight="600" color="#1A162E">{t('members.filtersAndSearch')}</Text>
               </HStack>
               <Button size="sm" variant="outline" onClick={handleFilterReset}>
                 {t('members.resetFilters')}
@@ -961,7 +946,7 @@ const MembersManagementDashboard = () => {
                     value={filters.search}
                     onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                     bg="white"
-                    border="1px solid var(--border-color)"
+                    border="1px solid #E8E6F0"
                   />
                 </InputGroup>
               </GridItem>
@@ -972,7 +957,7 @@ const MembersManagementDashboard = () => {
                   value={filters.sex}
                   onChange={(e) => setFilters(prev => ({ ...prev, sex: e.target.value }))}
                   bg="white"
-                  border="1px solid var(--border-color)"
+                  border="1px solid #E8E6F0"
                 >
                   <option value="all">{t('members.allGenders')}</option>
                   <option value="M">{t('common.male')}</option>
@@ -986,7 +971,7 @@ const MembersManagementDashboard = () => {
                   value={filters.status}
                   onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
                   bg="white"
-                  border="1px solid var(--border-color)"
+                  border="1px solid #E8E6F0"
                 >
                   <option value="all">{t('members.allStatuses')}</option>
                   <option value="alive">{t('common.alive')}</option>
@@ -1000,7 +985,7 @@ const MembersManagementDashboard = () => {
                   value={filters.lineage}
                   onChange={(e) => setFilters(prev => ({ ...prev, lineage: e.target.value }))}
                   bg="white"
-                  border="1px solid var(--border-color)"
+                  border="1px solid #E8E6F0"
                 >
                   <option value="all">{t('members.allLineages')}</option>
                   <option value="MAIN">{t('members.mainLineage')}</option>
@@ -1018,7 +1003,7 @@ const MembersManagementDashboard = () => {
                   value={filters.ageMin}
                   onChange={(e) => setFilters(prev => ({ ...prev, ageMin: e.target.value }))}
                   bg="white"
-                  border="1px solid var(--border-color)"
+                  border="1px solid #E8E6F0"
                 />
               </GridItem>
             </Grid>
@@ -1071,14 +1056,14 @@ const MembersManagementDashboard = () => {
             // Vue desktop: Tableau
             <Box overflowX="auto">
               <Table variant="simple">
-              <Thead bg="var(--emotional-beige-light)">
+              <Thead bg="#F5F3FF">
                 <Tr>
                   <Th>{t('members.photo')}</Th>
                   
                   {/* En-tête cliquable Nom complet */}
                   <Th 
                     cursor="pointer" 
-                    _hover={{ bg: 'var(--emotional-beige)' }}
+                    _hover={{ bg: '#EDE9FE' }}
                     onClick={() => handleSort('fullName')}
                   >
                     <HStack spacing={2}>
@@ -1090,7 +1075,7 @@ const MembersManagementDashboard = () => {
                   {/* En-tête cliquable Âge */}
                   <Th 
                     cursor="pointer" 
-                    _hover={{ bg: 'var(--emotional-beige)' }}
+                    _hover={{ bg: '#EDE9FE' }}
                     onClick={() => handleSort('age')}
                   >
                     <HStack spacing={2}>
@@ -1102,7 +1087,7 @@ const MembersManagementDashboard = () => {
                   {/* En-tête cliquable Statut */}
                   <Th 
                     cursor="pointer" 
-                    _hover={{ bg: 'var(--emotional-beige)' }}
+                    _hover={{ bg: '#EDE9FE' }}
                     onClick={() => handleSort('status')}
                   >
                     <HStack spacing={2}>
@@ -1114,7 +1099,7 @@ const MembersManagementDashboard = () => {
                   {/* En-tête cliquable Sexe */}
                   <Th 
                     cursor="pointer" 
-                    _hover={{ bg: 'var(--emotional-beige)' }}
+                    _hover={{ bg: '#EDE9FE' }}
                     onClick={() => handleSort('sex')}
                   >
                     <HStack spacing={2}>
@@ -1126,7 +1111,7 @@ const MembersManagementDashboard = () => {
                   {/* En-tête cliquable Lignée */}
                   <Th 
                     cursor="pointer" 
-                    _hover={{ bg: 'var(--emotional-beige)' }}
+                    _hover={{ bg: '#EDE9FE' }}
                     onClick={() => handleSort('lineage')}
                   >
                     <HStack spacing={2}>
@@ -1142,7 +1127,7 @@ const MembersManagementDashboard = () => {
                 {filteredAndSortedPersons.map((person) => (
                   <Tr
                     key={person.personID}
-                    _hover={{ bg: 'var(--emotional-ivory)' }}
+                    _hover={{ bg: '#F5F3FF' }}
                     transition="background 0.2s ease"
                   >
                     {/* Photo */}
@@ -1154,8 +1139,8 @@ const MembersManagementDashboard = () => {
                         border="2px solid"
                         borderColor={
                           person.sex === 'F'
-                            ? 'var(--emotional-lavender)'
-                            : 'var(--emotional-sage)'
+                            ? 'purple.300'
+                            : '#8B5CF6'
                         }
                       />
                     </Td>
@@ -1233,12 +1218,12 @@ const MembersManagementDashboard = () => {
                           <IconButton
                             aria-label="View profile"
                             size="sm"
-                            bg="var(--emotional-beige-light)"
-                            color="var(--emotional-brown)"
+                            bg="#F5F3FF"
+                            color="purple.900"
                             icon={<FaEye />}
                             onClick={() => handleViewProfile(person.personID)}
                             _hover={{
-                              bg: 'var(--emotional-beige)',
+                              bg: '#EDE9FE',
                             }}
                           />
                         </Tooltip>
@@ -1381,10 +1366,10 @@ const MembersManagementDashboard = () => {
 
                 {personToDelete && (
                   <Box
-                    bg="var(--emotional-beige-light)"
+                    bg="#F5F3FF"
                     p={3}
                     borderRadius="md"
-                    border="1px solid var(--border-color)"
+                    border="1px solid #E8E6F0"
                   >
                     <HStack spacing={3}>
                       <Avatar
@@ -1398,7 +1383,7 @@ const MembersManagementDashboard = () => {
                         </Text>
                         <Text 
                           fontSize="xs" 
-                          color={calculateAge(personToDelete.birthday, personToDelete.deathDate, personToDelete.alive) ? "var(--text-secondary)" : "gray.400"}
+                          color={calculateAge(personToDelete.birthday, personToDelete.deathDate, personToDelete.alive) ? "#6E6890" : "gray.400"}
                         >
                           {calculateAge(personToDelete.birthday, personToDelete.deathDate, personToDelete.alive)
                             ? `${calculateAge(personToDelete.birthday, personToDelete.deathDate, personToDelete.alive)} ${t('common.years')}`

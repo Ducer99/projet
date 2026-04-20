@@ -37,7 +37,7 @@ import {
   IconButton,
   Tooltip
 } from '@chakra-ui/react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { 
   FaMale, 
   FaFemale, 
@@ -48,7 +48,9 @@ import {
   FaInfoCircle,
   FaArrowLeft,
   FaEnvelope,
-  FaSave
+  FaSave,
+  FaDownload,
+  FaTrash
 } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
@@ -261,7 +263,7 @@ export default function MyProfileV3() {
   }
 
   return (
-    <Box minH="100vh" bg="#F3F4F6" py={8}>
+    <Box minH="100vh" bg="transparent" py={8}>
       <Container maxW="5xl">
         <MotionBox
           initial={{ opacity: 0, y: 20 }}
@@ -269,15 +271,17 @@ export default function MyProfileV3() {
           transition={{ duration: 0.4 }}
         >
           {/* Main Card with Gradient Header - Modern Profile Card Design */}
-          <Card 
-            shadow="0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)" 
-            borderRadius="16px"
+          <Card
+            shadow="xl"
+            borderRadius="2xl"
             overflow="hidden"
             bg="white"
+            border="1px solid"
+            borderColor="purple.100"
           >
             {/* 🎨 GRADIENT BANNER HEADER - "Wow Factor" */}
             <Box
-              bgGradient="linear(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)"
+              bgGradient="linear(135deg, purple.900 0%, purple.700 55%, purple.500 100%)"
               h="160px"
               position="relative"
             >
@@ -365,15 +369,15 @@ export default function MyProfileV3() {
                   position="absolute"
                   bottom={2}
                   right={2}
-                  bg="#6366F1"
+                  bg="purple.600"
                   borderRadius="full"
                   p={3}
-                  _hover={{ 
-                    bg: '#4F46E5',
+                  _hover={{
+                    bg: 'purple.700',
                     transform: 'scale(1.1)',
                   }}
                   transition="all 0.2s"
-                  boxShadow="0 4px 6px -1px rgba(99, 102, 241, 0.6), 0 2px 4px -1px rgba(0, 0, 0, 0.1)"
+                  boxShadow="0 4px 12px rgba(109, 40, 217, 0.5)"
                   border="3px solid white"
                   pointerEvents="none"
                 >
@@ -481,14 +485,14 @@ export default function MyProfileV3() {
                       whiteSpace="nowrap"
                       _selected={{ 
                         color: 'white',
-                        bg: '#6366F1',
-                        shadow: '0 4px 6px -1px rgba(99, 102, 241, 0.4)'
+                        bg: 'purple.600',
+                        shadow: '0 4px 12px rgba(109, 40, 217, 0.35)'
                       }}
-                      _hover={{ bg: '#F3F4F6' }}
+                      _hover={{ bg: 'purple.50' }}
                       transition="all 0.2s"
                     >
                       <Icon as={FaUser} mr={2} />
-                      Général
+                      {t('myProfile.tabGeneral')}
                     </Tab>
                     <Tab 
                       fontWeight="600"
@@ -500,14 +504,14 @@ export default function MyProfileV3() {
                       whiteSpace="nowrap"
                       _selected={{ 
                         color: 'white',
-                        bg: '#6366F1',
-                        shadow: '0 4px 6px -1px rgba(99, 102, 241, 0.4)'
+                        bg: 'purple.600',
+                        shadow: '0 4px 12px rgba(109, 40, 217, 0.35)'
                       }}
-                      _hover={{ bg: '#F3F4F6' }}
+                      _hover={{ bg: 'purple.50' }}
                       transition="all 0.2s"
                     >
                       <Icon as={FaEnvelope} mr={2} />
-                      Contact
+                      {t('myProfile.tabContact')}
                     </Tab>
                     <Tab 
                       fontWeight="600"
@@ -519,14 +523,14 @@ export default function MyProfileV3() {
                       whiteSpace="nowrap"
                       _selected={{ 
                         color: 'white',
-                        bg: '#6366F1',
-                        shadow: '0 4px 6px -1px rgba(99, 102, 241, 0.4)'
+                        bg: 'purple.600',
+                        shadow: '0 4px 12px rgba(109, 40, 217, 0.35)'
                       }}
-                      _hover={{ bg: '#F3F4F6' }}
+                      _hover={{ bg: 'purple.50' }}
                       transition="all 0.2s"
                     >
                       <Icon as={FaInfoCircle} mr={2} />
-                      Biographie
+                      {t('myProfile.tabBiography')}
                     </Tab>
                     {(profile.fatherName || profile.motherName) && (
                       <Tab 
@@ -542,11 +546,11 @@ export default function MyProfileV3() {
                           bg: '#6366F1',
                           shadow: '0 4px 6px -1px rgba(99, 102, 241, 0.4)'
                         }}
-                        _hover={{ bg: '#F3F4F6' }}
+                        _hover={{ bg: 'purple.50' }}
                         transition="all 0.2s"
                       >
                         <Icon as={FaUsers} mr={2} />
-                        Parents
+                        {t('myProfile.parents')}
                       </Tab>
                     )}
                   </TabList>
@@ -611,13 +615,13 @@ export default function MyProfileV3() {
                               <Radio value="M" colorScheme="blue" size="lg">
                                 <HStack spacing={2}>
                                   <Icon as={FaMale} color="blue.500" boxSize={5} />
-                                  <Text fontWeight="500">Homme</Text>
+                                  <Text fontWeight="500">{t('myProfile.male')}</Text>
                                 </HStack>
                               </Radio>
                               <Radio value="F" colorScheme="pink" size="lg">
                                 <HStack spacing={2}>
                                   <Icon as={FaFemale} color="pink.500" boxSize={5} />
-                                  <Text fontWeight="500">Femme</Text>
+                                  <Text fontWeight="500">{t('myProfile.female')}</Text>
                                 </HStack>
                               </Radio>
                             </Stack>
@@ -873,6 +877,56 @@ export default function MyProfileV3() {
                     )}
                   </TabPanels>
                 </Tabs>
+
+                {/* Section RGPD */}
+                <Box px={{ base: 4, md: 6 }} pb={4}>
+                  <Divider mb={4} />
+                  <HStack spacing={3} wrap="wrap">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      colorScheme="purple"
+                      leftIcon={<Icon as={FaDownload} />}
+                      onClick={async () => {
+                        try {
+                          const res = await api.get('/auth/export');
+                          const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = 'mes-donnees-familytree.json';
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        } catch {
+                          toast({ title: 'Erreur lors de l\'export', status: 'error', duration: 3000 });
+                        }
+                      }}
+                    >
+                      Exporter mes données
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      colorScheme="red"
+                      leftIcon={<Icon as={FaTrash} />}
+                      onClick={async () => {
+                        if (!window.confirm('Supprimer définitivement votre compte ? Cette action est irréversible.')) return;
+                        try {
+                          await api.delete('/auth/account');
+                          localStorage.clear();
+                          window.location.href = '/login';
+                        } catch {
+                          toast({ title: 'Erreur lors de la suppression', status: 'error', duration: 3000 });
+                        }
+                      }}
+                    >
+                      Supprimer mon compte
+                    </Button>
+                    <Text fontSize="xs" color="gray.400">
+                      <Link to="/privacy" style={{ color: '#8B5CF6' }}>Politique de confidentialité</Link>
+                    </Text>
+                  </HStack>
+                </Box>
 
                 {/* Boutons d'action (sticky en bas) */}
                 <Box

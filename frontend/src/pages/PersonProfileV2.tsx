@@ -199,12 +199,12 @@ const PersonProfileV2 = () => {
   const deathYear = person.deathDate ? new Date(person.deathDate).getFullYear() : null;
 
   return (
-    <Box minH="100vh" bg="gray.50">
+    <Box minH="100vh" bg="transparent">
       {/* 🎨 Bannière Dégradée Style EditMemberV2 */}
       <Box
-        bgGradient={person.alive 
-          ? 'linear(to-r, primary.400, secondary.500)' 
-          : 'linear(to-r, gray.600, gray.400)'}
+        bgGradient={person.alive
+          ? 'linear(to-r, purple.900, purple.700)'
+          : 'linear(to-r, gray.700, gray.500)'}
         color="white"
         pb={24}
         pt={8}
@@ -257,7 +257,7 @@ const PersonProfileV2 = () => {
                 leftIcon={<FaEdit />}
                 variant="solid"
                 bg="white"
-                color="primary.700"
+                color="purple.700"
                 shadow="md"
                 _hover={{ bg: 'gray.50', shadow: 'lg', transform: 'translateY(-2px)' }}
                 onClick={() => navigate(`/edit-member/${person.personID}`)}

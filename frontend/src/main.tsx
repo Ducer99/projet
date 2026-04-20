@@ -10,14 +10,11 @@ import './styles/global.css'
 import './index.css'
 import './i18n/config' // Configuration i18n
 
-// 🔐 Google OAuth Client ID
-// ⚠️ TODO: Remplacer par le vrai Client ID depuis Google Cloud Console en production
-// Pour l'instant, utilisez un Client ID de test ou configurez VITE_GOOGLE_CLIENT_ID dans .env.local
-const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID || 'no-google-oauth'}>
       <ChakraProvider theme={designSystem}>
         <App />
       </ChakraProvider>

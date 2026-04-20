@@ -2,7 +2,11 @@ import { Menu, MenuButton, MenuList, MenuItem, Button, Icon, Text, HStack } from
 import { FaGlobe, FaCheck } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 
-const LanguageSwitcher = () => {
+interface LanguageSwitcherProps {
+  onDark?: boolean;
+}
+
+const LanguageSwitcher = ({ onDark = false }: LanguageSwitcherProps) => {
   const { i18n } = useTranslation();
 
   const languages = [
@@ -23,9 +27,11 @@ const LanguageSwitcher = () => {
       <MenuButton
         as={Button}
         leftIcon={<Icon as={FaGlobe} />}
-        variant="outline"
+        variant={onDark ? 'ghost' : 'outline'}
         size="sm"
-        colorScheme="purple"
+        color={onDark ? 'whiteAlpha.900' : undefined}
+        colorScheme={onDark ? 'whiteAlpha' : 'purple'}
+        _hover={onDark ? { bg: 'whiteAlpha.200' } : undefined}
         type="button"
       >
         <HStack spacing={2}>

@@ -355,7 +355,7 @@ export default function EditMemberV2() {
   }
 
   return (
-    <Box minH="100vh" bg="#F3F4F6" py={8}>
+    <Box minH="100vh" bg="transparent" py={8}>
       <Container maxW="5xl">
         <MotionBox
           initial={{ opacity: 0, y: 20 }}
@@ -364,14 +364,14 @@ export default function EditMemberV2() {
         >
           {/* Main Card with Gradient Header - Modern Profile Card Design */}
           <Card 
-            shadow="0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)" 
-            borderRadius="16px"
+            shadow="xl" 
+            borderRadius="2xl"
             overflow="hidden"
             bg="white"
           >
             {/* GRADIENT BANNER HEADER - "Wow Factor" */}
             <Box
-              bgGradient="linear(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)"
+              bgGradient="linear(135deg, #4C1D95 0%, #6D28D9 55%, #8B5CF6 100%)"
               h="160px"
               position="relative"
             >

@@ -2,7 +2,7 @@ import { Box, Container, Heading, Text, VStack, Button, Grid, Code, HStack, Icon
 import { useNavigate } from 'react-router-dom';
 import { FaCopy, FaKey, FaUsers, FaHeart, FaCalendar, FaMale, FaFemale, FaPlus, FaImage } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
@@ -64,43 +64,28 @@ interface StatCardProps {
 const StatCard = ({ icon, iconColor, iconBgColor, label, value, onClick }: StatCardProps) => (
   <MotionBox
     bg="white"
-    borderRadius="16px"
+    borderRadius="2xl"
     p={6}
-    shadow="sm"
+    shadow="card"
     cursor={onClick ? 'pointer' : 'default'}
     onClick={onClick}
-    transition="all 0.2s"
+    transition="all 0.25s ease"
     _hover={onClick ? {
-      shadow: 'md',
-      transform: 'translateY(-2px)'
+      shadow: 'float',
+      transform: 'translateY(-3px)'
     } : {}}
-    whileHover={onClick ? { scale: 1.02 } : {}}
+    border="1px solid"
+    borderColor="purple.50"
   >
     <HStack spacing={4}>
-      {/* Icône dans cercle coloré (bg-opacity-10) */}
-      <Circle
-        size="48px"
-        bg={iconBgColor}
-      >
+      <Circle size="52px" bg={iconBgColor} shadow="card" border="1px solid" borderColor="purple.50">
         <Icon as={icon} color={iconColor} boxSize={5} />
       </Circle>
-      
       <VStack align="start" spacing={0}>
-        {/* Chiffre en gros et noir */}
-        <Text
-          fontSize="2xl"
-          fontWeight="bold"
-          color="gray.900"
-          lineHeight="1.2"
-        >
+        <Text fontSize="2xl" fontWeight="800" color="#1A162E" lineHeight="1.1" letterSpacing="-0.03em">
           {value}
         </Text>
-        {/* Label en gris */}
-        <Text
-          fontSize="sm"
-          color="gray.500"
-          fontWeight="500"
-        >
+        <Text fontSize="sm" color="purple.400" fontWeight="600" letterSpacing="-0.01em">
           {label}
         </Text>
       </VStack>
@@ -151,7 +136,7 @@ const EmptyState = ({ icon, title, description, actionLabel, onAction }: EmptySt
 // ==================== COMPOSANT PRINCIPAL ====================
 const DashboardV3 = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const toast = useToast();
   const { t } = useTranslation();
 
@@ -162,9 +147,12 @@ const DashboardV3 = () => {
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [marriages, setMarriages] = useState<Marriage[]>([]);
   const [familyStats, setFamilyStats] = useState<FamilyStats | null>(null);
+  const fetchedRef = useRef(false);
 
-  // Charger les données
+  // Charger les données — guard contre le double-appel React 18 Strict Mode
   useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
     fetchFamilyInfo();
     fetchUpcomingEvents();
     fetchMarriages();
@@ -244,50 +232,80 @@ const DashboardV3 = () => {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
 
   return (
-    <Box minH="100vh" bg="#F9FAFB" pb={{ base: "90px", md: 0 }}> {/* Padding bottom pour bottom nav */}
+    <Box minH="100vh" bg="transparent" pb={{ base: "90px", md: 0 }}> {/* Padding bottom pour bottom nav */}
       <Container maxW="6xl" py={8}>
         <VStack spacing={8} align="stretch">
-          {/* ==================== HEADER ACCUEIL ==================== */}
+          {/* ==================== HERO BANNER ==================== */}
           <MotionBox
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
+            transition={{ duration: 0.5 }}
+            bgGradient="linear(135deg, purple.900, purple.700)"
+            borderRadius="2xl"
+            p={{ base: 6, md: 10 }}
+            color="white"
+            position="relative"
+            overflow="hidden"
           >
-            <Flex justify="space-between" align="center" flexWrap="wrap" gap={4}>
-              <VStack align="start" spacing={1}>
-                <Heading
-                  size="xl"
-                  color="gray.900"
-                  fontWeight="700"
-                >
-                  {t('dashboard.welcome', { name: user?.personName?.split(' ')[0] || user?.userName || 'Utilisateur' })}
+            {/* Cercles décoratifs */}
+            <Box position="absolute" top="-50px" right="-50px" w="220px" h="220px" borderRadius="full" bg="whiteAlpha.100" />
+            <Box position="absolute" bottom="-30px" right="120px" w="130px" h="130px" borderRadius="full" bg="whiteAlpha.100" />
+            <Box position="absolute" top="30px" right="200px" w="60px" h="60px" borderRadius="full" bg="whiteAlpha.100" />
+
+            <Flex justify="space-between" align="center" flexWrap="wrap" gap={4} position="relative" zIndex={1}>
+              <VStack align="start" spacing={2}>
+                {familyInfo?.familyName && (
+                  <HStack spacing={2}>
+                    <Icon as={FaUsers} boxSize={3} opacity={0.7} />
+                    <Text fontSize="xs" opacity={0.75} fontWeight="600" letterSpacing="0.08em" textTransform="uppercase">
+                      {familyInfo.familyName}
+                    </Text>
+                  </HStack>
+                )}
+                <Heading size="2xl" fontWeight="800" letterSpacing="-0.03em" color="white" lineHeight="1.1">
+                  {t('dashboard.welcome', { name: user?.personName?.split(' ')[0] || user?.userName || '' })} 👋
                 </Heading>
-                <Text fontSize="lg" color="gray.600" fontWeight="500">
-                  {familyInfo?.familyName || t('dashboard.yourFamily')}
-                </Text>
+                {familyStats && (
+                  <HStack spacing={5} mt={1} opacity={0.9}>
+                    <HStack spacing={1.5}>
+                      <Icon as={FaUsers} boxSize={3.5} />
+                      <Text fontSize="sm" fontWeight="600">
+                        {familyStats.membersCount} {t('dashboard.members')}
+                      </Text>
+                    </HStack>
+                    <HStack spacing={1.5}>
+                      <Icon as={FaHeart} boxSize={3.5} />
+                      <Text fontSize="sm" fontWeight="600">
+                        {familyStats.marriagesCount} {t('dashboard.unions')}
+                      </Text>
+                    </HStack>
+                    <HStack spacing={1.5}>
+                      <Icon as={FaCalendar} boxSize={3.5} />
+                      <Text fontSize="sm" fontWeight="600">
+                        {familyStats.eventsCount} {t('dashboard.events')}
+                      </Text>
+                    </HStack>
+                  </HStack>
+                )}
               </VStack>
 
-              {/* Bouton Déconnexion (desktop) */}
               <Button
-                display={{ base: 'none', md: 'flex' }}
-                size="md"
-                onClick={handleLogout}
-                variant="outline"
-                borderColor="gray.300"
-                color="gray.700"
+                leftIcon={<Icon as={FaUsers} />}
+                bg="whiteAlpha.200"
+                color="white"
                 borderRadius="xl"
-                _hover={{
-                  bg: 'gray.50',
-                  borderColor: 'gray.400'
-                }}
+                border="1px solid"
+                borderColor="whiteAlpha.300"
+                _hover={{ bg: 'whiteAlpha.300', transform: 'translateY(-1px)' }}
+                backdropFilter="blur(10px)"
+                fontWeight="600"
+                size="md"
+                display={{ base: 'none', sm: 'flex' }}
+                onClick={() => navigate('/persons')}
               >
-                {t('common.logout')}
+                {t('navigation.members')}
               </Button>
             </Flex>
           </MotionBox>
@@ -301,7 +319,7 @@ const DashboardV3 = () => {
               bg="white"
               borderRadius="16px"
               p={6}
-              shadow="sm"
+              shadow="card" border="1px solid" borderColor="purple.50"
             >
               <HStack mb={3}>
                 <Circle size="40px" bg="purple.50">
@@ -435,7 +453,7 @@ const DashboardV3 = () => {
             bg="white"
             borderRadius="16px"
             p={6}
-            shadow="sm"
+            shadow="card" border="1px solid" borderColor="purple.50"
           >
             <HStack justify="space-between" mb={4}>
               <HStack>
@@ -514,7 +532,7 @@ const DashboardV3 = () => {
               bg="white"
               borderRadius="16px"
               p={6}
-              shadow="sm"
+              shadow="card" border="1px solid" borderColor="purple.50"
             >
               <HStack justify="space-between" mb={4}>
                 <HStack>

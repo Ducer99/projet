@@ -7,6 +7,7 @@ console.log('🌐 API Base URL:', API_BASE_URL);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true, // 🍪 envoie le cookie httpOnly JWT automatiquement
 });
 
 // Add token to requests

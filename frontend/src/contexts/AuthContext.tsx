@@ -15,9 +15,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) setUser(JSON.parse(storedUser));
+    } catch {
+      localStorage.removeItem('user');
     }
   }, []);
 
@@ -41,8 +43,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('Réponse invalide du serveur');
       }
       
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(userData));
+      try {
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
+      } catch { /* storage quota exceeded — session still works in memory */ }
       setUser(userData);
 
       // 🚀 Retourner le flag pour le Smart Redirect Flow
@@ -55,7 +59,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout'); // efface le cookie httpOnly côté serveur
+    } catch { /* silencieux si déjà expiré */ }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
