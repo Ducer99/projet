@@ -49,24 +49,8 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<PollAudienceService>();
 
 // Database configuration — DATABASE_URL (Render) en priorité, sinon ConnectionStrings
-string? connectionString = null;
-var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-if (!string.IsNullOrEmpty(databaseUrl))
-{
-    // Convertir postgresql://user:pass@host/db?sslmode=require → format Npgsql
-    var uri = new Uri(databaseUrl);
-    var userInfo = uri.UserInfo.Split(':');
-    var host = uri.Host;
-    var port = uri.Port > 0 ? uri.Port : 5432;
-    var database = uri.AbsolutePath.TrimStart('/');
-    var username = userInfo[0];
-    var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
-    connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
-}
-else
-{
-    connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-}
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<FamilyTreeContext>(options =>
     options.UseNpgsql(connectionString));
 
