@@ -136,6 +136,13 @@ if (app.Environment.IsDevelopment())
 // pour éviter les redirections infinies derrière un reverse proxy.
 
 // Servir les fichiers statiques (uploads + React build)
+// Appliquer les migrations automatiquement au démarrage
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<FamilyTreeContext>();
+    db.Database.Migrate();
+}
+
 app.UseStaticFiles();
 
 // Activer le routing par défaut pour les fichiers dans wwwroot
