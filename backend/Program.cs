@@ -48,31 +48,32 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 // Register PollAudienceService
 builder.Services.AddScoped<PollAudienceService>();
 
-// Database configuration — support ConnectionStrings__DefaultConnection ou DATABASE_URL (Render)
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-if (string.IsNullOrEmpty(connectionString))
+// Database configuration — DATABASE_URL (Render) en priorité, sinon ConnectionStrings
+string? connectionString = null;
+var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+if (!string.IsNullOrEmpty(databaseUrl))
 {
-    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-    if (!string.IsNullOrEmpty(databaseUrl))
-    {
-        // Convertir postgresql://user:pass@host/db?sslmode=require → format Npgsql
-        var uri = new Uri(databaseUrl);
-        var userInfo = uri.UserInfo.Split(':');
-        var host = uri.Host;
-        var port = uri.Port > 0 ? uri.Port : 5432;
-        var database = uri.AbsolutePath.TrimStart('/');
-        var username = userInfo[0];
-        var password = userInfo.Length > 1 ? userInfo[1] : "";
-        connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
-    }
+    // Convertir postgresql://user:pass@host/db?sslmode=require → format Npgsql
+    var uri = new Uri(databaseUrl);
+    var userInfo = uri.UserInfo.Split(':');
+    var host = uri.Host;
+    var port = uri.Port > 0 ? uri.Port : 5432;
+    var database = uri.AbsolutePath.TrimStart('/');
+    var username = userInfo[0];
+    var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+    connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
+}
+else
+{
+    connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 }
 builder.Services.AddDbContext<FamilyTreeContext>(options =>
     options.UseNpgsql(connectionString));
 
-// JWT Authentication
-var jwtKey = builder.Configuration["Jwt:Key"];
+// JWT Authentication — Jwt__Key ou JWT_SECRET_KEY (Render)
+var jwtKey = builder.Configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
 if (string.IsNullOrEmpty(jwtKey))
-    throw new InvalidOperationException("JWT Key is not configured. Set Jwt:Key in appsettings or via env var Jwt__Key.");
+    throw new InvalidOperationException("JWT Key is not configured. Set Jwt__Key or JWT_SECRET_KEY env var.");
 var key = Encoding.ASCII.GetBytes(jwtKey);
 
 builder.Services.AddAuthentication(x =>
