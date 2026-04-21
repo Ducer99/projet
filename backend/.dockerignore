@@ -7,4 +7,3 @@ obj/
 .DS_Store
 appsettings.Development.json
 *.log
-Migrations/
