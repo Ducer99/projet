@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Box,
   Container,
@@ -19,9 +19,10 @@ import {
   Badge,
   Textarea,
   Switch,
+  Avatar,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
-import { FaUserPlus, FaMale, FaFemale, FaTimes } from 'react-icons/fa';
+import { FaUserPlus, FaMale, FaFemale, FaTimes, FaCamera } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 
@@ -48,11 +49,21 @@ export default function AddMember() {
   const [motherLastName, setMotherLastName] = useState('');
 
   const [saving, setSaving] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
   const navigate = useNavigate();
   const { t } = useTranslation();
 
   const set = (field: string, value: any) => setFormData(prev => ({ ...prev, [field]: value }));
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,8 +73,18 @@ export default function AddMember() {
     }
     setSaving(true);
     try {
+      // Upload photo vers Cloudinary si un fichier a été sélectionné
+      let photoUrl = formData.photoUrl;
+      if (photoFile) {
+        const uploadData = new FormData();
+        uploadData.append('photo', photoFile);
+        const uploadRes = await api.post('/persons/upload-photo', uploadData);
+        photoUrl = uploadRes.data.url;
+      }
+
       const personData: any = {
         ...formData,
+        photoUrl,
         birthday: formData.birthday ? new Date(formData.birthday).toISOString() : null,
         deathDate: formData.deathDate ? new Date(formData.deathDate).toISOString() : null,
         cityID: formData.cityID || 1,
@@ -139,11 +160,49 @@ export default function AddMember() {
         <form onSubmit={handleSubmit}>
           <VStack spacing={6} align="stretch">
 
-            {/* Informations personnelles */}
+            {/* Photo */}
             <Box bg="white" borderRadius="xl" shadow="card" border="1px solid" borderColor="purple.50" overflow="hidden">
               <Box px={6} py={4} borderBottomWidth={1} borderColor="gray.100">
                 <HStack>
                   <Badge colorScheme="purple" borderRadius="full" px={3} py={1}>1</Badge>
+                  <Text fontWeight="bold" color="gray.700">Photo (optionnel)</Text>
+                </HStack>
+              </Box>
+              <Box px={6} py={6}>
+                <HStack spacing={4}>
+                  <Box position="relative" cursor="pointer" onClick={() => fileInputRef.current?.click()}>
+                    <Avatar size="xl" src={photoPreview || undefined} name={formData.firstName || 'Photo'} />
+                    <Flex
+                      position="absolute" bottom={0} right={0}
+                      w="28px" h="28px" borderRadius="full"
+                      bg="purple.500" align="center" justify="center"
+                      border="2px solid white"
+                    >
+                      <Icon as={FaCamera} color="white" fontSize="11px" />
+                    </Flex>
+                  </Box>
+                  <Box>
+                    <Text fontSize="sm" color="gray.600" mb={2}>Cliquez sur l'avatar pour choisir une photo</Text>
+                    <Button size="sm" variant="outline" colorScheme="purple" onClick={() => fileInputRef.current?.click()}>
+                      Choisir une photo
+                    </Button>
+                  </Box>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={handlePhotoChange}
+                  />
+                </HStack>
+              </Box>
+            </Box>
+
+            {/* Informations personnelles */}
+            <Box bg="white" borderRadius="xl" shadow="card" border="1px solid" borderColor="purple.50" overflow="hidden">
+              <Box px={6} py={4} borderBottomWidth={1} borderColor="gray.100">
+                <HStack>
+                  <Badge colorScheme="purple" borderRadius="full" px={3} py={1}>2</Badge>
                   <Text fontWeight="bold" color="gray.700">Informations personnelles</Text>
                 </HStack>
               </Box>
@@ -207,7 +266,7 @@ export default function AddMember() {
             <Box bg="white" borderRadius="xl" shadow="card" border="1px solid" borderColor="purple.50" overflow="hidden">
               <Box px={6} py={4} borderBottomWidth={1} borderColor="gray.100">
                 <HStack>
-                  <Badge colorScheme="purple" borderRadius="full" px={3} py={1}>2</Badge>
+                  <Badge colorScheme="purple" borderRadius="full" px={3} py={1}>3</Badge>
                   <Text fontWeight="bold" color="gray.700">Parents (optionnel)</Text>
                 </HStack>
               </Box>
@@ -258,7 +317,7 @@ export default function AddMember() {
             <Box bg="white" borderRadius="xl" shadow="card" border="1px solid" borderColor="purple.50" overflow="hidden">
               <Box px={6} py={4} borderBottomWidth={1} borderColor="gray.100">
                 <HStack>
-                  <Badge colorScheme="purple" borderRadius="full" px={3} py={1}>3</Badge>
+                  <Badge colorScheme="purple" borderRadius="full" px={3} py={1}>4</Badge>
                   <Text fontWeight="bold" color="gray.700">Statut vital</Text>
                 </HStack>
               </Box>

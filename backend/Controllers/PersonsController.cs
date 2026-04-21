@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using FamilyTreeAPI.Data;
 using FamilyTreeAPI.Models;
-using Microsoft.AspNetCore.Hosting;
+using FamilyTreeAPI.Services;
 
 namespace FamilyTreeAPI.Controllers
 {
@@ -13,47 +13,76 @@ namespace FamilyTreeAPI.Controllers
     public class PersonsController : ControllerBase
     {
         private readonly FamilyTreeContext _context;
-        private readonly IWebHostEnvironment _env;
+        private readonly CloudinaryService _cloudinary;
 
-        public PersonsController(FamilyTreeContext context, IWebHostEnvironment env)
+        public PersonsController(FamilyTreeContext context, CloudinaryService cloudinary)
         {
             _context = context;
-            _env = env;
+            _cloudinary = cloudinary;
         }
 
         // GET: api/Persons - Retourne uniquement les membres de la famille de l'utilisateur
         [HttpGet]
         [Authorize]
-        public async Task<ActionResult> GetPersons()
+        public async Task<ActionResult> GetPersons(
+            [FromQuery] int? page = null,
+            [FromQuery] int pageSize = 50,
+            [FromQuery] string? search = null)
         {
             // 🔒 SÉCURITÉ : Récupérer l'ID de famille de l'utilisateur connecté
             var userFamilyId = int.Parse(User.FindFirst("familyId")?.Value ?? "0");
-            
+
             if (userFamilyId == 0)
             {
                 return Unauthorized(new { message = "Famille non identifiée" });
             }
 
-            // Projection directe avec filtre par famille
-            var personsDto = await _context.Persons
-                .Where(p => p.FamilyID == userFamilyId)
+            // Si pas de page spécifiée → retourner tous (compatibilité arbre généalogique)
+            if (page == null)
+            {
+                var allPersons = await _context.Persons
+                    .Where(p => p.FamilyID == userFamilyId)
+                    .Select(p => new
+                    {
+                        p.PersonID, p.FirstName, p.LastName, p.Sex,
+                        p.Birthday, p.DeathDate, p.Alive, p.Activity,
+                        p.PhotoUrl, p.Notes, p.Email,
+                        p.FatherID, p.MotherID, p.FamilyID, p.CityID,
+                        CityName = p.City != null ? p.City.Name : null,
+                        FamilyName = p.Family != null ? p.Family.FamilyName : null,
+                        FatherName = p.Father != null ? p.Father.FirstName + " " + p.Father.LastName : null,
+                        MotherName = p.Mother != null ? p.Mother.FirstName + " " + p.Mother.LastName : null
+                    })
+                    .ToListAsync();
+                return Ok(allPersons);
+            }
+
+            // Mode paginé
+            pageSize = Math.Clamp(pageSize, 1, 200);
+            var pageNumber = Math.Max(1, page.Value);
+
+            var query = _context.Persons.Where(p => p.FamilyID == userFamilyId);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.ToLower();
+                query = query.Where(p =>
+                    p.FirstName.ToLower().Contains(term) ||
+                    p.LastName.ToLower().Contains(term));
+            }
+
+            var total = await query.CountAsync();
+
+            var personsDto = await query
+                .OrderBy(p => p.LastName).ThenBy(p => p.FirstName)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .Select(p => new
                 {
-                    p.PersonID,
-                    p.FirstName,
-                    p.LastName,
-                    p.Sex,
-                    p.Birthday,
-                    p.DeathDate,
-                    p.Alive,
-                    p.Activity,
-                    p.PhotoUrl,
-                    p.Notes,
-                    p.Email,
-                    p.FatherID,
-                    p.MotherID,
-                    p.FamilyID,
-                    p.CityID,
+                    p.PersonID, p.FirstName, p.LastName, p.Sex,
+                    p.Birthday, p.DeathDate, p.Alive, p.Activity,
+                    p.PhotoUrl, p.Notes, p.Email,
+                    p.FatherID, p.MotherID, p.FamilyID, p.CityID,
                     CityName = p.City != null ? p.City.Name : null,
                     FamilyName = p.Family != null ? p.Family.FamilyName : null,
                     FatherName = p.Father != null ? p.Father.FirstName + " " + p.Father.LastName : null,
@@ -61,7 +90,14 @@ namespace FamilyTreeAPI.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(personsDto);
+            return Ok(new
+            {
+                data = personsDto,
+                total,
+                page = pageNumber,
+                pageSize,
+                totalPages = (int)Math.Ceiling(total / (double)pageSize)
+            });
         }
 
         // GET: api/Persons/me - Récupérer son propre profil
@@ -387,16 +423,27 @@ namespace FamilyTreeAPI.Controllers
             // Cela évite les problèmes de liaison de modèle (model binding) avec les booléens depuis FormData.
             bool isAliveBasedOnDeathDate = !personUpdate.DeathDate.HasValue;
 
+            // 📸 Upload photo vers Cloudinary si un fichier est fourni
+            string? newPhotoUrl = personUpdate.PhotoUrl;
+            if (photo != null && photo.Length > 0)
+            {
+                var uploadedUrl = await _cloudinary.UploadPhotoAsync(photo, "family-tree/persons");
+                if (uploadedUrl != null)
+                {
+                    newPhotoUrl = uploadedUrl;
+                }
+            }
+
             // Mise à jour des champs autorisés
             existingPerson.FirstName = personUpdate.FirstName;
             existingPerson.LastName = personUpdate.LastName;
             existingPerson.Sex = personUpdate.Sex;
-            existingPerson.Birthday = personUpdate.Birthday.HasValue 
-                ? DateTime.SpecifyKind(personUpdate.Birthday.Value, DateTimeKind.Utc) 
+            existingPerson.Birthday = personUpdate.Birthday.HasValue
+                ? DateTime.SpecifyKind(personUpdate.Birthday.Value, DateTimeKind.Utc)
                 : null;
             existingPerson.Email = personUpdate.Email;
             existingPerson.Activity = personUpdate.Activity;
-            existingPerson.PhotoUrl = personUpdate.PhotoUrl;
+            existingPerson.PhotoUrl = newPhotoUrl;
             existingPerson.Notes = personUpdate.Notes;
             existingPerson.CityID = personUpdate.CityID;
             
@@ -519,6 +566,24 @@ namespace FamilyTreeAPI.Controllers
             await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+
+        // POST: api/persons/upload-photo — Upload une photo vers Cloudinary et retourne l'URL
+        [HttpPost("upload-photo")]
+        [Authorize]
+        public async Task<ActionResult> UploadPersonPhoto([FromForm] IFormFile photo)
+        {
+            if (photo == null || photo.Length == 0)
+                return BadRequest(new { message = "Aucun fichier fourni" });
+
+            if (!_cloudinary.IsConfigured)
+                return StatusCode(503, new { message = "Service de stockage photo non configuré" });
+
+            var url = await _cloudinary.UploadPhotoAsync(photo, "family-tree/persons");
+            if (url == null)
+                return StatusCode(500, new { message = "Erreur lors de l'upload de la photo" });
+
+            return Ok(new { url });
         }
 
         private bool PersonExists(int id)

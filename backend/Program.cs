@@ -48,6 +48,9 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 // Register PollAudienceService
 builder.Services.AddScoped<PollAudienceService>();
 
+// Register CloudinaryService
+builder.Services.AddSingleton<FamilyTreeAPI.Services.CloudinaryService>();
+
 // Database configuration — DATABASE_URL (Render) en priorité, sinon ConnectionStrings
 var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL")
     ?? builder.Configuration.GetConnectionString("DefaultConnection");
