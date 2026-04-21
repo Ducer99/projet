@@ -10,9 +10,15 @@ namespace FamilyTreeAPI.Services
 
         public CloudinaryService(IConfiguration configuration)
         {
-            var cloudName = configuration["Cloudinary:CloudName"] ?? Environment.GetEnvironmentVariable("CLOUDINARY_CLOUD_NAME");
-            var apiKey = configuration["Cloudinary:ApiKey"] ?? Environment.GetEnvironmentVariable("CLOUDINARY_API_KEY");
-            var apiSecret = configuration["Cloudinary:ApiSecret"] ?? Environment.GetEnvironmentVariable("CLOUDINARY_API_SECRET");
+            var cloudName = configuration["Cloudinary:CloudName"]
+                ?? Environment.GetEnvironmentVariable("CLOUDINARY_CLOUD_NAME")
+                ?? Environment.GetEnvironmentVariable("Cloud_name");
+            var apiKey = configuration["Cloudinary:ApiKey"]
+                ?? Environment.GetEnvironmentVariable("CLOUDINARY_API_KEY")
+                ?? Environment.GetEnvironmentVariable("API_key");
+            var apiSecret = configuration["Cloudinary:ApiSecret"]
+                ?? Environment.GetEnvironmentVariable("CLOUDINARY_API_SECRET")
+                ?? Environment.GetEnvironmentVariable("API_secret");
 
             _isConfigured = !string.IsNullOrEmpty(cloudName) && !string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(apiSecret);
 
