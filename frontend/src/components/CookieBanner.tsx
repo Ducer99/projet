@@ -38,7 +38,8 @@ const CookieBanner = () => {
         borderColor="primary.200"
         boxShadow="0 -4px 20px rgba(139, 92, 246, 0.12)"
         px={{ base: 4, md: 8 }}
-        py={4}
+        py={3}
+        mb={{ base: 0, md: 0 }}
       >
         <Flex
           justify="space-between"

@@ -251,6 +251,11 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 8px;
 }
 
+/* Espace pour le cookie banner en bas */
+body {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
 /* Responsive utilities */
 @media (max-width: 768px) {
   html {
