@@ -34,6 +34,9 @@ namespace FamilyTreeAPI.Data
         public DbSet<PollVote> PollVotes { get; set; }
         public DbSet<PollParticipant> PollParticipants { get; set; }
 
+        // 🎂 Log des notifications d'anniversaire (évite les doublons)
+        public DbSet<BirthdayNotificationLog> BirthdayNotificationLogs { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -162,6 +165,11 @@ namespace FamilyTreeAPI.Data
                 .WithMany()  // Pas de collection inverse pour éviter les cycles
                 .HasForeignKey(f => f.CreatedBy)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // 🎂 Contrainte unique sur BirthdayNotificationLog : 1 envoi par personne/famille/an
+            modelBuilder.Entity<BirthdayNotificationLog>()
+                .HasIndex(b => new { b.FamilyId, b.PersonId, b.Year })
+                .IsUnique();
 
             // Seed data
             SeedData(modelBuilder);

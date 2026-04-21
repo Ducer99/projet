@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using FamilyTreeAPI.Data;
+using FamilyTreeAPI.Models;
 
 namespace FamilyTreeAPI.Services
 {
@@ -54,6 +55,7 @@ namespace FamilyTreeAPI.Services
                 var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
 
                 var today = DateTime.UtcNow;
+                var currentYear = today.Year;
 
                 // Trouver toutes les personnes vivantes dont c'est l'anniversaire aujourd'hui
                 var birthdayPersons = await db.Persons
@@ -68,8 +70,50 @@ namespace FamilyTreeAPI.Services
 
                 foreach (var person in birthdayPersons)
                 {
+                    // ✅ Vérifier si la notification a déjà été envoyée cette année
+                    // (contrainte unique sur FamilyId + PersonId + Year en DB)
+                    var alreadySent = await db.BirthdayNotificationLogs
+                        .AnyAsync(l =>
+                            l.FamilyId == person.FamilyID &&
+                            l.PersonId == person.PersonID &&
+                            l.Year == currentYear);
+
+                    if (alreadySent)
+                    {
+                        _logger.LogInformation(
+                            "Notification déjà envoyée pour {name} (FamilyId={fid}, Year={year}). Ignoré.",
+                            $"{person.FirstName} {person.LastName}", person.FamilyID, currentYear);
+                        continue;
+                    }
+
+                    // Enregistrer le log AVANT d'envoyer pour verrouiller contre les doublons
+                    // En cas de crash après l'insert mais avant l'envoi, on préfère rater un envoi
+                    // plutôt que d'envoyer en double.
+                    var log = new BirthdayNotificationLog
+                    {
+                        FamilyId = (int)person.FamilyID,
+                        PersonId = person.PersonID,
+                        Year = currentYear,
+                        SentAt = DateTime.UtcNow
+                    };
+
+                    try
+                    {
+                        db.BirthdayNotificationLogs.Add(log);
+                        await db.SaveChangesAsync();
+                    }
+                    catch (DbUpdateException)
+                    {
+                        // Une autre instance a déjà inséré ce log (race condition) — on skip
+                        _logger.LogWarning(
+                            "Race condition détectée pour {name} — notification déjà verrouillée par une autre instance.",
+                            $"{person.FirstName} {person.LastName}");
+                        db.Entry(log).State = EntityState.Detached;
+                        continue;
+                    }
+
                     // Calculer l'âge
-                    int age = today.Year - person.Birthday!.Value.Year;
+                    int age = currentYear - person.Birthday!.Value.Year;
 
                     // Trouver tous les comptes actifs de la même famille avec email vérifié
                     var recipients = await db.Connexions
@@ -81,7 +125,9 @@ namespace FamilyTreeAPI.Services
                         .ToListAsync();
 
                     var birthdayPersonName = $"{person.FirstName} {person.LastName}";
-                    _logger.LogInformation("Envoi des notifications pour {name} ({count} destinataires)", birthdayPersonName, recipients.Count);
+                    _logger.LogInformation(
+                        "Envoi des notifications pour {name} ({count} destinataires)",
+                        birthdayPersonName, recipients.Count);
 
                     foreach (var recipient in recipients)
                     {
@@ -89,7 +135,6 @@ namespace FamilyTreeAPI.Services
                         {
                             var recipientName = recipient.UserName;
 
-                            // Récupérer le prénom depuis Person si disponible
                             if (recipient.IDPerson.HasValue)
                             {
                                 var recipientPerson = await db.Persons.FindAsync(recipient.IDPerson.Value);
