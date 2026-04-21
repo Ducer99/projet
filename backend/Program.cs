@@ -51,6 +51,9 @@ builder.Services.AddScoped<PollAudienceService>();
 // Register CloudinaryService
 builder.Services.AddSingleton<FamilyTreeAPI.Services.CloudinaryService>();
 
+// Birthday notification background service (tourne chaque jour à 8h UTC)
+builder.Services.AddHostedService<FamilyTreeAPI.Services.BirthdayNotificationService>();
+
 // Database configuration — DATABASE_URL (Render) en priorité, sinon ConnectionStrings
 var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL")
     ?? builder.Configuration.GetConnectionString("DefaultConnection");

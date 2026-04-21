@@ -9,6 +9,7 @@ namespace FamilyTreeAPI.Services
         Task SendWelcomeEmailAsync(string toEmail, string userName, string familyName);
         Task SendPasswordResetCodeAsync(string toEmail, string verificationCode);
         Task SendEmailVerificationCodeAsync(string toEmail, string userName, string verificationCode);
+        Task SendBirthdayNotificationAsync(string toEmail, string recipientName, string birthdayPersonName, int age);
     }
 
     public class EmailService : IEmailService
@@ -166,6 +167,49 @@ namespace FamilyTreeAPI.Services
                 _logger.LogError(ex, $"Erreur lors de l'envoi de l'email à {toEmail}");
                 // On ne lance pas d'exception pour ne pas bloquer la création de compte
             }
+        }
+
+        public async Task SendBirthdayNotificationAsync(string toEmail, string recipientName, string birthdayPersonName, int age)
+        {
+            var subject = $"🎂 Aujourd'hui c'est l'anniversaire de {birthdayPersonName} !";
+            var ageText = age > 0 ? $"fête ses <strong>{age} ans</strong>" : "fête son anniversaire";
+            var body = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 40px 20px; text-align: center; border-radius: 10px 10px 0 0; }}
+        .content {{ background-color: #ffffff; padding: 40px 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 10px 10px; }}
+        .cake {{ font-size: 80px; text-align: center; margin: 20px 0; }}
+        .name {{ font-size: 28px; font-weight: bold; color: #f5576c; text-align: center; margin: 10px 0; }}
+        .footer {{ text-align: center; margin-top: 20px; color: #718096; font-size: 12px; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1 style='margin: 0; font-size: 28px;'>🌳 Family Tree</h1>
+            <p style='margin: 10px 0 0 0; opacity: 0.9;'>Rappel d'anniversaire</p>
+        </div>
+        <div class='content'>
+            <p style='font-size: 16px;'>Bonjour <strong>{recipientName}</strong>,</p>
+            <div class='cake'>🎂</div>
+            <div class='name'>{birthdayPersonName}</div>
+            <p style='text-align: center; font-size: 18px; color: #4a5568;'>{ageText} aujourd'hui !</p>
+            <p style='text-align: center; font-size: 16px; color: #718096;'>
+                N'oubliez pas de lui souhaiter un joyeux anniversaire 🎉
+            </p>
+        </div>
+        <div class='footer'>
+            <p>© 2025 Family Tree - Votre arbre généalogique en ligne</p>
+        </div>
+    </div>
+</body>
+</html>";
+
+            await SendEmailAsync(toEmail, subject, body);
         }
 
         public async Task SendEmailVerificationCodeAsync(string toEmail, string userName, string verificationCode)
