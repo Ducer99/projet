@@ -16,6 +16,11 @@ namespace FamilyTreeAPI.Models
         /// <summary>Année calendaire pour laquelle la notification a été envoyée.</summary>
         public int Year { get; set; }
 
-        public DateTime SentAt { get; set; } = DateTime.UtcNow;
+        /// <summary>
+        /// null = log inséré mais email pas encore envoyé (crash potentiel entre l'insert et l'envoi).
+        /// valeur = tous les emails ont été envoyés avec succès.
+        /// Requête diagnostic : SELECT * FROM "BirthdayNotificationLog" WHERE "SentAt" IS NULL
+        /// </summary>
+        public DateTime? SentAt { get; set; } = null;
     }
 }

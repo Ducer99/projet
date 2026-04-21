@@ -89,12 +89,14 @@ namespace FamilyTreeAPI.Services
                     // Enregistrer le log AVANT d'envoyer pour verrouiller contre les doublons
                     // En cas de crash après l'insert mais avant l'envoi, on préfère rater un envoi
                     // plutôt que d'envoyer en double.
+                    // SentAt = null : log inséré mais emails pas encore envoyés
+                    // → permet de diagnostiquer les crashs avec WHERE SentAt IS NULL
                     var log = new BirthdayNotificationLog
                     {
                         FamilyId = (int)person.FamilyID,
                         PersonId = person.PersonID,
                         Year = currentYear,
-                        SentAt = DateTime.UtcNow
+                        SentAt = null
                     };
 
                     try
@@ -154,6 +156,11 @@ namespace FamilyTreeAPI.Services
                             _logger.LogError(ex, "Erreur envoi notification anniversaire à {email}", recipient.Email);
                         }
                     }
+
+                    // Marquer SentAt maintenant que tous les emails ont été traités
+                    // SentAt IS NULL dans la table = crash entre l'insert et ici
+                    log.SentAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync();
                 }
             }
             catch (Exception ex)
