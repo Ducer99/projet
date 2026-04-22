@@ -1159,6 +1159,13 @@ namespace FamilyTreeAPI.Controllers
             target.TwoFactorCodeExpiry = null;
             await _context.SaveChangesAsync();
 
+            // Notifier l'utilisateur par email pour qu'il ne soit pas surpris
+            try
+            {
+                await _emailService.SendTwoFactorDisabledByAdminAsync(target.Email, target.UserName, admin.UserName);
+            }
+            catch { /* Ne pas bloquer si l'email échoue */ }
+
             return Ok(new { message = $"2FA désactivée pour {target.UserName}." });
         }
 

@@ -637,7 +637,10 @@ namespace FamilyTreeAPI.Controllers
             {
                 ManID = manId,
                 WomanID = womanId,
-                WeddingDate = new DateTime(1900, 1, 1), // Date inconnue — sentinel
+                // Sentinel 1900-01-01 = date inconnue. Le frontend affiche "Date inconnue"
+                // quand getFullYear() <= 1900 (voir WeddingsList.tsx et MarriageCard.tsx).
+                // Ne pas remplacer par DateTime.UtcNow : ferait apparaître la date du jour dans la liste des mariages.
+                WeddingDate = new DateTime(1900, 1, 1),
                 IsActive = true,
                 Status = "active",
                 Notes = "Union créée automatiquement lors de l'ajout d'un enfant commun",

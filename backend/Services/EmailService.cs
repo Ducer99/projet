@@ -11,6 +11,7 @@ namespace FamilyTreeAPI.Services
         Task SendEmailVerificationCodeAsync(string toEmail, string userName, string verificationCode);
         Task SendBirthdayNotificationAsync(string toEmail, string recipientName, string birthdayPersonName, int age);
         Task SendTwoFactorCodeAsync(string toEmail, string userName, string code);
+        Task SendTwoFactorDisabledByAdminAsync(string toEmail, string userName, string adminName);
     }
 
     public class EmailService : IEmailService
@@ -326,6 +327,41 @@ namespace FamilyTreeAPI.Services
         <div class='footer'>
             <p style='margin: 5px 0;'>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
             <p style='margin: 5px 0;'>© 2025 Family Tree - Votre arbre généalogique en ligne</p>
+        </div>
+    </div>
+</body>
+</html>";
+
+            await SendEmailAsync(toEmail, subject, body);
+        }
+
+        public async Task SendTwoFactorDisabledByAdminAsync(string toEmail, string userName, string adminName)
+        {
+            var subject = "Votre double authentification a été désactivée";
+            var date = DateTime.UtcNow.ToString("dd/MM/yyyy à HH:mm") + " UTC";
+            var body = $@"<!DOCTYPE html>
+<html>
+<head><meta charset='utf-8'></head>
+<body style='font-family: Arial, sans-serif; background:#F3F4F6; margin:0; padding:20px;'>
+    <div style='max-width:560px; margin:0 auto; background:white; border-radius:12px; overflow:hidden; box-shadow:0 4px 6px rgba(0,0,0,0.07);'>
+        <div style='background:linear-gradient(135deg,#4C1D95,#6D28D9); padding:32px 40px; text-align:center;'>
+            <h1 style='color:white; margin:0; font-size:22px;'>⚠️ Sécurité — 2FA désactivée</h1>
+        </div>
+        <div style='padding:32px 40px;'>
+            <p style='color:#374151; font-size:16px;'>Bonjour <strong>{userName}</strong>,</p>
+            <p style='color:#374151;'>
+                La <strong>double authentification (2FA)</strong> de votre compte a été désactivée
+                par un administrateur (<strong>{adminName}</strong>) le <strong>{date}</strong>.
+            </p>
+            <div style='background:#FEF3C7; border-left:4px solid #F59E0B; padding:16px 20px; border-radius:6px; margin:24px 0;'>
+                <p style='margin:0; color:#92400E; font-size:14px;'>
+                    <strong>Ce n'était pas vous ?</strong> Contactez votre administrateur de famille immédiatement.
+                    Si vous souhaitez réactiver la 2FA, rendez-vous dans votre profil → onglet Sécurité.
+                </p>
+            </div>
+            <p style='color:#6B7280; font-size:13px; margin-top:32px;'>
+                Cet email est envoyé automatiquement à titre d'information. Vous pouvez réactiver la 2FA à tout moment depuis votre profil.
+            </p>
         </div>
     </div>
 </body>
