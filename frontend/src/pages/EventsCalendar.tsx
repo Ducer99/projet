@@ -177,8 +177,7 @@ const EventsCalendar = () => {
   const EVENT_COLORS: Record<string, { bg: string; color: string; emoji: string; label: string }> = {
     birthday: { bg: 'pink.50', color: 'pink.600', emoji: '🎂', label: t('events.types.birthday') },
     marriage: { bg: 'blue.50', color: 'blue.600', emoji: '💍', label: t('events.types.marriage') },
-    birth: { bg: 'green.50', color: 'green.600', emoji: '�', label: t('events.types.birth') },
-    death: { bg: 'gray.100', color: 'gray.600', emoji: '�️', label: t('events.types.death') },
+    death: { bg: 'gray.100', color: 'gray.600', emoji: '🕊️', label: t('events.types.death') },
     party: { bg: 'purple.50', color: 'purple.600', emoji: '🎉', label: t('events.types.party') },
     other: { bg: 'orange.50', color: 'orange.600', emoji: '📅', label: t('events.types.other') },
   };
