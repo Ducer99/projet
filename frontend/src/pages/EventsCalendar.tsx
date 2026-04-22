@@ -203,8 +203,38 @@ const EventsCalendar = () => {
         api.get<Event[]>('/events'),
         api.get<Person[]>('/persons')
       ]);
-      setEvents(eventsResponse.data);
-      setPersons(personsResponse.data);
+      const fetchedPersons = personsResponse.data;
+      setPersons(fetchedPersons);
+
+      // Générer les anniversaires depuis la liste des personnes (source de vérité)
+      // Cela garantit que TOUS les membres ont un anniversaire visible, même ceux
+      // ajoutés avant le déploiement de la fonctionnalité Events.
+      const birthdayEvents: Event[] = fetchedPersons
+        .filter(p => p.alive && p.birthday)
+        .map(p => ({
+          eventID: -(p.personID), // ID négatif pour éviter les collisions avec les vrais événements
+          familyID: p.familyID,
+          title: `Anniversaire de ${p.firstName} ${p.lastName}`,
+          description: `🎂 Joyeux anniversaire ${p.firstName} !`,
+          startDate: p.birthday!,
+          endDate: undefined,
+          eventType: 'birthday',
+          location: undefined,
+          visibility: 'family',
+          isRecurring: true,
+          createdBy: 0,
+          createdAt: '',
+        }));
+
+      // Fusionner : ne pas doubler les anniversaires déjà dans la table Event
+      const dbBirthdayTitles = new Set(
+        eventsResponse.data
+          .filter(e => e.eventType === 'birthday')
+          .map(e => e.title)
+      );
+      const syntheticBirthdays = birthdayEvents.filter(e => !dbBirthdayTitles.has(e.title));
+
+      setEvents([...eventsResponse.data, ...syntheticBirthdays]);
     } catch (error: any) {
       toast({
         title: t('common.error'),
