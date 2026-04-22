@@ -421,7 +421,9 @@ const WeddingsList = () => {
                         <Td>
                           <VStack align="start" spacing={0}>
                             <Text fontSize="sm">
-                              {new Date(marriage.weddingDate).toLocaleDateString(i18n.language)}
+                              {new Date(marriage.weddingDate).getFullYear() <= 1900
+                                ? 'Date inconnue'
+                                : new Date(marriage.weddingDate).toLocaleDateString(i18n.language)}
                             </Text>
                             {marriage.endDate && (
                               <Text fontSize="xs" color="gray.500">

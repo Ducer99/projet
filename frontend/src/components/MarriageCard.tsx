@@ -114,7 +114,9 @@ const MarriageCard = ({ marriage, onEdit, onDelete }: MarriageCardProps) => {
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('fr-FR', {
+    const d = new Date(dateString);
+    if (d.getFullYear() <= 1900) return 'Date inconnue';
+    return d.toLocaleDateString('fr-FR', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',

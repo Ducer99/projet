@@ -1135,6 +1135,33 @@ namespace FamilyTreeAPI.Controllers
             return Ok(new { twoFactorEnabled = user.TwoFactorEnabled });
         }
 
+        // 🛡️ Désactiver la 2FA d'urgence pour un membre (Admin uniquement)
+        [HttpPost("admin/disable-2fa")]
+        [Authorize]
+        public async Task<ActionResult> AdminDisableTwoFactor([FromBody] AdminDisableTwoFactorRequest request)
+        {
+            var adminId = int.Parse(User.FindFirst("id")?.Value ?? "0");
+            var admin = await _context.Connexions.FindAsync(adminId);
+            if (admin == null) return NotFound();
+
+            if (admin.Role != "Admin" && admin.Role != "ADMIN" && admin.Role != "SUPER_ADMIN")
+                return Forbid();
+
+            // Trouver le compte associé à la personne cible
+            var target = await _context.Connexions
+                .FirstOrDefaultAsync(c => c.IDPerson == request.PersonId && c.FamilyID == admin.FamilyID);
+
+            if (target == null)
+                return NotFound(new { message = "Aucun compte trouvé pour cette personne dans votre famille." });
+
+            target.TwoFactorEnabled = false;
+            target.TwoFactorCode = null;
+            target.TwoFactorCodeExpiry = null;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = $"2FA désactivée pour {target.UserName}." });
+        }
+
         // 🔄 Régénérer le code d'invitation (Admin uniquement)
         [HttpPost("regenerate-invite-code")]
         [Authorize]
@@ -2001,6 +2028,11 @@ namespace FamilyTreeAPI.Controllers
     public class ToggleTwoFactorRequest
     {
         public bool Enable { get; set; }
+    }
+
+    public class AdminDisableTwoFactorRequest
+    {
+        public int PersonId { get; set; }
     }
 
     // 🆕 Requête de complétion de profil

@@ -1317,11 +1317,27 @@ const MembersManagementDashboard = () => {
                                 {t('members.editPerson')}
                               </MenuItem>
                             )}
+                            {(user?.role === 'Admin' || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+                              <MenuItem
+                                icon={<FaLock />}
+                                color="orange.600"
+                                onClick={async () => {
+                                  try {
+                                    await api.post('/auth/admin/disable-2fa', { personId: person.personID });
+                                    toast({ title: '2FA désactivée', description: `Double authentification désactivée pour ${person.firstName} ${person.lastName}.`, status: 'success', duration: 4000 });
+                                  } catch (err: any) {
+                                    toast({ title: 'Erreur', description: err.response?.data?.message || 'Impossible de désactiver la 2FA.', status: 'error', duration: 4000 });
+                                  }
+                                }}
+                              >
+                                Désactiver 2FA (urgence)
+                              </MenuItem>
+                            )}
                             {canDeletePerson(person) && (
                               <>
                                 <Divider />
-                                <MenuItem 
-                                  icon={<FaTrash />} 
+                                <MenuItem
+                                  icon={<FaTrash />}
                                   color="red.600"
                                   onClick={() => handleDeleteClick(person)}
                                 >

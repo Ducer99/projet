@@ -637,7 +637,7 @@ namespace FamilyTreeAPI.Controllers
             {
                 ManID = manId,
                 WomanID = womanId,
-                WeddingDate = DateTime.UtcNow, // Date inconnue — approximation
+                WeddingDate = new DateTime(1900, 1, 1), // Date inconnue — sentinel
                 IsActive = true,
                 Status = "active",
                 Notes = "Union créée automatiquement lors de l'ajout d'un enfant commun",
