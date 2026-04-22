@@ -57,7 +57,6 @@ namespace FamilyTreeAPI.Services
                 var today = DateTime.UtcNow;
                 var currentYear = today.Year;
 
-                // Trouver toutes les personnes vivantes dont c'est l'anniversaire aujourd'hui
                 var birthdayPersons = await db.Persons
                     .Where(p =>
                         p.Alive &&
@@ -70,8 +69,6 @@ namespace FamilyTreeAPI.Services
 
                 foreach (var person in birthdayPersons)
                 {
-                    // ✅ Vérifier si la notification a déjà été envoyée cette année
-                    // (contrainte unique sur FamilyId + PersonId + Year en DB)
                     var alreadySent = await db.BirthdayNotificationLogs
                         .AnyAsync(l =>
                             l.FamilyId == person.FamilyID &&
@@ -86,11 +83,9 @@ namespace FamilyTreeAPI.Services
                         continue;
                     }
 
-                    // Enregistrer le log AVANT d'envoyer pour verrouiller contre les doublons
-                    // En cas de crash après l'insert mais avant l'envoi, on préfère rater un envoi
-                    // plutôt que d'envoyer en double.
                     // SentAt = null : log inséré mais emails pas encore envoyés
-                    // → permet de diagnostiquer les crashs avec WHERE SentAt IS NULL
+                    // Diagnostic : SELECT * FROM "BirthdayNotificationLog" WHERE "SentAt" IS NULL
+                    // Correction : DELETE ... WHERE "SentAt" IS NULL AND "Year" = EXTRACT(YEAR FROM NOW())
                     var log = new BirthdayNotificationLog
                     {
                         FamilyId = (int)person.FamilyID,
@@ -106,7 +101,6 @@ namespace FamilyTreeAPI.Services
                     }
                     catch (DbUpdateException)
                     {
-                        // Une autre instance a déjà inséré ce log (race condition) — on skip
                         _logger.LogWarning(
                             "Race condition détectée pour {name} — notification déjà verrouillée par une autre instance.",
                             $"{person.FirstName} {person.LastName}");
@@ -114,10 +108,8 @@ namespace FamilyTreeAPI.Services
                         continue;
                     }
 
-                    // Calculer l'âge
                     int age = currentYear - person.Birthday!.Value.Year;
 
-                    // Trouver tous les comptes actifs de la même famille avec email vérifié
                     var recipients = await db.Connexions
                         .Where(c =>
                             c.FamilyID == person.FamilyID &&
@@ -157,8 +149,7 @@ namespace FamilyTreeAPI.Services
                         }
                     }
 
-                    // Marquer SentAt maintenant que tous les emails ont été traités
-                    // SentAt IS NULL dans la table = crash entre l'insert et ici
+                    // SentAt = valeur → tous les emails traités avec succès
                     log.SentAt = DateTime.UtcNow;
                     await db.SaveChangesAsync();
                 }

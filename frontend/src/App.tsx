@@ -34,6 +34,7 @@ import LanguageSettings from './pages/LanguageSettings';
 import PrivateRoute from './components/PrivateRoute';
 import Privacy from './pages/Privacy';
 import CookieBanner from './components/CookieBanner';
+import ImportMembers from './pages/ImportMembers';
 
 function App() {
   return (
@@ -66,6 +67,7 @@ function App() {
             <Route path="/my-profile" element={<PrivateRoute><MyProfile /></PrivateRoute>} />
             <Route path="/add-member" element={<PrivateRoute><AddMember /></PrivateRoute>} />
             <Route path="/edit-member/:id" element={<PrivateRoute><EditMember /></PrivateRoute>} />
+            <Route path="/import-members" element={<PrivateRoute><ImportMembers /></PrivateRoute>} />
             <Route path="/language-settings" element={<PrivateRoute><LanguageSettings /></PrivateRoute>} />
 
             {/* Événements */}

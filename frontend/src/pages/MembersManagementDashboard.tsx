@@ -66,7 +66,8 @@ import {
   FaCheck,
   FaStar,
   FaUser,
-  FaProjectDiagram
+  FaProjectDiagram,
+  FaFileExcel
 } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
@@ -860,6 +861,20 @@ const MembersManagementDashboard = () => {
                   fontWeight="600"
                 >
                   {t('members.addMember')}
+                </Button>
+
+                <Button
+                  bg="whiteAlpha.200"
+                  color="white"
+                  border="1px solid"
+                  borderColor="whiteAlpha.300"
+                  leftIcon={<FaFileExcel />}
+                  onClick={() => navigate('/import-members')}
+                  _hover={{ bg: 'whiteAlpha.300', transform: 'translateY(-1px)' }}
+                  size="md"
+                  fontWeight="600"
+                >
+                  Import Excel
                 </Button>
 
                 <Button
