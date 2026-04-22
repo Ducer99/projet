@@ -158,14 +158,9 @@ const MembersManagementDashboard = () => {
 
   const canDeletePerson = (person: PersonWithPermissions): boolean => {
     if (!user) return false;
-    
-    // Seuls les super administrateurs peuvent supprimer
-    if (user.role === 'SUPER_ADMIN') {
-      return true;
-    }
-    
-    // Les administrateurs peuvent supprimer leurs propres créations
-    if (user.role === 'ADMIN' && person.createdBy === user.idPerson) {
+
+    // Les administrateurs peuvent tout supprimer
+    if (user.role === 'Admin' || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
       return true;
     }
     

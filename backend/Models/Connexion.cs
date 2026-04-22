@@ -53,7 +53,15 @@ namespace FamilyTreeAPI.Models
         public DateTime? EmailVerificationExpiry { get; set; }
         
         public DateTime? EmailVerificationSentAt { get; set; }
-        
+
+        // 🔐 Double authentification (2FA) par email
+        public bool TwoFactorEnabled { get; set; } = false;
+
+        [StringLength(6)]
+        public string? TwoFactorCode { get; set; }
+
+        public DateTime? TwoFactorCodeExpiry { get; set; }
+
         // Navigation Properties
         [ForeignKey("IDPerson")]
         public virtual Person Person { get; set; } = null!;

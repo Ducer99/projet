@@ -10,6 +10,7 @@ namespace FamilyTreeAPI.Services
         Task SendPasswordResetCodeAsync(string toEmail, string verificationCode);
         Task SendEmailVerificationCodeAsync(string toEmail, string userName, string verificationCode);
         Task SendBirthdayNotificationAsync(string toEmail, string recipientName, string birthdayPersonName, int age);
+        Task SendTwoFactorCodeAsync(string toEmail, string userName, string code);
     }
 
     public class EmailService : IEmailService
@@ -209,6 +210,48 @@ namespace FamilyTreeAPI.Services
 </body>
 </html>";
 
+            await SendEmailAsync(toEmail, subject, body);
+        }
+
+        public async Task SendTwoFactorCodeAsync(string toEmail, string userName, string code)
+        {
+            var subject = "🔐 Votre code de double authentification - Family Tree";
+            var body = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: 'Segoe UI', sans-serif; color: #333; margin: 0; padding: 0; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #1a1a2e 0%, #4a1d96 100%); color: white; padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0; }}
+        .content {{ background: #fff; padding: 40px 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 10px 10px; }}
+        .code-box {{ background: linear-gradient(135deg, #1a1a2e 0%, #4a1d96 100%); color: white; padding: 30px; text-align: center; border-radius: 10px; margin: 30px 0; }}
+        .code {{ font-size: 40px; font-weight: bold; letter-spacing: 12px; font-family: monospace; }}
+        .warning {{ background: #fff5f5; border-left: 4px solid #fc8181; padding: 15px; border-radius: 4px; }}
+        .footer {{ text-align: center; margin-top: 20px; color: #718096; font-size: 12px; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1 style='margin:0;font-size:24px;'>🌳 Family Tree</h1>
+            <p style='margin:8px 0 0;opacity:.9;'>Double authentification</p>
+        </div>
+        <div class='content'>
+            <p>Bonjour <strong>{userName}</strong>,</p>
+            <p>Une tentative de connexion a été détectée sur votre compte. Voici votre code de vérification :</p>
+            <div class='code-box'>
+                <p style='margin:0 0 10px;font-size:13px;opacity:.85;'>Code valide 10 minutes</p>
+                <div class='code'>{code}</div>
+            </div>
+            <div class='warning'>
+                <strong>⚠️ Ne partagez jamais ce code.</strong> Si vous n'êtes pas à l'origine de cette connexion, changez votre mot de passe immédiatement.
+            </div>
+        </div>
+        <div class='footer'><p>© 2025 Family Tree</p></div>
+    </div>
+</body>
+</html>";
             await SendEmailAsync(toEmail, subject, body);
         }
 

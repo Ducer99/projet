@@ -50,7 +50,8 @@ import {
   FaEnvelope,
   FaSave,
   FaDownload,
-  FaTrash
+  FaTrash,
+  FaShieldAlt
 } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
@@ -85,6 +86,10 @@ export default function MyProfileV3() {
   const [age, setAge] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState(0);
   
+  // 2FA
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+
   // Photo upload
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>('');
@@ -95,6 +100,7 @@ export default function MyProfileV3() {
 
   useEffect(() => {
     loadProfile();
+    api.get('/auth/2fa-status').then(res => setTwoFactorEnabled(res.data.twoFactorEnabled)).catch(() => {});
   }, []);
 
   const calculateAge = (birthDate: string): number => {
@@ -172,6 +178,29 @@ export default function MyProfileV3() {
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleToggle2FA = async (enable: boolean) => {
+    setTwoFactorLoading(true);
+    try {
+      await api.post('/auth/toggle-2fa', { enable });
+      setTwoFactorEnabled(enable);
+      toast({
+        title: enable ? 'Double authentification activée' : 'Double authentification désactivée',
+        description: enable ? 'Un code vous sera envoyé par email à chaque connexion.' : '2FA désactivé.',
+        status: 'success',
+        duration: 4000,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erreur',
+        description: error.response?.data?.message || 'Impossible de modifier le paramètre 2FA.',
+        status: 'error',
+        duration: 4000,
+      });
+    } finally {
+      setTwoFactorLoading(false);
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -513,7 +542,7 @@ export default function MyProfileV3() {
                       <Icon as={FaEnvelope} mr={2} />
                       {t('myProfile.tabContact')}
                     </Tab>
-                    <Tab 
+                    <Tab
                       fontWeight="600"
                       fontSize="md"
                       px={6}
@@ -521,7 +550,7 @@ export default function MyProfileV3() {
                       borderRadius="10px"
                       color="#4B5563"
                       whiteSpace="nowrap"
-                      _selected={{ 
+                      _selected={{
                         color: 'white',
                         bg: 'purple.600',
                         shadow: '0 4px 12px rgba(109, 40, 217, 0.35)'
@@ -531,6 +560,25 @@ export default function MyProfileV3() {
                     >
                       <Icon as={FaInfoCircle} mr={2} />
                       {t('myProfile.tabBiography')}
+                    </Tab>
+                    <Tab
+                      fontWeight="600"
+                      fontSize="md"
+                      px={6}
+                      py={3}
+                      borderRadius="10px"
+                      color="#4B5563"
+                      whiteSpace="nowrap"
+                      _selected={{
+                        color: 'white',
+                        bg: 'purple.600',
+                        shadow: '0 4px 12px rgba(109, 40, 217, 0.35)'
+                      }}
+                      _hover={{ bg: 'purple.50' }}
+                      transition="all 0.2s"
+                    >
+                      <Icon as={FaShieldAlt} mr={2} />
+                      Sécurité
                     </Tab>
                     {(profile.fatherName || profile.motherName) && (
                       <Tab 
@@ -834,7 +882,66 @@ export default function MyProfileV3() {
                       </VStack>
                     </TabPanel>
 
-                    {/* TAB 4: PARENTS (conditionnel) */}
+                    {/* TAB 4: SÉCURITÉ */}
+                    <TabPanel px={8} py={6}>
+                      <VStack spacing={6} align="stretch">
+                        <Alert status="info" borderRadius="lg" bg="purple.50" borderColor="purple.300" variant="left-accent">
+                          <AlertIcon />
+                          <AlertDescription fontSize="sm">
+                            <Text fontWeight="bold" mb={1}>🔐 Double authentification (2FA)</Text>
+                            <Text>
+                              Quand activée, un code à 6 chiffres sera envoyé à votre email à chaque connexion.
+                            </Text>
+                          </AlertDescription>
+                        </Alert>
+
+                        <Card border="1px solid" borderColor={twoFactorEnabled ? 'green.200' : 'gray.200'} bg={twoFactorEnabled ? 'green.50' : 'white'}>
+                          <CardBody>
+                            <FormControl display="flex" alignItems="center" justifyContent="space-between">
+                              <Box>
+                                <HStack spacing={2} mb={1}>
+                                  <Icon as={FaShieldAlt} color={twoFactorEnabled ? 'green.500' : 'gray.400'} />
+                                  <Text fontWeight="700" color="#374151">
+                                    Double authentification
+                                  </Text>
+                                  {twoFactorEnabled && (
+                                    <Badge colorScheme="green" borderRadius="full" px={2} fontSize="xs">Activée</Badge>
+                                  )}
+                                </HStack>
+                                <Text fontSize="sm" color="gray.500">
+                                  {twoFactorEnabled
+                                    ? 'Votre compte est protégé. Un code email est requis à chaque connexion.'
+                                    : 'Renforcez la sécurité de votre compte avec un code email.'}
+                                </Text>
+                              </Box>
+                              <Switch
+                                isChecked={twoFactorEnabled}
+                                onChange={(e) => handleToggle2FA(e.target.checked)}
+                                isDisabled={twoFactorLoading}
+                                colorScheme="green"
+                                size="lg"
+                              />
+                            </FormControl>
+                          </CardBody>
+                        </Card>
+
+                        <Card bg="gray.50" borderColor="gray.200" borderWidth="1px">
+                          <CardBody>
+                            <VStack spacing={2} align="start">
+                              <Heading size="sm" color="gray.700">💡 Comment ça fonctionne ?</Heading>
+                              <Text fontSize="sm" color="gray.600">
+                                1. Vous saisissez votre email et mot de passe normalement.<br />
+                                2. Un code à 6 chiffres est envoyé à votre adresse email.<br />
+                                3. Vous saisissez le code pour finaliser la connexion.<br />
+                                4. Le code expire après 10 minutes.
+                              </Text>
+                            </VStack>
+                          </CardBody>
+                        </Card>
+                      </VStack>
+                    </TabPanel>
+
+                    {/* TAB 5: PARENTS (conditionnel) */}
                     {(profile.fatherName || profile.motherName) && (
                       <TabPanel px={8} py={6}>
                         <VStack spacing={6} align="stretch">

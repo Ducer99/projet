@@ -28,8 +28,12 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // 2FA state
+  const [twoFactorStep, setTwoFactorStep] = useState(false);
+  const [twoFactorEmail, setTwoFactorEmail] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { } = useAuth(); // keep context mounted for logout elsewhere
   const toast = useToast();
   const { t } = useTranslation();
 
@@ -38,26 +42,64 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const response = await login(email, password);
+      const response = await api.post('/auth/login', { email, password });
+      const data = response.data;
 
-      toast({
-        title: t('auth.welcomeBack'),
-        description: t('auth.welcomeBackDescription'),
-        status: 'success',
-        duration: 3000,
-      });
+      // Cas 2FA : le backend demande un code avant de délivrer le token
+      if (data.requiresTwoFactor) {
+        setTwoFactorEmail(data.email);
+        setTwoFactorStep(true);
+        toast({ title: 'Code envoyé', description: 'Vérifiez votre email pour le code 2FA.', status: 'info', duration: 4000 });
+        return;
+      }
 
-      if (response?.needsFamilyOnboarding === true) {
+      // Connexion normale
+      try {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+      } catch { /* storage quota */ }
+
+      toast({ title: t('auth.welcomeBack'), description: t('auth.welcomeBackDescription'), status: 'success', duration: 3000 });
+
+      if (data.needsFamilyOnboarding) {
         navigate('/family-attachment');
       } else {
         navigate('/dashboard');
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: t('auth.loginError'),
-        description: error instanceof Error ? error.message : t('auth.checkCredentials'),
+        description: error.response?.data?.message || (error instanceof Error ? error.message : t('auth.checkCredentials')),
         status: 'error',
         duration: 5000,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const response = await api.post('/auth/verify-2fa', { email: twoFactorEmail, code: twoFactorCode });
+      const data = response.data;
+      try {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+      } catch { /* storage quota */ }
+      toast({ title: t('auth.welcomeBack'), status: 'success', duration: 3000 });
+      if (data.needsFamilyOnboarding) {
+        navigate('/family-attachment');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Code incorrect',
+        description: error.response?.data?.message || 'Vérifiez le code et réessayez.',
+        status: 'error',
+        duration: 4000,
       });
     } finally {
       setIsLoading(false);
@@ -193,151 +235,178 @@ const Login = () => {
             </Text>
           </VStack>
 
-          {/* Bouton Google */}
-          <Box w="100%" display="flex" justifyContent="center">
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() =>
-                toast({
-                  title: 'Échec connexion Google',
-                  status: 'error',
-                  duration: 3000,
-                })
-              }
-              theme="outline"
-              size="large"
-              text="continue_with"
-              shape="rectangular"
-              width="400"
-              locale="fr"
-            />
-          </Box>
-
-          {/* Divider */}
-          <HStack w="100%" spacing={4}>
-            <Divider borderColor="gray.300" />
-            <Text fontSize="sm" color="gray.500" whiteSpace="nowrap">
-              ou par email
-            </Text>
-            <Divider borderColor="gray.300" />
-          </HStack>
-
-          {/* Formulaire email/mot de passe */}
-          <form onSubmit={handleSubmit} style={{ width: '100%' }}>
-            <VStack spacing={5} w="100%">
-              <FormControl isRequired>
-                <FormLabel color="#3D3856" fontWeight="600" fontSize="sm">
-                  {t('auth.email')}
-                </FormLabel>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  h="52px"
-                  borderRadius="xl"
-                  borderColor="#E8E6F0"
-                  borderWidth="1.5px"
-                  bg="white"
-                  _hover={{ borderColor: 'purple.300' }}
-                  _focus={{
-                    borderColor: 'purple.500',
-                    boxShadow: '0 0 0 2px rgba(139, 92, 246, 0.2)',
-                  }}
+          {!twoFactorStep ? (
+            <>
+              {/* Bouton Google */}
+              <Box w="100%" display="flex" justifyContent="center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => toast({ title: 'Échec connexion Google', status: 'error', duration: 3000 })}
+                  theme="outline"
+                  size="large"
+                  text="continue_with"
+                  shape="rectangular"
+                  width="400"
+                  locale="fr"
                 />
-              </FormControl>
+              </Box>
 
-              <FormControl isRequired>
-                <Flex justify="space-between" align="center" mb={2}>
-                  <FormLabel color="#3D3856" fontWeight="600" fontSize="sm" mb={0}>
-                    {t('auth.password')}
-                  </FormLabel>
-                  <ChakraLink
-                    as={Link}
-                    to="/forgot-password"
-                    fontSize="xs"
-                    color="purple.600"
-                    fontWeight="600"
-                    _hover={{ color: 'purple.700', textDecoration: 'underline' }}
-                  >
-                    Mot de passe oublié ?
-                  </ChakraLink>
-                </Flex>
-                <InputGroup>
-                  <Input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+              <HStack w="100%" spacing={4}>
+                <Divider borderColor="gray.300" />
+                <Text fontSize="sm" color="gray.500" whiteSpace="nowrap">ou par email</Text>
+                <Divider borderColor="gray.300" />
+              </HStack>
+
+              {/* Formulaire email/mot de passe */}
+              <form onSubmit={handleSubmit} style={{ width: '100%' }}>
+                <VStack spacing={5} w="100%">
+                  <FormControl isRequired>
+                    <FormLabel color="#3D3856" fontWeight="600" fontSize="sm">{t('auth.email')}</FormLabel>
+                    <Input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      h="52px"
+                      borderRadius="xl"
+                      borderColor="#E8E6F0"
+                      borderWidth="1.5px"
+                      bg="white"
+                      _hover={{ borderColor: 'purple.300' }}
+                      _focus={{ borderColor: 'purple.500', boxShadow: '0 0 0 2px rgba(139, 92, 246, 0.2)' }}
+                    />
+                  </FormControl>
+
+                  <FormControl isRequired>
+                    <Flex justify="space-between" align="center" mb={2}>
+                      <FormLabel color="#3D3856" fontWeight="600" fontSize="sm" mb={0}>{t('auth.password')}</FormLabel>
+                      <ChakraLink as={Link} to="/forgot-password" fontSize="xs" color="purple.600" fontWeight="600" _hover={{ color: 'purple.700', textDecoration: 'underline' }}>
+                        Mot de passe oublié ?
+                      </ChakraLink>
+                    </Flex>
+                    <InputGroup>
+                      <Input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        h="52px"
+                        borderRadius="xl"
+                        borderColor="#E8E6F0"
+                        borderWidth="1.5px"
+                        bg="white"
+                        pr="52px"
+                        _hover={{ borderColor: 'purple.300' }}
+                        _focus={{ borderColor: 'purple.500', boxShadow: '0 0 0 2px rgba(139, 92, 246, 0.2)' }}
+                      />
+                      <InputRightElement h="52px" pr={1}>
+                        <IconButton
+                          aria-label={showPassword ? 'Masquer' : 'Afficher'}
+                          icon={<Icon as={showPassword ? FaEyeSlash : FaEye} />}
+                          variant="ghost"
+                          size="sm"
+                          color="purple.400"
+                          _hover={{ color: 'purple.600', bg: 'purple.50' }}
+                          borderRadius="lg"
+                          onClick={() => setShowPassword(v => !v)}
+                          tabIndex={-1}
+                        />
+                      </InputRightElement>
+                    </InputGroup>
+                  </FormControl>
+
+                  <Button
+                    type="submit"
+                    w="100%"
                     h="52px"
+                    bgGradient="linear(to-r, purple.700, purple.500)"
+                    color="white"
+                    fontWeight="700"
+                    borderRadius="xl"
+                    fontSize="md"
+                    isLoading={isLoading}
+                    loadingText={t('auth.loggingIn')}
+                    _hover={{ bgGradient: 'linear(to-r, purple.800, purple.600)', transform: 'translateY(-2px)', boxShadow: '0 8px 24px rgba(109, 40, 217, 0.4)' }}
+                    _active={{ transform: 'translateY(0)' }}
+                    transition="all 0.2s"
+                  >
+                    {t('auth.loginButton')}
+                  </Button>
+                </VStack>
+              </form>
+
+              <Text fontSize="sm" color="gray.600">
+                Nouveau sur Kinship Haven ?{' '}
+                <ChakraLink as={Link} to="/register" color="purple.600" fontWeight="medium" _hover={{ textDecoration: 'underline' }}>
+                  Créer un compte
+                </ChakraLink>
+              </Text>
+
+              <Text fontSize="xs" color="gray.500" textAlign="center" mt={4}>
+                En vous connectant, vous acceptez nos{' '}
+                <ChakraLink color="purple.600" fontWeight="medium">Conditions d'utilisation</ChakraLink>
+              </Text>
+            </>
+          ) : (
+            /* ── Step 2FA ── */
+            <form onSubmit={handleVerify2FA} style={{ width: '100%' }}>
+              <VStack spacing={6} w="100%">
+                <VStack spacing={1} textAlign="center">
+                  <Text fontSize="3xl">🔐</Text>
+                  <Heading size="md" color="#1A162E">Vérification en deux étapes</Heading>
+                  <Text fontSize="sm" color="gray.500">
+                    Un code à 6 chiffres a été envoyé à <strong>{twoFactorEmail}</strong>
+                  </Text>
+                </VStack>
+
+                <FormControl isRequired>
+                  <FormLabel color="#3D3856" fontWeight="600" fontSize="sm">Code de vérification</FormLabel>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={twoFactorCode}
+                    onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ''))}
+                    h="64px"
+                    fontSize="2xl"
+                    fontWeight="bold"
+                    textAlign="center"
+                    letterSpacing="0.5em"
                     borderRadius="xl"
                     borderColor="#E8E6F0"
                     borderWidth="1.5px"
-                    bg="white"
-                    pr="52px"
-                    _hover={{ borderColor: 'purple.300' }}
-                    _focus={{
-                      borderColor: 'purple.500',
-                      boxShadow: '0 0 0 2px rgba(139, 92, 246, 0.2)',
-                    }}
+                    autoFocus
+                    _focus={{ borderColor: 'purple.500', boxShadow: '0 0 0 2px rgba(139, 92, 246, 0.2)' }}
                   />
-                  <InputRightElement h="52px" pr={1}>
-                    <IconButton
-                      aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-                      icon={<Icon as={showPassword ? FaEyeSlash : FaEye} />}
-                      variant="ghost"
-                      size="sm"
-                      color="purple.400"
-                      _hover={{ color: 'purple.600', bg: 'purple.50' }}
-                      borderRadius="lg"
-                      onClick={() => setShowPassword(v => !v)}
-                      tabIndex={-1}
-                    />
-                  </InputRightElement>
-                </InputGroup>
-              </FormControl>
+                </FormControl>
 
-              <Button
-                type="submit"
-                w="100%"
-                h="52px"
-                bgGradient="linear(to-r, purple.700, purple.500)"
-                color="white"
-                fontWeight="700"
-                borderRadius="xl"
-                fontSize="md"
-                isLoading={isLoading}
-                loadingText={t('auth.loggingIn')}
-                _hover={{
-                  bgGradient: 'linear(to-r, purple.800, purple.600)',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 8px 24px rgba(109, 40, 217, 0.4)',
-                }}
-                _active={{ transform: 'translateY(0)' }}
-                transition="all 0.2s"
-              >
-                {t('auth.loginButton')}
-              </Button>
-            </VStack>
-          </form>
+                <Button
+                  type="submit"
+                  w="100%"
+                  h="52px"
+                  bgGradient="linear(to-r, purple.700, purple.500)"
+                  color="white"
+                  fontWeight="700"
+                  borderRadius="xl"
+                  isLoading={isLoading}
+                  loadingText="Vérification..."
+                  _hover={{ bgGradient: 'linear(to-r, purple.800, purple.600)', transform: 'translateY(-2px)' }}
+                  transition="all 0.2s"
+                >
+                  Confirmer
+                </Button>
 
-          <Text fontSize="sm" color="gray.600">
-            Nouveau sur Kinship Haven ?{' '}
-            <ChakraLink
-              as={Link}
-              to="/register"
-              color="purple.600"
-              fontWeight="medium"
-              _hover={{ color: 'primary.600', textDecoration: 'underline' }}
-            >
-              Créer un compte
-            </ChakraLink>
-          </Text>
-
-          <Text fontSize="xs" color="gray.500" textAlign="center" mt={4}>
-            En vous connectant, vous acceptez nos{' '}
-            <ChakraLink color="purple.600" fontWeight="medium">
-              Conditions d'utilisation
-            </ChakraLink>
-          </Text>
+                <Text
+                  fontSize="sm"
+                  color="purple.600"
+                  cursor="pointer"
+                  fontWeight="medium"
+                  _hover={{ textDecoration: 'underline' }}
+                  onClick={() => { setTwoFactorStep(false); setTwoFactorCode(''); }}
+                >
+                  ← Retour à la connexion
+                </Text>
+              </VStack>
+            </form>
+          )}
         </VStack>
         </Box>
       </Flex>

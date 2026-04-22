@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -20,15 +21,18 @@ namespace FamilyTreeAPI.Controllers
         private readonly FamilyTreeContext _context;
         private readonly IConfiguration _configuration;
         private readonly IEmailService _emailService;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(FamilyTreeContext context, IConfiguration configuration, IEmailService emailService)
+        public AuthController(FamilyTreeContext context, IConfiguration configuration, IEmailService emailService, ILogger<AuthController> logger)
         {
             _context = context;
             _configuration = configuration;
             _emailService = emailService;
+            _logger = logger;
         }
 
         [AllowAnonymous]
+        [EnableRateLimiting("auth")]
         [HttpPost("login")]
         public async Task<ActionResult> Login([FromBody] LoginRequest request)
         {
@@ -65,8 +69,27 @@ namespace FamilyTreeAPI.Controllers
             user.LastLoginDate = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
+            // 🔐 2FA : si activé, envoyer le code et retourner un flag sans token
+            if (user.TwoFactorEnabled)
+            {
+                var twoFaCode = Random.Shared.Next(100000, 999999).ToString();
+                user.TwoFactorCode = twoFaCode;
+                user.TwoFactorCodeExpiry = DateTime.UtcNow.AddMinutes(10);
+                await _context.SaveChangesAsync();
+
+                await _emailService.SendTwoFactorCodeAsync(user.Email, user.UserName, twoFaCode);
+
+                return Ok(new
+                {
+                    requiresTwoFactor = true,
+                    email = user.Email, // pour ré-identifier l'utilisateur au step 2
+                    message = "Code 2FA envoyé par email"
+                });
+            }
+
             var token = GenerateJwtToken(user);
-            
+            SetJwtCookie(token);
+
             // Charger la famille de l'utilisateur séparément
             Family? userFamily = null;
             if (user.FamilyID > 0)
@@ -79,31 +102,39 @@ namespace FamilyTreeAPI.Controllers
 
             return Ok(new
             {
-                Token = token,
-                NeedsFamilyOnboarding = needsFamilyOnboarding, // ⭐ Nouveau flag
-                User = new
+                token, // conservé pour compatibilité mobile/dev
+                needsFamilyOnboarding,
+                user = new
                 {
-                    user.ConnexionID,
-                    user.UserName,
-                    user.Level,
-                    user.IDPerson,
-                    FamilyID = user.FamilyID,
-                    user.Role,
-                    PersonName = user.Person != null ? $"{user.Person.FirstName} {user.Person.LastName}" : user.UserName,
-                    FamilyName = userFamily?.FamilyName
+                    connexionID = user.ConnexionID,
+                    userName = user.UserName,
+                    level = user.Level,
+                    idPerson = user.IDPerson,
+                    familyID = user.FamilyID,
+                    role = user.Role,
+                    personName = user.Person != null ? $"{user.Person.FirstName} {user.Person.LastName}" : user.UserName,
+                    familyName = userFamily?.FamilyName
                 }
             });
         }
 
         // 🔐 Google OAuth Login/Register
         [AllowAnonymous]
+        [EnableRateLimiting("auth")]
         [HttpPost("google")]
         public async Task<ActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
         {
             try
             {
                 // 1. Valider le token Google auprès de Google (SÉCURITÉ CRITIQUE !)
-                var payload = await GoogleJsonWebSignature.ValidateAsync(request.Token);
+                var googleClientId = _configuration["Google:ClientId"]
+                    ?? Environment.GetEnvironmentVariable("Google__ClientId")
+                    ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
+                var validationSettings = new GoogleJsonWebSignature.ValidationSettings
+                {
+                    Audience = string.IsNullOrEmpty(googleClientId) ? null : new[] { googleClientId }
+                };
+                var payload = await GoogleJsonWebSignature.ValidateAsync(request.Token, validationSettings);
 
                 // 2. Le token est valide ! Extraire les infos utilisateur
                 var email = payload.Email;
@@ -164,6 +195,7 @@ namespace FamilyTreeAPI.Controllers
 
                 // 4. Générer notre propre JWT token pour l'application
                 var token = GenerateJwtToken(user);
+                SetJwtCookie(token);
 
                 // 5. Charger la famille si elle existe
                 Family? userFamily = null;
@@ -177,19 +209,19 @@ namespace FamilyTreeAPI.Controllers
 
                 return Ok(new
                 {
-                    Token = token,
-                    NeedsFamilyOnboarding = needsFamilyOnboarding,
-                    User = new
+                    token,
+                    needsFamilyOnboarding,
+                    user = new
                     {
-                        user.ConnexionID,
-                        user.UserName,
-                        user.Level,
-                        user.IDPerson,
-                        FamilyID = user.FamilyID,
-                        user.Role,
-                        PersonName = user.Person != null ? $"{user.Person.FirstName} {user.Person.LastName}" : user.UserName,
-                        FamilyName = userFamily?.FamilyName,
-                        PhotoUrl = photoUrl // Info additionnelle de Google
+                        connexionID = user.ConnexionID,
+                        userName = user.UserName,
+                        level = user.Level,
+                        idPerson = user.IDPerson,
+                        familyID = user.FamilyID,
+                        role = user.Role,
+                        personName = user.Person != null ? $"{user.Person.FirstName} {user.Person.LastName}" : user.UserName,
+                        familyName = userFamily?.FamilyName,
+                        photoUrl
                     }
                 });
             }
@@ -205,17 +237,17 @@ namespace FamilyTreeAPI.Controllers
 
         // 🆕 Inscription simplifiée : Email + Mot de passe uniquement
         [AllowAnonymous]
+        [EnableRateLimiting("auth")]
         [HttpPost("register-simple")]
         public async Task<ActionResult> RegisterSimple([FromBody] SimpleRegisterRequest request)
         {
             try
             {
-                Console.WriteLine($"📥 [register-simple] Request received: Email={request.Email}, UserName={request.UserName}");
 
                 // Check if email already exists
                 if (await _context.Connexions.AnyAsync(c => c.Email == request.Email))
                 {
-                    Console.WriteLine($"⚠️ [register-simple] Email already exists: {request.Email}");
+                    _logger.LogWarning($"⚠️ [register-simple] Email already exists: {request.Email}");
                     return BadRequest(new { message = "Cette adresse email existe déjà" });
                 }
 
@@ -227,55 +259,76 @@ namespace FamilyTreeAPI.Controllers
                 // Créer un compte temporaire sans Person ni Family
                 var connexion = new Connexion
                 {
-                    UserName = request.UserName ?? request.Email.Split('@')[0], // Username temporaire basé sur l'email
+                    UserName = request.UserName ?? request.Email.Split('@')[0],
                     Password = hashedPassword,
                     Level = 1,
-                    IDPerson = null, // NULL jusqu'à la complétion du profil
-                    FamilyID = null, // NULL jusqu'au rattachement familial
+                    IDPerson = null,
+                    FamilyID = null,
                     Email = request.Email,
                     CreatedDate = DateTime.UtcNow,
-                    IsActive = true, // ⭐ FIXME: Activé immédiatement pour éviter les 403 (TODO: email verification)
-                    EmailVerified = isGoogleSimulation ? true : false, // ⭐ Email vérifié si Google
+                    IsActive = isGoogleSimulation, // Inactif jusqu'à vérification email (sauf Google)
+                    EmailVerified = isGoogleSimulation,
                     ProfileCompleted = false,
                     Role = "Member"
                 };
 
-                Console.WriteLine($"💾 [register-simple] Saving connexion to database...");
                 _context.Connexions.Add(connexion);
                 await _context.SaveChangesAsync();
-                Console.WriteLine($"✅ [register-simple] Connexion saved with ID: {connexion.ConnexionID}");
 
-                // Générer le token pour la session (avec un objet Connexion temporaire)
-                var tempConnexion = new Connexion
+                // Google OAuth : retourner un token directement (email déjà vérifié par Google)
+                if (isGoogleSimulation)
                 {
-                    ConnexionID = connexion.ConnexionID,
-                    UserName = connexion.UserName,
-                    Level = connexion.Level,
-                    IDPerson = 0,
-                    FamilyID = 0
-                };
-                var token = GenerateJwtToken(tempConnexion);
-                Console.WriteLine($"🔑 [register-simple] Token generated successfully");
+                    var tempConnexion = new Connexion
+                    {
+                        ConnexionID = connexion.ConnexionID,
+                        UserName = connexion.UserName,
+                        Level = connexion.Level,
+                        IDPerson = 0,
+                        FamilyID = 0
+                    };
+                    var token = GenerateJwtToken(tempConnexion);
+                    return Ok(new
+                    {
+                        token,
+                        user = new { connexion.ConnexionID, connexion.Email, profileCompleted = false }
+                    });
+                }
+
+                // Inscription normale : envoyer un code de vérification email
+                var verificationCode = Random.Shared.Next(100000, 999999).ToString();
+                connexion.EmailVerificationCode = verificationCode;
+                connexion.EmailVerificationExpiry = DateTime.UtcNow.AddMinutes(30);
+                connexion.EmailVerificationSentAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                try
+                {
+                    await _emailService.SendEmailVerificationCodeAsync(
+                        request.Email,
+                        connexion.UserName,
+                        verificationCode
+                    );
+                }
+                catch (Exception emailEx)
+                {
+                    _logger.LogError(emailEx, $"Erreur envoi email de vérification à {request.Email}");
+                    // On continue même si l'email échoue — l'utilisateur peut demander un renvoi
+                }
 
                 return Ok(new
                 {
-                    Token = token,
-                    User = new
-                    {
-                        connexion.ConnexionID,
-                        connexion.Email,
-                        ProfileCompleted = false,
-                        Message = "Compte créé avec succès. Veuillez compléter votre profil."
-                    }
+                    requiresEmailVerification = true,
+                    email = request.Email,
+                    message = "Un code de vérification a été envoyé à votre adresse email."
                 });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ [register-simple] ERROR: {ex.Message}");
-                Console.WriteLine($"   Stack trace: {ex.StackTrace}");
+                _logger.LogError($"❌ [register-simple] ERROR: {ex.Message}");
+                _logger.LogError($"   Stack trace: {ex.StackTrace}");
                 if (ex.InnerException != null)
                 {
-                    Console.WriteLine($"   Inner exception: {ex.InnerException.Message}");
+                    _logger.LogError($"   Inner exception: {ex.InnerException.Message}");
                 }
                 return StatusCode(500, new { message = $"Erreur serveur : {ex.Message}" });
             }
@@ -311,7 +364,8 @@ namespace FamilyTreeAPI.Controllers
                 return BadRequest(new { message = "Code de vérification expiré. Veuillez demander un nouveau code." });
             }
 
-            // Marquer l'email comme vérifié
+            // Activer le compte et marquer l'email comme vérifié
+            connexion.IsActive = true;
             connexion.EmailVerified = true;
             connexion.EmailVerificationCode = null;
             connexion.EmailVerificationExpiry = null;
@@ -320,6 +374,7 @@ namespace FamilyTreeAPI.Controllers
 
             // Générer un token JWT pour permettre la connexion
             var token = GenerateJwtToken(connexion);
+            SetJwtCookie(token);
 
             return Ok(new
             {
@@ -367,8 +422,7 @@ namespace FamilyTreeAPI.Controllers
             }
 
             // Générer un nouveau code
-            var random = new Random();
-            var newCode = random.Next(100000, 999999).ToString();
+            var newCode = Random.Shared.Next(100000, 999999).ToString();
 
             connexion.EmailVerificationCode = newCode;
             connexion.EmailVerificationExpiry = DateTime.UtcNow.AddMinutes(30);
@@ -406,32 +460,21 @@ namespace FamilyTreeAPI.Controllers
         [Authorize]
         public async Task<ActionResult> CompleteProfile([FromBody] CompleteProfileRequest request)
         {
-            Console.WriteLine("========== 🔵 COMPLETE-PROFILE DEBUG START ==========");
-            Console.WriteLine($"📥 Request received:");
-            Console.WriteLine($"   FirstName: '{request.FirstName}' (length: {request.FirstName?.Length ?? 0})");
-            Console.WriteLine($"   LastName: '{request.LastName}' (length: {request.LastName?.Length ?? 0})");
-            Console.WriteLine($"   Sex: '{request.Sex}' (length: {request.Sex?.Length ?? 0})");
-            Console.WriteLine($"   BirthDate: {request.BirthDate}");
-            Console.WriteLine($"   BirthCity: '{request.BirthCity}' (length: {request.BirthCity?.Length ?? 0})");
-            Console.WriteLine($"   BirthCountry: '{request.BirthCountry}' (length: {request.BirthCountry?.Length ?? 0})");
-            Console.WriteLine($"   Activity: '{request.Activity}' (length: {request.Activity?.Length ?? 0})");
             
             var userId = int.Parse(User.FindFirst("id")?.Value ?? "0");
-            Console.WriteLine($"👤 User ID from token: {userId}");
             
             var connexion = await _context.Connexions.FindAsync(userId);
 
             if (connexion == null)
             {
-                Console.WriteLine("❌ ERROR: Connexion not found for userId: " + userId);
+                _logger.LogError("❌ ERROR: Connexion not found for userId: " + userId);
                 return NotFound("Utilisateur non trouvé");
             }
 
-            Console.WriteLine($"✅ Connexion found: ID={connexion.ConnexionID}, Email={connexion.Email}");
 
             if (connexion.ProfileCompleted)
             {
-                Console.WriteLine("❌ ERROR: Profile already completed");
+                _logger.LogError("❌ ERROR: Profile already completed");
                 return BadRequest("Profil déjà complété");
             }
 
@@ -479,7 +522,6 @@ namespace FamilyTreeAPI.Controllers
             }
 
             // Créer la personne
-            Console.WriteLine("📝 Creating Person object...");
             
             // 🔧 WORKAROUND: Tronquer tous les champs texte pour éviter l'erreur VARCHAR(2000)
             var safeActivity = request.Activity;
@@ -490,10 +532,6 @@ namespace FamilyTreeAPI.Controllers
             if (!string.IsNullOrEmpty(safeEmail) && safeEmail.Length > 1000) 
                 safeEmail = safeEmail.Substring(0, 1000);
             
-            Console.WriteLine($"🔍 Sex value before Person creation: '{request.Sex}'");
-            Console.WriteLine($"   Is null or empty? {string.IsNullOrEmpty(request.Sex)}");
-            Console.WriteLine($"   Is 'M'? {request.Sex == "M"}");
-            Console.WriteLine($"   Is 'F'? {request.Sex == "F"}");
             
             var person = new Person
             {
@@ -519,54 +557,31 @@ namespace FamilyTreeAPI.Controllers
             _context.Persons.Add(person);
             
             // 🐛 DEBUG: Log all field lengths before saving
-            Console.WriteLine($"========== DEBUG: CompleteProfile Person Object ==========");
-            Console.WriteLine($"FirstName length: {person.FirstName?.Length ?? 0}");
-            Console.WriteLine($"LastName length: {person.LastName?.Length ?? 0}");
-            Console.WriteLine($"Email length: {person.Email?.Length ?? 0}");
-            Console.WriteLine($"Activity length: {person.Activity?.Length ?? 0}");
-            Console.WriteLine($"PhotoUrl length: {person.PhotoUrl?.Length ?? 0}");
-            Console.WriteLine($"PendingFatherName length: {person.PendingFatherName?.Length ?? 0}");
-            Console.WriteLine($"PendingMotherName length: {person.PendingMotherName?.Length ?? 0}");
-            Console.WriteLine($"Status length: {person.Status?.Length ?? 0}");
-            Console.WriteLine($"Notes length: {person.Notes?.Length ?? 0}");
             
             // Check if father/mother were created
             if (father != null)
             {
-                Console.WriteLine($"Father FirstName length: {father.FirstName?.Length ?? 0}");
-                Console.WriteLine($"Father LastName length: {father.LastName?.Length ?? 0}");
-                Console.WriteLine($"Father Email length: {father.Email?.Length ?? 0}");
-                Console.WriteLine($"Father Activity length: {father.Activity?.Length ?? 0}");
-                Console.WriteLine($"Father Status length: {father.Status?.Length ?? 0}");
             }
             
             if (mother != null)
             {
-                Console.WriteLine($"Mother FirstName length: {mother.FirstName?.Length ?? 0}");
-                Console.WriteLine($"Mother LastName length: {mother.LastName?.Length ?? 0}");
-                Console.WriteLine($"Mother Email length: {mother.Email?.Length ?? 0}");
-                Console.WriteLine($"Mother Activity length: {mother.Activity?.Length ?? 0}");
-                Console.WriteLine($"Mother Status length: {mother.Status?.Length ?? 0}");
             }
-            Console.WriteLine($"=====================================================");
             
             try 
             {
-                Console.WriteLine("💾 Attempting to save Person to database...");
                 await _context.SaveChangesAsync();
-                Console.WriteLine("✅ Person saved successfully! PersonID: " + person.PersonID);
             }
             catch (Exception ex)
             {
-                Console.WriteLine("❌ ERROR saving Person to database:");
-                Console.WriteLine($"   Exception Type: {ex.GetType().Name}");
-                Console.WriteLine($"   Message: {ex.Message}");
+                _logger.LogError("❌ ERROR saving Person to database:");
+                _logger.LogError($"   Exception Type: {ex.GetType().Name}");
+                _logger.LogError($"   Message: {ex.Message}");
                 if (ex.InnerException != null)
                 {
-                    Console.WriteLine($"   Inner Exception: {ex.InnerException.Message}");
+                    _logger.LogError($"   Inner Exception: {ex.InnerException.Message}");
                 }
-                Console.WriteLine($"   Stack Trace: {ex.StackTrace}");
-                Console.WriteLine("========== 🔴 COMPLETE-PROFILE DEBUG END (ERROR) ==========");
+                _logger.LogError($"   Stack Trace: {ex.StackTrace}");
+                _logger.LogError("========== 🔴 COMPLETE-PROFILE DEBUG END (ERROR) ==========");
                 throw;
             }
             
@@ -585,16 +600,12 @@ namespace FamilyTreeAPI.Controllers
                 connexion.IsActive = true;
             }
 
-            Console.WriteLine("💾 Saving Connexion updates...");
             await _context.SaveChangesAsync();
-            Console.WriteLine("✅ Connexion updated successfully!");
 
             // Générer un nouveau token avec les infos complètes (FamilyID reste NULL)
-            Console.WriteLine("🔑 Generating new JWT token...");
             var token = GenerateJwtToken(connexion);
-            Console.WriteLine("✅ Token generated!");
+            SetJwtCookie(token);
             
-            Console.WriteLine("========== ✅ COMPLETE-PROFILE DEBUG END (SUCCESS) ==========");
 
             return Ok(new
             {
@@ -659,6 +670,7 @@ namespace FamilyTreeAPI.Controllers
                 await _context.SaveChangesAsync();
 
                 var token = GenerateJwtToken(connexion);
+                SetJwtCookie(token);
 
                 return Ok(new
                 {
@@ -689,6 +701,7 @@ namespace FamilyTreeAPI.Controllers
                 await _context.SaveChangesAsync();
 
                 var token = GenerateJwtToken(connexion);
+                SetJwtCookie(token);
 
                 return Ok(new
                 {
@@ -769,7 +782,7 @@ namespace FamilyTreeAPI.Controllers
             catch (Exception ex)
             {
                 // Log but don't fail registration if email fails
-                Console.WriteLine($"Erreur envoi email: {ex.Message}");
+                _logger.LogError($"Erreur envoi email: {ex.Message}");
             }
 
             return Ok("Compte créé avec succès");
@@ -851,18 +864,13 @@ namespace FamilyTreeAPI.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Erreur envoi email: {ex.Message}");
+                _logger.LogError($"Erreur envoi email: {ex.Message}");
+                return StatusCode(500, new { message = "Erreur lors de l'envoi de l'email. Réessayez." });
             }
 
             return Ok(new
             {
-                Message = "Code de vérification généré et envoyé par email",
-                VerificationCode = verificationCode, // In development mode, we show it. In production, remove this.
-                SecurityQuestions = securityQuestions.Select(q => new
-                {
-                    Question = ((dynamic)q).Question,
-                    Type = ((dynamic)q).Type
-                })
+                message = "Un code de réinitialisation a été envoyé à votre adresse email."
             });
         }
 
@@ -971,7 +979,8 @@ namespace FamilyTreeAPI.Controllers
             
             // Générer un nouveau token avec la nouvelle familyId
             var token = GenerateJwtToken(user);
-            
+            SetJwtCookie(token);
+
             var activeFamily = await _context.Families.FindAsync(request.FamilyID);
             
             return Ok(new
@@ -1038,6 +1047,94 @@ namespace FamilyTreeAPI.Controllers
             });
         }
         
+        // 🔐 2FA — Vérifier le code et retourner le vrai token
+        [AllowAnonymous]
+        [HttpPost("verify-2fa")]
+        public async Task<ActionResult> VerifyTwoFactor([FromBody] VerifyTwoFactorRequest request)
+        {
+            var user = await _context.Connexions
+                .Include(c => c.Person)
+                .FirstOrDefaultAsync(c => c.Email == request.Email);
+
+            if (user == null)
+                return BadRequest(new { message = "Compte introuvable" });
+
+            if (user.TwoFactorCode == null || user.TwoFactorCodeExpiry == null)
+                return BadRequest(new { message = "Aucun code en attente. Reconnectez-vous." });
+
+            if (user.TwoFactorCodeExpiry < DateTime.UtcNow)
+                return BadRequest(new { message = "Code expiré. Reconnectez-vous." });
+
+            if (user.TwoFactorCode != request.Code.Trim())
+                return BadRequest(new { message = "Code incorrect" });
+
+            // Code valide — effacer et générer le token
+            user.TwoFactorCode = null;
+            user.TwoFactorCodeExpiry = null;
+            await _context.SaveChangesAsync();
+
+            var token = GenerateJwtToken(user);
+            SetJwtCookie(token);
+
+            Family? userFamily = null;
+            if (user.FamilyID > 0)
+                userFamily = await _context.Families.FindAsync(user.FamilyID);
+
+            bool needsFamilyOnboarding = user.FamilyID == null || user.FamilyID == 0;
+
+            return Ok(new
+            {
+                token,
+                needsFamilyOnboarding,
+                user = new
+                {
+                    connexionID = user.ConnexionID,
+                    userName = user.UserName,
+                    level = user.Level,
+                    idPerson = user.IDPerson,
+                    familyID = user.FamilyID,
+                    role = user.Role,
+                    personName = user.Person != null ? $"{user.Person.FirstName} {user.Person.LastName}" : user.UserName,
+                    familyName = userFamily?.FamilyName
+                }
+            });
+        }
+
+        // 🔐 2FA — Activer ou désactiver
+        [HttpPost("toggle-2fa")]
+        [Authorize]
+        public async Task<ActionResult> ToggleTwoFactor([FromBody] ToggleTwoFactorRequest request)
+        {
+            var userId = int.Parse(User.FindFirst("id")?.Value ?? "0");
+            var user = await _context.Connexions.FindAsync(userId);
+            if (user == null) return NotFound();
+
+            user.TwoFactorEnabled = request.Enable;
+            if (!request.Enable)
+            {
+                user.TwoFactorCode = null;
+                user.TwoFactorCodeExpiry = null;
+            }
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                twoFactorEnabled = user.TwoFactorEnabled,
+                message = request.Enable ? "2FA activé" : "2FA désactivé"
+            });
+        }
+
+        // 🔐 2FA — Statut actuel
+        [HttpGet("2fa-status")]
+        [Authorize]
+        public async Task<ActionResult> GetTwoFactorStatus()
+        {
+            var userId = int.Parse(User.FindFirst("id")?.Value ?? "0");
+            var user = await _context.Connexions.FindAsync(userId);
+            if (user == null) return NotFound();
+            return Ok(new { twoFactorEnabled = user.TwoFactorEnabled });
+        }
+
         // 🔄 Régénérer le code d'invitation (Admin uniquement)
         [HttpPost("regenerate-invite-code")]
         [Authorize]
@@ -1261,24 +1358,17 @@ namespace FamilyTreeAPI.Controllers
                 ? familyName.Substring(0, 3).ToUpper() 
                 : familyName.ToUpper().PadRight(3, 'X');
             
-            // Générer 4 chiffres aléatoires
-            var random = new Random();
-            var number = random.Next(0, 10000).ToString("D4");
-            
-            var code = $"{prefix}-{number}";
-            
-            // Vérifier l'unicité (rare collision mais prudent)
             var maxAttempts = 100;
-            var attempts = 0;
-            
-            while (_context.Families.Any(f => f.InviteCode == code) && attempts < maxAttempts)
+            for (int i = 0; i < maxAttempts; i++)
             {
-                number = random.Next(0, 10000).ToString("D4");
-                code = $"{prefix}-{number}";
-                attempts++;
+                var number = Random.Shared.Next(0, 10000).ToString("D4");
+                var code = $"{prefix}-{number}";
+                if (!_context.Families.Any(f => f.InviteCode == code))
+                    return code;
             }
-            
-            return code;
+
+            // Fallback avec GUID si toutes les combinaisons sont prises
+            return $"{prefix}-{Guid.NewGuid().ToString("N")[..4].ToUpper()}";
         }
         
         // 🔍 Fonction de recherche ou création de parent
@@ -1345,7 +1435,7 @@ namespace FamilyTreeAPI.Controllers
                 Status = status == "deceased" ? "deceased" : "placeholder",
                 CanLogin = status != "deceased",
                 FamilyID = familyId > 0 ? familyId : null,
-                CityID = 1, // Default city
+                CityID = await _context.Cities.Select(c => c.CityID).FirstOrDefaultAsync(),
                 CreatedBy = createdBy,
                 ParentLinkConfirmed = false
             };
@@ -1429,7 +1519,6 @@ namespace FamilyTreeAPI.Controllers
             
             if (existingPerson != null)
             {
-                Console.WriteLine($"✅ Parent trouvé (actif): {firstName} {lastName}");
                 return existingPerson;
             }
             
@@ -1443,7 +1532,6 @@ namespace FamilyTreeAPI.Controllers
             
             if (existingPlaceholder != null)
             {
-                Console.WriteLine($"✅ Placeholder existant trouvé: {firstName} {lastName}");
                 return existingPlaceholder;
             }
             
@@ -1464,7 +1552,6 @@ namespace FamilyTreeAPI.Controllers
             _context.Persons.Add(placeholder);
             await _context.SaveChangesAsync();
             
-            Console.WriteLine($"🆕 Nouveau placeholder créé: {firstName} {lastName} (ID: {placeholder.PersonID})");
             return placeholder;
         }
 
@@ -1537,9 +1624,15 @@ namespace FamilyTreeAPI.Controllers
                 }
                 else
                 {
-                    // Ville par défaut si non fournie
+                    // Ville par défaut si non fournie — créer si aucune n'existe
                     var defaultCity = await _context.Cities.FirstOrDefaultAsync();
-                    birthCityId = defaultCity?.CityID ?? 1;
+                    if (defaultCity == null)
+                    {
+                        defaultCity = new City { Name = "Unknown", CountryName = "Unknown" };
+                        _context.Cities.Add(defaultCity);
+                        await _context.SaveChangesAsync();
+                    }
+                    birthCityId = defaultCity.CityID;
                 }
 
                 // 4. CRÉER PERSON
@@ -1552,7 +1645,7 @@ namespace FamilyTreeAPI.Controllers
                     Activity = request.Activity?.Trim(),
                     Email = request.Email.ToLower().Trim(),
                     FamilyID = family.FamilyID,
-                    CityID = birthCityId ?? 1,
+                    CityID = birthCityId!.Value,
                     Alive = true,
                     Notes = $"Résidence: {request.ResidenceCity}, {request.ResidenceCountry}\nTéléphone: {request.Phone}"
                 };
@@ -1568,9 +1661,7 @@ namespace FamilyTreeAPI.Controllers
 
                 // 6. GÉNÉRER TOKEN FINAL
                 var token = GenerateJwtToken(connexion);
-
-                Console.WriteLine($"✅ Nouvelle famille créée: {family.FamilyName} (Code: {family.InviteCode})");
-                Console.WriteLine($"✅ Admin: {person.FirstName} {person.LastName} (PersonID: {person.PersonID})");
+                SetJwtCookie(token);
 
                 return Ok(new
                 {
@@ -1590,7 +1681,7 @@ namespace FamilyTreeAPI.Controllers
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                Console.WriteLine($"❌ Erreur création famille: {ex.Message}");
+                _logger.LogError($"❌ Erreur création famille: {ex.Message}");
                 return StatusCode(500, new { message = "Erreur lors de la création de la famille", error = ex.Message });
             }
         }
@@ -1657,9 +1748,15 @@ namespace FamilyTreeAPI.Controllers
                 }
                 else
                 {
-                    // Ville par défaut
+                    // Ville par défaut — créer si aucune n'existe
                     var defaultCity = await _context.Cities.FirstOrDefaultAsync();
-                    birthCityId = defaultCity?.CityID ?? 1;
+                    if (defaultCity == null)
+                    {
+                        defaultCity = new City { Name = "Unknown", CountryName = "Unknown" };
+                        _context.Cities.Add(defaultCity);
+                        await _context.SaveChangesAsync();
+                    }
+                    birthCityId = defaultCity.CityID;
                 }
 
                 // 3. CRÉER PERSON
@@ -1672,7 +1769,7 @@ namespace FamilyTreeAPI.Controllers
                     Activity = request.Activity?.Trim(),
                     Email = request.Email.ToLower().Trim(),
                     FamilyID = family.FamilyID,
-                    CityID = birthCityId ?? 1,
+                    CityID = birthCityId!.Value,
                     Alive = true,
                     Notes = $"Résidence: {request.ResidenceCity}, {request.ResidenceCountry}\nTéléphone: {request.Phone}"
                 };
@@ -1688,9 +1785,7 @@ namespace FamilyTreeAPI.Controllers
 
                 // 5. GÉNÉRER TOKEN FINAL
                 var token = GenerateJwtToken(connexion);
-
-                Console.WriteLine($"✅ Nouveau membre rejoint: {family.FamilyName}");
-                Console.WriteLine($"✅ Membre: {person.FirstName} {person.LastName} (PersonID: {person.PersonID})");
+                SetJwtCookie(token);
 
                 return Ok(new
                 {
@@ -1709,9 +1804,121 @@ namespace FamilyTreeAPI.Controllers
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                Console.WriteLine($"❌ Erreur rejoindre famille: {ex.Message}");
+                _logger.LogError($"❌ Erreur rejoindre famille: {ex.Message}");
                 return StatusCode(500, new { message = "Erreur lors de l'inscription à la famille", error = ex.Message });
             }
+        }
+
+        // 🔴 RGPD — Droit à l'oubli : suppression du compte
+        [HttpDelete("account")]
+        [Authorize]
+        public async Task<ActionResult> DeleteAccount()
+        {
+            var userId = int.Parse(User.FindFirst("id")?.Value ?? "0");
+
+            var connexion = await _context.Connexions
+                .Include(c => c.Person)
+                .FirstOrDefaultAsync(c => c.ConnexionID == userId);
+
+            if (connexion == null)
+            {
+                return NotFound(new { message = "Compte non trouvé" });
+            }
+
+            // Anonymiser la Person liée pour préserver l'intégrité de l'arbre généalogique
+            if (connexion.Person != null)
+            {
+                connexion.Person.Email = null;
+                connexion.Person.PhotoUrl = null;
+                connexion.Person.Notes = null;
+                connexion.Person.Activity = null;
+                connexion.Person.CanLogin = false;
+                // Conserver FirstName/LastName/Birthday/etc. pour la cohérence de l'arbre
+            }
+
+            // Supprimer la Connexion (données personnelles d'authentification)
+            _context.Connexions.Remove(connexion);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation($"✅ [RGPD] Compte supprimé : connexionID={userId}");
+
+            return Ok(new { message = "Votre compte a été supprimé. Vos données personnelles d'authentification ont été effacées." });
+        }
+
+        // 📦 RGPD — Droit d'accès : export des données personnelles
+        [HttpGet("export")]
+        [Authorize]
+        public async Task<ActionResult> ExportMyData()
+        {
+            var userId = int.Parse(User.FindFirst("id")?.Value ?? "0");
+
+            var connexion = await _context.Connexions
+                .Include(c => c.Person)
+                .FirstOrDefaultAsync(c => c.ConnexionID == userId);
+
+            if (connexion == null)
+                return NotFound(new { message = "Compte non trouvé" });
+
+            var export = new
+            {
+                ExportDate = DateTime.UtcNow,
+                Account = new
+                {
+                    connexion.ConnexionID,
+                    connexion.Email,
+                    connexion.UserName,
+                    connexion.Role,
+                    connexion.Level,
+                    connexion.IsActive,
+                    connexion.EmailVerified,
+                    connexion.ProfileCompleted,
+                    connexion.CreatedDate,
+                    connexion.LastLoginDate
+                },
+                Person = connexion.Person == null ? null : new
+                {
+                    connexion.Person.PersonID,
+                    connexion.Person.FirstName,
+                    connexion.Person.LastName,
+                    connexion.Person.Sex,
+                    connexion.Person.Birthday,
+                    connexion.Person.Email,
+                    connexion.Person.Activity,
+                    connexion.Person.Notes,
+                    connexion.Person.Alive,
+                    connexion.Person.PhotoUrl,
+                    connexion.Person.FamilyID
+                }
+            };
+
+            _logger.LogInformation($"📦 [RGPD] Export données : connexionID={userId}");
+
+            return Ok(export);
+        }
+
+        // 🍪 RGPD-safe logout — efface le cookie httpOnly
+        [HttpPost("logout")]
+        [Authorize]
+        public ActionResult Logout()
+        {
+            Response.Cookies.Delete("jwt");
+            return Ok(new { message = "Déconnexion réussie" });
+        }
+
+        // 🍪 Définir le cookie httpOnly JWT
+        private void SetJwtCookie(string token)
+        {
+            var isProduction = _configuration["ASPNETCORE_ENVIRONMENT"] != "Development"
+                               && Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") != "Development";
+
+            Response.Cookies.Append("jwt", token, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = isProduction,
+                SameSite = isProduction ? SameSiteMode.None : SameSiteMode.Lax,
+                Expires = DateTimeOffset.UtcNow.AddDays(7),
+                Path = "/"
+            });
         }
 
         private string GenerateJwtToken(Connexion user)
@@ -1754,9 +1961,8 @@ namespace FamilyTreeAPI.Controllers
         private string GenerateInviteCode()
         {
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-            var random = new Random();
             return new string(Enumerable.Repeat(chars, 9)
-                .Select(s => s[random.Next(s.Length)]).ToArray());
+                .Select(s => s[Random.Shared.Next(s.Length)]).ToArray());
         }
     }
 
@@ -1783,6 +1989,18 @@ namespace FamilyTreeAPI.Controllers
     public class GoogleLoginRequest
     {
         public string Token { get; set; } = string.Empty; // ID Token JWT de Google
+    }
+
+    // 🔐 2FA DTOs
+    public class VerifyTwoFactorRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+    }
+
+    public class ToggleTwoFactorRequest
+    {
+        public bool Enable { get; set; }
     }
 
     // 🆕 Requête de complétion de profil

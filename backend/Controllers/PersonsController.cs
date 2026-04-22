@@ -305,6 +305,12 @@ namespace FamilyTreeAPI.Controllers
             _context.Persons.Add(person);
             await _context.SaveChangesAsync();
 
+            // 👫 Créer automatiquement une union entre père et mère si les deux sont définis
+            if (person.FatherID.HasValue && person.MotherID.HasValue)
+            {
+                await CreateParentsUnionIfNeededAsync(person.FatherID, person.MotherID);
+            }
+
             // 🎂 Créer automatiquement un événement anniversaire si la personne a une date de naissance
             if (person.Birthday.HasValue)
             {
@@ -464,7 +470,13 @@ namespace FamilyTreeAPI.Controllers
             try
             {
                 await _context.SaveChangesAsync();
-                
+
+                // 👫 Créer automatiquement une union si père ET mère sont définis
+                if (existingPerson.FatherID.HasValue && existingPerson.MotherID.HasValue)
+                {
+                    await CreateParentsUnionIfNeededAsync(existingPerson.FatherID, existingPerson.MotherID);
+                }
+
                 // 🎂 Créer ou mettre à jour l'événement anniversaire si la date de naissance a changé
                 if (existingPerson.Birthday.HasValue)
                 {
@@ -584,6 +596,57 @@ namespace FamilyTreeAPI.Controllers
                 return StatusCode(500, new { message = "Erreur lors de l'upload de la photo" });
 
             return Ok(new { url });
+        }
+
+        // 👫 Crée automatiquement une union entre père et mère si elle n'existe pas encore
+        private async Task CreateParentsUnionIfNeededAsync(int? fatherId, int? motherId)
+        {
+            if (!fatherId.HasValue || !motherId.HasValue) return;
+
+            var father = await _context.Persons.FindAsync(fatherId.Value);
+            var mother = await _context.Persons.FindAsync(motherId.Value);
+            if (father == null || mother == null) return;
+
+            // Déterminer ManID et WomanID selon le sexe réel
+            int manId, womanId;
+            if (father.Sex == "M" && mother.Sex == "F")
+            {
+                manId = fatherId.Value;
+                womanId = motherId.Value;
+            }
+            else if (father.Sex == "F" && mother.Sex == "M")
+            {
+                manId = motherId.Value;
+                womanId = fatherId.Value;
+            }
+            else
+            {
+                // Sexes identiques ou inconnus : utiliser l'ordre tel quel
+                manId = fatherId.Value;
+                womanId = motherId.Value;
+            }
+
+            // Vérifier si une union existe déjà entre ces deux personnes
+            var exists = await _context.Weddings.AnyAsync(w =>
+                (w.ManID == manId && w.WomanID == womanId) ||
+                (w.ManID == womanId && w.WomanID == manId));
+
+            if (exists) return;
+
+            var wedding = new Wedding
+            {
+                ManID = manId,
+                WomanID = womanId,
+                WeddingDate = DateTime.UtcNow, // Date inconnue — approximation
+                IsActive = true,
+                Status = "active",
+                Notes = "Union créée automatiquement lors de l'ajout d'un enfant commun",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _context.Weddings.Add(wedding);
+            await _context.SaveChangesAsync();
         }
 
         private bool PersonExists(int id)
