@@ -214,7 +214,7 @@ const EventsCalendar = () => {
         .map(p => ({
           eventID: -(p.personID), // ID négatif pour éviter les collisions avec les vrais événements
           familyID: p.familyID,
-          title: `Anniversaire de ${p.firstName} ${p.lastName}`,
+          title: `Anniversaire de ${p.firstName}`,
           description: `🎂 Joyeux anniversaire ${p.firstName} !`,
           startDate: p.birthday!,
           endDate: undefined,
@@ -227,12 +227,19 @@ const EventsCalendar = () => {
         }));
 
       // Fusionner : ne pas doubler les anniversaires déjà dans la table Event
-      const dbBirthdayTitles = new Set(
+      // Dédoublonner sur le prénom (les anciens titres en base peuvent encore inclure le nom de famille)
+      const dbBirthdayPersonIds = new Set(
         eventsResponse.data
           .filter(e => e.eventType === 'birthday')
-          .map(e => e.title)
+          .map(e => {
+            const p = fetchedPersons.find(p =>
+              e.title.includes(p.firstName) && e.title.includes(p.lastName)
+            );
+            return p?.personID;
+          })
+          .filter(Boolean)
       );
-      const syntheticBirthdays = birthdayEvents.filter(e => !dbBirthdayTitles.has(e.title));
+      const syntheticBirthdays = birthdayEvents.filter(e => !dbBirthdayPersonIds.has(-e.eventID));
 
       setEvents([...eventsResponse.data, ...syntheticBirthdays]);
     } catch (error: any) {

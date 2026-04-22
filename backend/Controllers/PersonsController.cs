@@ -791,7 +791,7 @@ namespace FamilyTreeAPI.Controllers
             var birthdayEvent = new Event
             {
                 FamilyID = familyId,
-                Title = $"Anniversaire de {person.FirstName} {person.LastName}",
+                Title = $"Anniversaire de {person.FirstName}",
                 Description = $"🎂 Joyeux anniversaire {person.FirstName} !",
                 EventType = "birthday",
                 StartDate = DateTime.SpecifyKind(nextBirthday, DateTimeKind.Utc),
@@ -845,7 +845,8 @@ namespace FamilyTreeAPI.Controllers
             var birthdayEvent = await _context.Events
                 .FirstOrDefaultAsync(e => 
                     e.EventType == "birthday" && 
-                    e.Title == $"Anniversaire de {person.FirstName} {person.LastName}");
+                    (e.Title == $"Anniversaire de {person.FirstName}" ||
+                     e.Title == $"Anniversaire de {person.FirstName} {person.LastName}"));
 
             // Chercher l'événement commémoratif (death)
             var memorialEvent = await _context.Events
