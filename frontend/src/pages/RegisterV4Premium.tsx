@@ -20,7 +20,7 @@ import {
   Link as ChakraLink,
   Select,
 } from '@chakra-ui/react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { 
   FaUsers, 
   FaArrowLeft, 
@@ -64,9 +64,11 @@ const RegisterV4Premium = () => {
   const [phone, setPhone] = useState('');
   
   // Form Data States - Step 3: Family Attachment
-  const [actionChoice, setActionChoice] = useState<'create' | 'join'>('create');
+  const [searchParams] = useSearchParams();
+  const codeFromUrl = searchParams.get('code')?.trim().toUpperCase() ?? '';
+  const [actionChoice, setActionChoice] = useState<'create' | 'join'>(codeFromUrl ? 'join' : 'create');
   const [familyName, setFamilyName] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
+  const [inviteCode, setInviteCode] = useState(codeFromUrl);
   
   // UI States
   const [isLoading, setIsLoading] = useState(false);

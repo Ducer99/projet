@@ -1,6 +1,6 @@
 import { Box, Container, Heading, Text, VStack, Button, Grid, Code, HStack, Icon, useToast, Flex, Circle } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
-import { FaCopy, FaKey, FaUsers, FaHeart, FaCalendar, FaMale, FaFemale, FaPlus, FaImage } from 'react-icons/fa';
+import { FaCopy, FaKey, FaUsers, FaHeart, FaCalendar, FaMale, FaFemale, FaPlus, FaImage, FaLink } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
@@ -202,11 +202,15 @@ const DashboardV3 = () => {
   const copyToClipboard = () => {
     if (familyInfo?.inviteCode) {
       navigator.clipboard.writeText(familyInfo.inviteCode);
-      toast({
-        title: t('dashboard.codeCopied'),
-        status: 'success',
-        duration: 2000,
-      });
+      toast({ title: t('dashboard.codeCopied'), status: 'success', duration: 2000 });
+    }
+  };
+
+  const copyInviteLink = () => {
+    if (familyInfo?.inviteCode) {
+      const link = `${window.location.origin}/register?code=${familyInfo.inviteCode}`;
+      navigator.clipboard.writeText(link);
+      toast({ title: 'Lien copié !', description: 'Envoyez ce lien à vos proches — le code sera pré-rempli automatiquement.', status: 'success', duration: 3000 });
     }
   };
 
@@ -358,15 +362,22 @@ const DashboardV3 = () => {
                 </Button>
                 <Button
                   size="md"
+                  onClick={copyInviteLink}
+                  leftIcon={<FaLink />}
+                  colorScheme="green"
+                  borderRadius="xl"
+                >
+                  Copier le lien
+                </Button>
+                <Button
+                  size="md"
                   onClick={regenerateCode}
                   isLoading={loadingRegen}
                   variant="outline"
                   borderColor="purple.300"
                   color="purple.600"
                   borderRadius="xl"
-                  _hover={{
-                    bg: 'purple.50'
-                  }}
+                  _hover={{ bg: 'purple.50' }}
                 >
                   Régénérer
                 </Button>
