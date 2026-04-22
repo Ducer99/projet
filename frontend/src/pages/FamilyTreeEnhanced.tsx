@@ -211,9 +211,27 @@ const FamilyTreeEnhanced: React.FC = () => {
   };
 
   const fetchMarriages = async () => {
-    // Pour l'instant, nous détectons les unions via les enfants communs
-    // L'API des mariages sera intégrée plus tard
-    setMarriages([]);
+    try {
+      let loggedInUser: any = {};
+      try { loggedInUser = JSON.parse(localStorage.getItem('user') || '{}'); } catch {}
+      const familyID = loggedInUser.familyID;
+      if (!familyID) return;
+
+      const response = await api.get(`/marriages/family/${familyID}`);
+      // Mapping API (weddingID/manID/womanID) → interface locale (marriageID/husbandID/wifeID)
+      const mapped: Marriage[] = (response.data || []).map((w: any) => ({
+        marriageID: w.weddingID,
+        husbandID: w.manID,
+        wifeID: w.womanID,
+        marriageDate: w.weddingDate,
+        divorceDate: w.divorceDate,
+        status: w.status,
+      }));
+      setMarriages(mapped);
+    } catch (err) {
+      console.error('❌ [Tree] Erreur fetchMarriages:', err);
+      setMarriages([]);
+    }
   };
 
   // Navigation functions
@@ -902,6 +920,13 @@ const FamilyTreeEnhanced: React.FC = () => {
   const siblings = getSiblings(focusPerson);
   const siblingAnalysis = getFullSiblingsAnalysis(focusPerson);
 
+  // Grands-parents
+  const paternalGrandfather = father ? getFather(father) : null;
+  const paternalGrandmother = father ? getMother(father) : null;
+  const maternalGrandfather = mother ? getFather(mother) : null;
+  const maternalGrandmother = mother ? getMother(mother) : null;
+  const hasGrandparents = paternalGrandfather || paternalGrandmother || maternalGrandfather || maternalGrandmother;
+
   // 🛡️ Détection et affichage des boucles si présentes
   const isPersonInLoop = (personID: number) => {
     return detectedLoops.some(loop => loop.includes(personID));
@@ -1034,19 +1059,56 @@ const FamilyTreeEnhanced: React.FC = () => {
           transformOrigin="top center"
           transition="transform 0.3s ease"
         >
+          {/* Grandparents row */}
+          {hasGrandparents && (
+            <VStack spacing={0} mb={0}>
+              <Text fontSize="xs" color="gray.400" mb={2} fontWeight="600" letterSpacing="wider" textTransform="uppercase">
+                {t('familyTree.grandparents') || 'Grands-parents'}
+              </Text>
+              <HStack justify="center" spacing={12} wrap="wrap">
+                {/* Paternal side */}
+                {(paternalGrandfather || paternalGrandmother) && (
+                  <VStack spacing={2}>
+                    <Text fontSize="xs" color="blue.400" fontWeight="600">
+                      {t('familyTree.paternalLine') || 'Côté paternel'}
+                    </Text>
+                    <HStack spacing={4}>
+                      {paternalGrandfather && renderPersonCard(paternalGrandfather, false, t('familyTree.grandfather') || 'Grand-père')}
+                      {paternalGrandmother && renderPersonCard(paternalGrandmother, false, t('familyTree.grandmother') || 'Grand-mère')}
+                    </HStack>
+                  </VStack>
+                )}
+                {/* Maternal side */}
+                {(maternalGrandfather || maternalGrandmother) && (
+                  <VStack spacing={2}>
+                    <Text fontSize="xs" color="pink.400" fontWeight="600">
+                      {t('familyTree.maternalLine') || 'Côté maternel'}
+                    </Text>
+                    <HStack spacing={4}>
+                      {maternalGrandfather && renderPersonCard(maternalGrandfather, false, t('familyTree.grandfather') || 'Grand-père')}
+                      {maternalGrandmother && renderPersonCard(maternalGrandmother, false, t('familyTree.grandmother') || 'Grand-mère')}
+                    </HStack>
+                  </VStack>
+                )}
+              </HStack>
+              {/* Connecteur vers parents */}
+              <Box w="2px" h="32px" bg="gray.300" mt={2} />
+            </VStack>
+          )}
+
           {/* Parents row */}
           {(father || mother) && (
-            <HStack justify="center" spacing={8} mb={6}>
-              <VStack>
-                <Text fontSize="sm" color="gray.500" mb={2}>
-                  <ChevronUpIcon /> {t('familyTree.parents')}
-                </Text>
-                <HStack spacing={6}>
-                  {father && renderPersonCard(father, false, t('familyTree.father'))}
-                  {mother && renderPersonCard(mother, false, t('familyTree.mother'))}
-                </HStack>
-              </VStack>
-            </HStack>
+            <VStack spacing={0} mb={0}>
+              <Text fontSize="sm" color="gray.500" mb={2}>
+                <ChevronUpIcon /> {t('familyTree.parents')}
+              </Text>
+              <HStack spacing={6}>
+                {father && renderPersonCard(father, false, t('familyTree.father'))}
+                {mother && renderPersonCard(mother, false, t('familyTree.mother'))}
+              </HStack>
+              {/* Connecteur vers focus */}
+              <Box w="2px" h="32px" bg="gray.300" mt={2} />
+            </VStack>
           )}
 
           {showSiblings && siblings.length > 0 && (
