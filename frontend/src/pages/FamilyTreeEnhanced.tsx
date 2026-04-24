@@ -434,27 +434,39 @@ const FamilyTreeEnhanced: React.FC = () => {
   const getFullSiblingsAnalysis = (person: Person) => {
     const allSiblings = getSiblings(person);
     
-    const fullSiblings = allSiblings.filter(s => 
-      s.fatherID === person.fatherID && 
-      s.motherID === person.motherID &&
-      s.fatherID && s.motherID
+    // Frère/sœur complet(e) : même père ET même mère (les deux connus)
+    // null = inconnu ≠ "parent différent" → ne pas classer comme demi-frère si l'un est null
+    const fullSiblings = allSiblings.filter(s => {
+      const sameFather = person.fatherID && s.fatherID && s.fatherID === person.fatherID;
+      const sameMother = person.motherID && s.motherID && s.motherID === person.motherID;
+      return sameFather && sameMother;
+    });
+
+    // Demi-frère paternel : même père ET mère EXPLICITEMENT différente (les deux non-null et différentes)
+    const paternalHalfSiblings = allSiblings.filter(s =>
+      person.fatherID && s.fatherID && s.fatherID === person.fatherID &&
+      s.motherID != null && person.motherID != null && s.motherID !== person.motherID
+    );
+
+    // Demi-frère maternel : même mère ET père EXPLICITEMENT différent (les deux non-null et différents)
+    const maternalHalfSiblings = allSiblings.filter(s =>
+      person.motherID && s.motherID && s.motherID === person.motherID &&
+      s.fatherID != null && person.fatherID != null && s.fatherID !== person.fatherID
     );
     
-    const paternalHalfSiblings = allSiblings.filter(s => 
-      person.fatherID && s.fatherID === person.fatherID && 
-      s.motherID !== person.motherID
+    // Frères/sœurs avec lien partiel (un seul parent connu, l'autre null = inconnu)
+    const partialSiblings = allSiblings.filter(s =>
+      !fullSiblings.includes(s) &&
+      !paternalHalfSiblings.includes(s) &&
+      !maternalHalfSiblings.includes(s)
     );
-    
-    const maternalHalfSiblings = allSiblings.filter(s => 
-      person.motherID && s.motherID === person.motherID && 
-      s.fatherID !== person.fatherID
-    );
-    
+
     return {
       all: allSiblings,
       full: fullSiblings,
       paternalHalf: paternalHalfSiblings,
       maternalHalf: maternalHalfSiblings,
+      partial: partialSiblings,
       totalCount: allSiblings.length,
       hasComplexRelations: paternalHalfSiblings.length > 0 || maternalHalfSiblings.length > 0
     };
@@ -1212,6 +1224,28 @@ const FamilyTreeEnhanced: React.FC = () => {
                           {isPersonInLoop(sibling.personID) && (
                             <Badge colorScheme="red" fontSize="xs">⚠️ {t('familyTree.loop')}</Badge>
                           )}
+                        </VStack>
+                      ))}
+                    </HStack>
+                  </VStack>
+                )}
+
+                {/* Frères/sœurs avec lien partiel (un seul parent connu) — affichés comme frères normaux */}
+                {siblingAnalysis.partial.length > 0 && (
+                  <VStack spacing={2}>
+                    {siblingAnalysis.full.length === 0 && siblingAnalysis.paternalHalf.length === 0 && siblingAnalysis.maternalHalf.length === 0 ? (
+                      <Text fontSize="xs" color="blue.600" fontWeight="semibold">
+                        Frères/Sœurs ({siblingAnalysis.partial.length})
+                      </Text>
+                    ) : (
+                      <Text fontSize="xs" color="gray.500" fontWeight="semibold">
+                        Lien partiel ({siblingAnalysis.partial.length})
+                      </Text>
+                    )}
+                    <HStack spacing={4} wrap="wrap" justify="center">
+                      {siblingAnalysis.partial.map(sibling => (
+                        <VStack key={sibling.personID} spacing={1}>
+                          {renderPersonCard(sibling, false, t('familyTree.sibling'))}
                         </VStack>
                       ))}
                     </HStack>
