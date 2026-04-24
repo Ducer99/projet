@@ -49,26 +49,75 @@ namespace FamilyTreeAPI.Controllers
                 cell.Style.Font.Color.SetColor(System.Drawing.Color.White);
             }
 
-            // Ligne d'exemple — grisée avec note "À SUPPRIMER"
+            // Ligne 2 : avertissement "SUPPRIMEZ CETTE LIGNE"
+            var warnCell = sheet.Cells[2, 1];
+            warnCell.Value = "⚠️ SUPPRIMEZ CETTE LIGNE — Remplacez par vos membres à partir de la ligne 3";
+            sheet.Cells[2, 1, 2, headers.Length].Merge = true;
+            warnCell.Style.Font.Bold = true;
+            warnCell.Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(180, 80, 0));
+            warnCell.Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
+            warnCell.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(255, 243, 205));
+            warnCell.Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Center;
+
+            // Ligne 3 : exemple grisé
             var exampleValues = new object[] { "Jean", "Dupont", "M", "15/03/1980", "non", "", "jean@exemple.com", "Médecin", "Note optionnelle", "Pierre", "Dupont", "Marie", "Martin" };
             for (int i = 0; i < exampleValues.Length; i++)
             {
-                var cell = sheet.Cells[2, i + 1];
+                var cell = sheet.Cells[3, i + 1];
                 cell.Value = exampleValues[i];
                 cell.Style.Font.Italic = true;
-                cell.Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(150, 150, 150));
+                cell.Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(160, 160, 160));
                 cell.Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
                 cell.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(245, 245, 245));
             }
-            // Commentaire sur la première cellule pour indiquer que c'est un exemple
-            sheet.Cells[2, 1].AddComment("⚠️ Ligne d'exemple — À SUPPRIMER avant d'importer", "Kinship Haven");
+            sheet.Cells[3, 1].AddComment("Exemple — supprimez cette ligne avant d'importer", "Kinship Haven");
 
+            // Ligne 4+ : vides pour saisie
             sheet.Cells[sheet.Dimension.Address].AutoFitColumns();
 
             var bytes = package.GetAsByteArray();
             return File(bytes,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "modele_import_famille.xlsx");
+        }
+
+        // Utilitaire : lire une date depuis une cellule Excel (texte, DateTime, OADate)
+        private static DateTime? ParseDateCell(OfficeOpenXml.ExcelRange cell)
+        {
+            // EPPlus a détecté un DateTime (cas Numbers sur Mac)
+            if (cell.Value is DateTime dtVal)
+                return DateTime.SpecifyKind(dtVal, DateTimeKind.Utc);
+
+            // Double = OADate Excel (nombre de jours depuis 1900)
+            if (cell.Value is double d && d > 1)
+            {
+                var dt = DateTime.FromOADate(d);
+                return DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+            }
+
+            var text = cell.Text.Trim();
+            if (string.IsNullOrEmpty(text)) return null;
+
+            // Formats courants : FR, ISO, US
+            var formats = new[]
+            {
+                "dd/MM/yyyy", "d/M/yyyy", "d/MM/yyyy", "dd/M/yyyy",
+                "yyyy-MM-dd", "MM/dd/yyyy", "M/d/yyyy",
+                "dd-MM-yyyy", "d-M-yyyy", "yyyy/MM/dd"
+            };
+
+            if (DateTime.TryParseExact(text, formats,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var bd))
+                return DateTime.SpecifyKind(bd, DateTimeKind.Utc);
+
+            // Dernier recours : parse avec la culture locale
+            if (DateTime.TryParse(text,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var bd2))
+                return DateTime.SpecifyKind(bd2, DateTimeKind.Utc);
+
+            return null; // invalide
         }
 
         // POST: api/import/excel — Importer depuis un fichier Excel
@@ -114,8 +163,19 @@ namespace FamilyTreeAPI.Controllers
                 var lastName = sheet.Cells[row, 2].Text.Trim();
                 var sexRaw = sheet.Cells[row, 3].Text.Trim().ToUpper();
 
+                // Ignorer la ligne d'avertissement (cellule fusionnée)
+                if (firstName.StartsWith("⚠️") || firstName.Contains("SUPPRIMEZ"))
+                    continue;
+
+                // Ignorer la ligne d'exemple du template (email @exemple.com)
+                var emailCheck = sheet.Cells[row, 7].Text.Trim();
+                if (emailCheck.EndsWith("@exemple.com") || emailCheck.EndsWith("@example.com"))
+                    continue;
+
                 if (string.IsNullOrEmpty(firstName) || string.IsNullOrEmpty(lastName))
                 {
+                    // Ne pas signaler les lignes vraiment vides (lignes 2-3 du template)
+                    if (row <= 3) continue;
                     skipped.Add($"Ligne {row} : prénom ou nom manquant");
                     continue;
                 }
@@ -123,19 +183,13 @@ namespace FamilyTreeAPI.Controllers
                 var sex = sexRaw == "F" ? "F" : "M";
 
                 DateTime? birthday = null;
-                var birthdayRaw = sheet.Cells[row, 4].Text.Trim();
-                if (!string.IsNullOrEmpty(birthdayRaw))
+                var birthdayCell = sheet.Cells[row, 4];
+                var birthdayRaw = birthdayCell.Text.Trim();
+                if (birthdayCell.Value != null && !string.IsNullOrEmpty(birthdayCell.Value.ToString()))
                 {
-                    if (DateTime.TryParseExact(birthdayRaw, new[] { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd" },
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        System.Globalization.DateTimeStyles.None, out var bd))
-                    {
-                        birthday = DateTime.SpecifyKind(bd, DateTimeKind.Utc);
-                    }
-                    else
-                    {
+                    birthday = ParseDateCell(birthdayCell);
+                    if (birthday == null && !string.IsNullOrEmpty(birthdayRaw))
                         errors.Add($"Ligne {row} ({firstName} {lastName}) : date de naissance invalide '{birthdayRaw}' — ignorée");
-                    }
                 }
 
                 var deceasedRaw = sheet.Cells[row, 5].Text.Trim().ToLower();
@@ -144,16 +198,9 @@ namespace FamilyTreeAPI.Controllers
                 DateTime? deathDate = null;
                 if (!alive)
                 {
-                    var deathRaw = sheet.Cells[row, 6].Text.Trim();
-                    if (!string.IsNullOrEmpty(deathRaw))
-                    {
-                        if (DateTime.TryParseExact(deathRaw, new[] { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd" },
-                            System.Globalization.CultureInfo.InvariantCulture,
-                            System.Globalization.DateTimeStyles.None, out var dd))
-                        {
-                            deathDate = DateTime.SpecifyKind(dd, DateTimeKind.Utc);
-                        }
-                    }
+                    var deathCell = sheet.Cells[row, 6];
+                    if (deathCell.Value != null && !string.IsNullOrEmpty(deathCell.Value.ToString()))
+                        deathDate = ParseDateCell(deathCell);
                 }
 
                 var email = sheet.Cells[row, 7].Text.Trim();

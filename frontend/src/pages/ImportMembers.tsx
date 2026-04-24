@@ -85,10 +85,16 @@ export default function ImportMembers() {
       formData.append('file', file);
       const response = await api.post('/import/excel', formData);
       setResult(response.data);
+      const d = response.data;
+      const status = d.errors > 0 ? 'warning' : d.imported === 0 ? 'warning' : 'success';
       toast({
-        title: `${response.data.imported} membre(s) importé(s)`,
-        status: response.data.errors > 0 ? 'warning' : 'success',
-        duration: 4000,
+        title: d.imported > 0
+          ? `${d.imported} membre(s) importé(s)`
+          : `Aucun membre importé`,
+        description: d.skipped > 0 ? `${d.skipped} ligne(s) ignorée(s) — voir les détails ci-dessous` : undefined,
+        status,
+        duration: 5000,
+        isClosable: true,
       });
     } catch (error: any) {
       toast({
@@ -133,9 +139,18 @@ export default function ImportMembers() {
               </HStack>
             </Box>
             <Box px={6} py={6}>
-              <Text fontSize="sm" color="gray.600" mb={4}>
-                Téléchargez le fichier Excel modèle, remplissez-le avec les membres de votre famille, puis importez-le.
-              </Text>
+              <Alert status="info" borderRadius="lg" mb={4} bg="blue.50" borderColor="blue.200" border="1px solid">
+                <AlertIcon color="blue.500" />
+                <Box>
+                  <AlertTitle fontSize="sm" color="blue.800">Comment utiliser l'import Excel</AlertTitle>
+                  <AlertDescription fontSize="xs" color="blue.700" lineHeight="1.8">
+                    1. Téléchargez le modèle<br />
+                    2. Ouvrez-le et <strong>saisissez vos membres</strong> (un par ligne, à partir de la ligne 4)<br />
+                    3. La ligne jaune et la ligne grise sont des exemples — elles sont ignorées automatiquement<br />
+                    4. Enregistrez en format <strong>.xlsx</strong> puis importez
+                  </AlertDescription>
+                </Box>
+              </Alert>
               <Box bg="gray.50" borderRadius="lg" p={4} mb={4}>
                 <Text fontSize="xs" color="gray.500" fontWeight="semibold" mb={2}>COLONNES DISPONIBLES</Text>
                 <HStack wrap="wrap" spacing={2}>
@@ -284,6 +299,25 @@ export default function ImportMembers() {
                             <ListItem key={i} fontSize="sm">
                               <ListIcon as={FaTimesCircle} color="red.500" />
                               {e}
+                            </ListItem>
+                          ))}
+                        </List>
+                      </AlertDescription>
+                    </Box>
+                  </Alert>
+                )}
+
+                {result.details.imported.length > 0 && (
+                  <Alert status="success" borderRadius="lg" mb={3}>
+                    <AlertIcon />
+                    <Box>
+                      <AlertTitle>Membres importés</AlertTitle>
+                      <AlertDescription>
+                        <List spacing={1} mt={1}>
+                          {result.details.imported.map((s, i) => (
+                            <ListItem key={i} fontSize="sm">
+                              <ListIcon as={FaCheckCircle} color="green.500" />
+                              {s}
                             </ListItem>
                           ))}
                         </List>

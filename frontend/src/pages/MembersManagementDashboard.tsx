@@ -72,6 +72,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { useRef } from 'react';
+import * as XLSX from 'xlsx';
 import api from '../services/api';
 import { Person } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -630,6 +631,83 @@ const MembersManagementDashboard = () => {
 
   // ============ HANDLERS ============
 
+  const handleExportExcel = async () => {
+    try {
+      // Récupérer tous les mariages de la famille en une seule requête
+      const marriagesRes = await api.get(`/marriages/family/${user?.familyID}`);
+      const marriages: { manID: number; womanID: number; weddingDate?: string }[] = marriagesRes.data || [];
+
+      // Table de lookup personID → "Prénom Nom"
+      const nameOf = (id?: number): string => {
+        if (!id) return '';
+        const p = persons.find(p => p.personID === id);
+        return p ? `${p.firstName} ${p.lastName}` : '';
+      };
+
+      // Pour chaque personne, trouver ses conjoint(s)
+      const spousesOf = (person: PersonWithPermissions): string => {
+        const spouseNames = marriages
+          .filter(m => m.manID === person.personID || m.womanID === person.personID)
+          .map(m => nameOf(m.manID === person.personID ? m.womanID : m.manID))
+          .filter(Boolean);
+        return spouseNames.join(', ');
+      };
+
+      // Nombre d'enfants
+      const childrenCount = (person: PersonWithPermissions): number =>
+        persons.filter(p => p.fatherID === person.personID || p.motherID === person.personID).length;
+
+      // Retourner un objet Date natif (SheetJS l'injecte comme cellule date Excel — tri/filtre fonctionnels)
+      const parseDate = (d?: string): Date | '' => {
+        if (!d) return '';
+        const dt = new Date(d);
+        return isNaN(dt.getTime()) ? '' : dt;
+      };
+
+      // Nettoyer les notes : tronquer à 200 chars, supprimer les retours à la ligne
+      const cleanNotes = (notes?: string): string => {
+        if (!notes) return '';
+        return notes.replace(/[\r\n]+/g, ' ').substring(0, 200);
+      };
+
+      const rows = persons.map(p => ({
+        'ID':                p.personID,
+        'Prénom':            p.firstName,
+        'Nom':               p.lastName,
+        'Sexe':              p.sex === 'F' ? 'Féminin' : 'Masculin',
+        'Date naissance':    parseDate(p.birthday),
+        'Date décès':        parseDate(p.deathDate),
+        'En vie':            p.alive ? 'Oui' : 'Non',
+        'Profession':        p.activity || '',
+        'Notes':             cleanNotes(p.notes),
+        'Père':              nameOf(p.fatherID),
+        'Mère':              nameOf(p.motherID),
+        'Conjoint(s)':       spousesOf(p),
+        "Nombre d'enfants":  childrenCount(p),
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rows, { cellDates: true, dateNF: 'dd/mm/yyyy' });
+
+      // Largeurs de colonnes
+      ws['!cols'] = [
+        { wch: 6 }, { wch: 16 }, { wch: 18 }, { wch: 10 }, { wch: 16 },
+        { wch: 12 }, { wch: 8 }, { wch: 20 }, { wch: 30 }, { wch: 22 },
+        { wch: 22 }, { wch: 30 }, { wch: 8 },
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Membres');
+
+      const familySlug = (user?.familyName || 'famille').toLowerCase().replace(/\s+/g, '-');
+      const dateStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `famille-${familySlug}-${dateStr}.xlsx`, { cellDates: true });
+
+      toast({ title: `${rows.length} membres exportés`, status: 'success', duration: 3000 });
+    } catch {
+      toast({ title: "Erreur lors de l'export", status: 'error', duration: 3000 });
+    }
+  };
+
   const handleAddPerson = () => {
     navigate('/add-member');
   };
@@ -869,7 +947,21 @@ const MembersManagementDashboard = () => {
                   size="md"
                   fontWeight="600"
                 >
-                  Import Excel
+                  Import
+                </Button>
+
+                <Button
+                  bg="whiteAlpha.200"
+                  color="white"
+                  border="1px solid"
+                  borderColor="whiteAlpha.300"
+                  leftIcon={<FaFileExcel />}
+                  onClick={handleExportExcel}
+                  _hover={{ bg: 'whiteAlpha.300', transform: 'translateY(-1px)' }}
+                  size="md"
+                  fontWeight="600"
+                >
+                  Export
                 </Button>
 
                 <Button

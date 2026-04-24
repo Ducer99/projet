@@ -241,7 +241,7 @@ namespace FamilyTreeAPI.Controllers
         {
             var userFamilyId = int.Parse(User.FindFirst("familyId")?.Value ?? "0");
             var userConnexionId = int.Parse(User.FindFirst("id")?.Value ?? "0");
-            var userRole = User.FindFirst("role")?.Value ?? "Member";
+            var userRole = User.FindFirst("role")?.Value ?? User.FindFirst(ClaimTypes.Role)?.Value ?? "Member";
 
             var existingEvent = await _context.Events.FindAsync(id);
 
@@ -300,7 +300,7 @@ namespace FamilyTreeAPI.Controllers
         {
             var userFamilyId = int.Parse(User.FindFirst("familyId")?.Value ?? "0");
             var userConnexionId = int.Parse(User.FindFirst("id")?.Value ?? "0");
-            var userRole = User.FindFirst("role")?.Value ?? "Member";
+            var userRole = User.FindFirst("role")?.Value ?? User.FindFirst(ClaimTypes.Role)?.Value ?? "Member";
 
             var eventData = await _context.Events.FindAsync(id);
 

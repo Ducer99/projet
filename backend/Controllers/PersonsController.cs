@@ -328,9 +328,9 @@ namespace FamilyTreeAPI.Controllers
             // 🔒 Récupérer les infos de l'utilisateur
             var userFamilyId = int.Parse(User.FindFirst("familyId")?.Value ?? "0");
             var userConnexionId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
-            var userRole = User.FindFirst("role")?.Value ?? "Member";
+            var userRole = User.FindFirst("role")?.Value ?? User.FindFirst(ClaimTypes.Role)?.Value ?? "Member";
             var userPersonId = int.Parse(User.FindFirst("personId")?.Value ?? "0");
-            
+
             Console.WriteLine($"🔍 PUT Person {id}: userConnexionId={userConnexionId}, userFamilyId={userFamilyId}, userRole={userRole}, userPersonId={userPersonId}");
             
             // Validation des données utilisateur
@@ -714,7 +714,7 @@ namespace FamilyTreeAPI.Controllers
         public async Task<ActionResult> CanEditPerson(int id)
         {
             var userConnexionId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
-            var userRole = User.FindFirst("role")?.Value ?? "Member";
+            var userRole = User.FindFirst("role")?.Value ?? User.FindFirst(ClaimTypes.Role)?.Value ?? "Member";
             var userPersonId = int.Parse(User.FindFirst("personId")?.Value ?? "0");
             var userFamilyId = int.Parse(User.FindFirst("familyId")?.Value ?? "0");
 
@@ -1084,7 +1084,7 @@ namespace FamilyTreeAPI.Controllers
     public async Task<ActionResult> UpdateUserRole(int personId, [FromBody] UpdateRoleDto updateRole)
     {
         // 🔐 Vérifier que l'utilisateur connecté est Admin
-        var userRole = User.FindFirst("role")?.Value ?? "Member";
+        var userRole = User.FindFirst("role")?.Value ?? User.FindFirst(ClaimTypes.Role)?.Value ?? "Member";
         if (userRole != "Admin")
         {
             return StatusCode(403, new { message = "Seuls les administrateurs peuvent modifier les rôles" });

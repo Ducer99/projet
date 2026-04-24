@@ -641,12 +641,17 @@ const FamilyTreeEnhanced: React.FC = () => {
       childrenByUnion.get(coParentID)!.children.push(child);
     });
 
-    // Trier les enfants de chaque union par date de naissance ASC, fallback PersonID
+    // Trier les enfants de chaque union : dates connues ASC, dates inconnues (null) en dernier.
+    // Les jumeaux (même date exacte) gardent l'ordre d'insertion (personID ASC) — il n'existe
+    // pas de règle universelle pour le rang des jumeaux. Ne pas modifier sans décision de l'admin famille.
     childrenByUnion.forEach(group => {
       group.children.sort((a, b) => {
-        const da = a.birthday ? new Date(a.birthday).getTime() : a.personID;
-        const db = b.birthday ? new Date(b.birthday).getTime() : b.personID;
-        return (da as number) - (db as number);
+        const hasA = !!a.birthday;
+        const hasB = !!b.birthday;
+        if (hasA && hasB) return new Date(a.birthday!).getTime() - new Date(b.birthday!).getTime();
+        if (hasA) return -1;  // date connue avant inconnue
+        if (hasB) return 1;
+        return a.personID - b.personID; // les deux inconnus : ordre d'insertion
       });
     });
 
@@ -1353,8 +1358,15 @@ const FamilyTreeEnhanced: React.FC = () => {
                           <VStack spacing={2}>
                             {u.children.map((child, ci) => (
                               <VStack key={child.personID} spacing={1}>
-                                <Badge colorScheme="gray" fontSize="xs" variant="outline">
-                                  {ci + 1}{ci === 0 ? 'er' : 'ème'} enfant
+                                <Badge
+                                  colorScheme={child.birthday ? 'gray' : 'orange'}
+                                  fontSize="xs"
+                                  variant="outline"
+                                  title={child.birthday ? undefined : 'Date de naissance inconnue — rang indéterminé'}
+                                >
+                                  {child.birthday
+                                    ? `${ci + 1}${ci === 0 ? 'er' : 'ème'} enfant`
+                                    : '? enfant'}
                                 </Badge>
                                 {renderPersonCard(child, false, t('familyTree.child'))}
                               </VStack>
@@ -1383,9 +1395,25 @@ const FamilyTreeEnhanced: React.FC = () => {
                       <Text fontSize="sm" color="gray.500" fontWeight="600">
                         <ChevronRightIcon /> {t('familyTree.children')} ({children.length})
                       </Text>
-                      {children.map((child, ci) => (
+                      {[...children].sort((a, b) => {
+                        const hasA = !!a.birthday;
+                        const hasB = !!b.birthday;
+                        if (hasA && hasB) return new Date(a.birthday!).getTime() - new Date(b.birthday!).getTime();
+                        if (hasA) return -1;
+                        if (hasB) return 1;
+                        return a.personID - b.personID;
+                      }).map((child, ci) => (
                         <VStack key={child.personID} spacing={1}>
-                          <Badge colorScheme="gray" fontSize="xs" variant="outline">{ci + 1}{ci === 0 ? 'er' : 'ème'} enfant</Badge>
+                          <Badge
+                            colorScheme={child.birthday ? 'gray' : 'orange'}
+                            fontSize="xs"
+                            variant="outline"
+                            title={child.birthday ? undefined : 'Date de naissance inconnue — rang indéterminé'}
+                          >
+                            {child.birthday
+                              ? `${ci + 1}${ci === 0 ? 'er' : 'ème'} enfant`
+                              : '? enfant'}
+                          </Badge>
                           {renderPersonCard(child, false, t('familyTree.child'))}
                         </VStack>
                       ))}
