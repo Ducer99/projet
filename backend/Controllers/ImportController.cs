@@ -49,20 +49,19 @@ namespace FamilyTreeAPI.Controllers
                 cell.Style.Font.Color.SetColor(System.Drawing.Color.White);
             }
 
-            // Ligne d'exemple
-            sheet.Cells[2, 1].Value = "Jean";
-            sheet.Cells[2, 2].Value = "Dupont";
-            sheet.Cells[2, 3].Value = "M";
-            sheet.Cells[2, 4].Value = "15/03/1980";
-            sheet.Cells[2, 5].Value = "non";
-            sheet.Cells[2, 6].Value = "";
-            sheet.Cells[2, 7].Value = "jean@exemple.com";
-            sheet.Cells[2, 8].Value = "Médecin";
-            sheet.Cells[2, 9].Value = "Note optionnelle";
-            sheet.Cells[2, 10].Value = "Pierre";
-            sheet.Cells[2, 11].Value = "Dupont";
-            sheet.Cells[2, 12].Value = "Marie";
-            sheet.Cells[2, 13].Value = "Martin";
+            // Ligne d'exemple — grisée avec note "À SUPPRIMER"
+            var exampleValues = new object[] { "Jean", "Dupont", "M", "15/03/1980", "non", "", "jean@exemple.com", "Médecin", "Note optionnelle", "Pierre", "Dupont", "Marie", "Martin" };
+            for (int i = 0; i < exampleValues.Length; i++)
+            {
+                var cell = sheet.Cells[2, i + 1];
+                cell.Value = exampleValues[i];
+                cell.Style.Font.Italic = true;
+                cell.Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(150, 150, 150));
+                cell.Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
+                cell.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(245, 245, 245));
+            }
+            // Commentaire sur la première cellule pour indiquer que c'est un exemple
+            sheet.Cells[2, 1].AddComment("⚠️ Ligne d'exemple — À SUPPRIMER avant d'importer", "Kinship Haven");
 
             sheet.Cells[sheet.Dimension.Address].AutoFitColumns();
 
