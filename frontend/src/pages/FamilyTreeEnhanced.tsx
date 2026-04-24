@@ -186,6 +186,14 @@ const FamilyTreeEnhanced: React.FC = () => {
       const response = await api.get('/persons');
       const personsData = response.data || [];
       console.log(`👥 [Tree] ${personsData.length} personnes chargées:`, personsData.map((p: Person) => `#${p.personID} ${p.firstName} ${p.lastName} (père:${p.fatherID ?? '—'} mère:${p.motherID ?? '—'})`));
+      // DEBUG parents — données brutes de l'API pour chaque personne
+      personsData.forEach((p: any) => {
+        if (p.fatherID || p.motherID || p.fatherId || p.motherId) {
+          console.log(`✅ #${p.personID} ${p.firstName}: fatherID=${p.fatherID} motherID=${p.motherID} fatherId=${p.fatherId} motherId=${p.motherId}`);
+        } else {
+          console.warn(`⚠️ #${p.personID} ${p.firstName} ${p.lastName}: pas de parents dans l'API. Clés reçues:`, Object.keys(p));
+        }
+      });
 
       setPersons(personsData);
 
