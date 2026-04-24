@@ -77,7 +77,7 @@ const Header = () => {
       top={0}
       zIndex={999}
       boxShadow="header"
-      display={{ base: 'none', md: 'block' }}
+      display="block"
     >
       <Container maxW="container.xl" py={2.5}>
         <HStack justify="space-between" align="center">

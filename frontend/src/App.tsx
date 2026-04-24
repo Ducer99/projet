@@ -35,6 +35,7 @@ import PrivateRoute from './components/PrivateRoute';
 import Privacy from './pages/Privacy';
 import CookieBanner from './components/CookieBanner';
 import ImportMembers from './pages/ImportMembers';
+import BottomNavigation from './components/BottomNavigation';
 
 function App() {
   return (
@@ -42,6 +43,7 @@ function App() {
       <AuthProvider>
         <Box minH="100vh">
           <Header />
+          <BottomNavigation />
           <CookieBanner />
           <Routes>
             {/* Auth publique */}
