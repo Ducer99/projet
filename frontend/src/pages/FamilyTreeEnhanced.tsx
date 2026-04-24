@@ -113,6 +113,7 @@ const FamilyTreeEnhanced: React.FC = () => {
     generations: 0
   });
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [unionPage, setUnionPage] = useState(0); // page courante pour la pagination des unions
   const treeRef = useRef<HTMLDivElement>(null);
   
   const { isOpen: isUnionModalOpen, onOpen: onUnionModalOpen, onClose: onUnionModalClose } = useDisclosure();
@@ -255,6 +256,7 @@ const FamilyTreeEnhanced: React.FC = () => {
     setCurrentHistoryIndex(newHistory.length - 1);
     
     setFocusPersonID(personID);
+    setUnionPage(0); // reset pagination quand on change de focus
   };
 
   const navigateBack = () => {
@@ -601,39 +603,60 @@ const FamilyTreeEnhanced: React.FC = () => {
     return { motherInfo, relationType };
   };
 
-  // Group children by mother/union
+  // Group children by union, sorted by wedding date then children by birthday
   const getChildrenByUnion = (person: Person) => {
     const children = getChildren(person);
     const childrenByUnion = new Map<number | string, {
       mother: Person | null;
       children: Person[];
       unionInfo: any;
+      unionDate: Date | null;
+      unionID: number;
     }>();
-    
+
     children.forEach(child => {
-      let motherID: number | string = 'unknown';
-      let mother: Person | null = null;
-      
+      let coParentID: number | string = 'unknown';
+      let coParent: Person | null = null;
+
       if (child.fatherID === person.personID && child.motherID) {
-        motherID = child.motherID;
-        mother = persons.find(p => p.personID === child.motherID) || null;
+        coParentID = child.motherID;
+        coParent = persons.find(p => p.personID === child.motherID) || null;
       } else if (child.motherID === person.personID && child.fatherID) {
-        motherID = child.fatherID;
-        mother = persons.find(p => p.personID === child.fatherID) || null;
+        coParentID = child.fatherID;
+        coParent = persons.find(p => p.personID === child.fatherID) || null;
       }
-      
-      if (!childrenByUnion.has(motherID)) {
-        childrenByUnion.set(motherID, {
-          mother,
-          children: [],
-          unionInfo: mother ? getMarriageDetails(person.personID, mother.personID) : null
-        });
+
+      if (!childrenByUnion.has(coParentID)) {
+        const unionInfo = coParent ? getMarriageDetails(person.personID, coParent.personID) : null;
+        // Date de l'union pour le tri : sentinel 1900 → null
+        let unionDate: Date | null = null;
+        if (unionInfo?.marriageDate) {
+          const d = new Date(unionInfo.marriageDate);
+          if (d.getFullYear() > 1900) unionDate = d;
+        }
+        const unionID = unionInfo?.marriageID ?? (typeof coParentID === 'number' ? coParentID : 999999);
+        childrenByUnion.set(coParentID, { mother: coParent, children: [], unionInfo, unionDate, unionID });
       }
-      
-      childrenByUnion.get(motherID)!.children.push(child);
+
+      childrenByUnion.get(coParentID)!.children.push(child);
     });
-    
-    return Array.from(childrenByUnion.values());
+
+    // Trier les enfants de chaque union par date de naissance ASC, fallback PersonID
+    childrenByUnion.forEach(group => {
+      group.children.sort((a, b) => {
+        const da = a.birthday ? new Date(a.birthday).getTime() : a.personID;
+        const db = b.birthday ? new Date(b.birthday).getTime() : b.personID;
+        return (da as number) - (db as number);
+      });
+    });
+
+    // Trier les unions : date ASC (unions sans date vont à la fin), fallback unionID
+    return Array.from(childrenByUnion.values()).sort((a, b) => {
+      if (a.unionDate && b.unionDate) return a.unionDate.getTime() - b.unionDate.getTime();
+      if (a.unionDate) return -1;
+      if (b.unionDate) return 1;
+      return a.unionID - b.unionID;
+    });
   };
 
   // Search functionality
@@ -1185,149 +1208,193 @@ const FamilyTreeEnhanced: React.FC = () => {
             </HStack>
           )}
 
-          {/* Main row: Spouses + Focus + Children */}
-          <HStack spacing={8} align="start" justify="center" wrap="wrap">
-            {/* Spouses column with enhanced union display */}
-            {spouses.length > 0 && (
-              <VStack spacing={4}>
-                <Text fontSize="sm" color="gray.500">
-                  <ChevronLeftIcon /> {t('familyTree.spouses')} ({spouses.length})
-                </Text>
-                <VStack spacing={4}>
-                  {spouses.map((spouse, index) => {
-                    const unionChildren = getChildrenByUnion(focusPerson)
-                      .find(union => union.mother?.personID === spouse.personID)?.children || [];
-                    
-                    return (
-                      <VStack key={spouse.personID} spacing={2} p={3} 
-                        bg={getGender(spouse) === 'M' ? 'blue.25' : getGender(spouse) === 'F' ? 'pink.25' : 'gray.25'} 
-                        borderRadius="md" 
-                        borderWidth="1px"
-                        borderColor={getGender(spouse) === 'M' ? 'blue.200' : getGender(spouse) === 'F' ? 'pink.200' : 'gray.200'}
-                      >
-                        {/* Spouse card */}
-                        <VStack spacing={2}>
-                          {renderPersonCard(spouse, false, `${t('familyTree.spouse')} ${index + 1}`)}
-                          
-                          {/* Union details */}
+          {/* Main row: unions paginées 2 à la fois + Focus centré */}
+          {(() => {
+            const unionGroups = getChildrenByUnion(focusPerson);
+            // On reconstitue les unions triées (même ordre que getChildrenByUnion)
+            // Chaque "union" = { spouse, children, unionInfo, unionDate, unionID }
+            // On fusionne spouses sans enfants (conjoints sans enfants communs)
+            const spousesByID = new Set(unionGroups.map(g => g.mother?.personID).filter(Boolean));
+            const spousesWithoutChildren = spouses.filter(s => !spousesByID.has(s.personID));
+
+            // Construire la liste complète des unions dans l'ordre
+            type UnionSlot = {
+              spouse: Person;
+              children: Person[];
+              unionInfo: any;
+              unionNumber: number;
+            };
+
+            const allUnions: UnionSlot[] = [
+              ...unionGroups.map((g, i) => ({
+                spouse: g.mother!,
+                children: g.children,
+                unionInfo: g.unionInfo,
+                unionNumber: i + 1,
+              })).filter(u => u.spouse),
+              ...spousesWithoutChildren.map((s, i) => ({
+                spouse: s,
+                children: [],
+                unionInfo: getMarriageDetails(focusPerson.personID, s.personID),
+                unionNumber: unionGroups.length + i + 1,
+              })),
+            ];
+
+            const UNIONS_PER_PAGE = 2;
+            const totalPages = allUnions.length > 0 ? Math.ceil(allUnions.length / UNIONS_PER_PAGE) : 0;
+            const safePage = Math.min(unionPage, Math.max(0, totalPages - 1));
+            const visibleUnions = allUnions.slice(safePage * UNIONS_PER_PAGE, safePage * UNIONS_PER_PAGE + UNIONS_PER_PAGE);
+
+            return (
+              <VStack spacing={4} w="full">
+                {/* Pagination indicator */}
+                {totalPages > 1 && (
+                  <HStack spacing={3} justify="center">
+                    <IconButton
+                      aria-label="Unions précédentes"
+                      icon={<ChevronLeftIcon />}
+                      size="sm"
+                      colorScheme="purple"
+                      variant="outline"
+                      isDisabled={safePage === 0}
+                      onClick={() => setUnionPage(p => Math.max(0, p - 1))}
+                    />
+                    <Text fontSize="sm" color="gray.600" fontWeight="600">
+                      Unions {safePage * UNIONS_PER_PAGE + 1}–{Math.min((safePage + 1) * UNIONS_PER_PAGE, allUnions.length)} / {allUnions.length}
+                    </Text>
+                    <IconButton
+                      aria-label="Unions suivantes"
+                      icon={<ChevronRightIcon />}
+                      size="sm"
+                      colorScheme="purple"
+                      variant="outline"
+                      isDisabled={safePage >= totalPages - 1}
+                      onClick={() => setUnionPage(p => Math.min(totalPages - 1, p + 1))}
+                    />
+                  </HStack>
+                )}
+
+                <HStack spacing={6} align="start" justify="center" wrap="wrap">
+                  {/* Unions gauche (conjoint(e)s de la page courante) */}
+                  {visibleUnions.length > 0 && (
+                    <VStack spacing={4} minW="180px">
+                      <Text fontSize="sm" color="gray.500" fontWeight="600">
+                        <ChevronLeftIcon /> {t('familyTree.spouses')} {totalPages > 1 ? `(${allUnions.length})` : `(${allUnions.length})`}
+                      </Text>
+                      {visibleUnions.map((u) => (
+                        <VStack
+                          key={u.spouse.personID}
+                          spacing={2}
+                          p={3}
+                          bg={getGender(u.spouse) === 'F' ? 'pink.50' : 'blue.50'}
+                          borderRadius="xl"
+                          borderWidth="1px"
+                          borderColor={getGender(u.spouse) === 'F' ? 'pink.200' : 'blue.200'}
+                        >
+                          <Badge colorScheme="purple" fontSize="xs">
+                            {u.unionNumber === 1 ? '1ère union' : `${u.unionNumber}ème union`}
+                          </Badge>
+                          {renderPersonCard(u.spouse, false, t('familyTree.spouse'))}
                           <VStack spacing={1}>
-                            {renderUnionIndicator(spouse, focusPerson)}
-                            
-                            {/* Children count for this union */}
-                            {unionChildren.length > 0 && (
+                            {renderUnionIndicator(u.spouse, focusPerson)}
+                            {u.children.length > 0 && (
                               <Badge colorScheme="green" fontSize="xs">
-                                {unionChildren.length} {t('familyTree.childTogether')}
+                                {u.children.length} enfant{u.children.length > 1 ? 's' : ''} ensemble
                               </Badge>
-                            )}
-                            
-                            {/* Quick access to children of this union */}
-                            {unionChildren.length > 0 && (
-                              <Button
-                                size="xs"
-                                variant="outline"
-                                colorScheme="green"
-                                onClick={() => {
-                                  // Focus sur le premier enfant de cette union
-                                  navigateToFocus(unionChildren[0].personID);
-                                }}
-                              >
-                                👶 {t('familyTree.viewChildren')} ({unionChildren.length})
-                              </Button>
                             )}
                           </VStack>
                         </VStack>
-                      </VStack>
-                    );
-                  })}
-                </VStack>
-              </VStack>
-            )}
-
-            {/* Focus person */}
-            <VStack spacing={4}>
-              <VStack spacing={1}>
-                <Text fontSize="sm" color="gray.500">
-                  ● Focus
-                </Text>
-                {detectedLoops.length > 0 && (
-                  <Badge colorScheme="red" fontSize="xs">
-                    🛡️ {detectedLoops.length} {detectedLoops.length > 1 ? t('familyTree.loopsDetected') : t('familyTree.loopDetected')}
-                  </Badge>
-                )}
-              </VStack>
-              <VStack spacing={2}>
-                {renderPersonCard(focusPerson, true)}
-                {isPersonInLoop(focusPerson.personID) && (
-                  <Badge colorScheme="red" fontSize="xs">
-                    ⚠️ {t('familyTree.personInGenealogicalLoop')}
-                  </Badge>
-                )}
-              </VStack>
-            </VStack>
-
-            {/* Children column with union grouping */}
-            {children.length > 0 && (
-              <VStack spacing={4}>
-                <Text fontSize="sm" color="gray.500">
-                  <ChevronRightIcon /> {t('familyTree.children')} ({children.length})
-                </Text>
-                
-                {/* Group children by union/mother */}
-                <VStack spacing={4}>
-                  {getChildrenByUnion(focusPerson).map((unionGroup, unionIndex) => (
-                    <VStack key={unionIndex} spacing={3} p={3} bg="gray.50" borderRadius="md" borderWidth="1px">
-                      {/* Union header with mother info */}
-                      {unionGroup.mother && (
-                        <VStack spacing={1}>
-                          <Text fontSize="xs" fontWeight="bold" color="purple.600">
-                            {t('familyTree.unionWith')} {unionGroup.mother.firstName} {unionGroup.mother.lastName}
-                          </Text>
-                          {unionGroup.unionInfo && (
-                            <Tooltip label={t('familyTree.clickForUnionDetails')} placement="top">
-                              <Button
-                                size="xs"
-                                variant="outline"
-                                colorScheme="purple"
-                                onClick={() => showUnionDetails(unionGroup.mother!, focusPerson)}
-                              >
-                                💍 {t('familyTree.unionDetails')}
-                              </Button>
-                            </Tooltip>
-                          )}
-                        </VStack>
-                      )}
-                      
-                      {/* Children of this union */}
-                      <VStack spacing={2}>
-                        {unionGroup.children.map(child => {
-                          const relationInfo = getChildRelationInfo(child, focusPerson);
-                          return (
-                            <VStack key={child.personID} spacing={1}>
-                              {renderPersonCard(child, false, t('familyTree.child'))}
-                              
-                              {/* Mother badge */}
-                              {relationInfo.motherInfo && (
-                                <Badge colorScheme="pink" fontSize="xs">
-                                  {t('familyTree.motherLabel')} {relationInfo.motherInfo}
-                                </Badge>
-                              )}
-                              
-                              {/* Half-sibling badge */}
-                              {relationInfo.relationType === 'half' && (
-                                <Badge colorScheme="orange" fontSize="xs">
-                                  {t('familyTree.halfSibling')}
-                                </Badge>
-                              )}
-                            </VStack>
-                          );
-                        })}
-                      </VStack>
+                      ))}
                     </VStack>
-                  ))}
-                </VStack>
+                  )}
+
+                  {/* Focus person — toujours centré */}
+                  <VStack spacing={4} minW="180px">
+                    <VStack spacing={1}>
+                      <Text fontSize="sm" color="gray.500" fontWeight="600">● Focus</Text>
+                      {detectedLoops.length > 0 && (
+                        <Badge colorScheme="red" fontSize="xs">
+                          🛡️ {detectedLoops.length} {detectedLoops.length > 1 ? t('familyTree.loopsDetected') : t('familyTree.loopDetected')}
+                        </Badge>
+                      )}
+                    </VStack>
+                    <VStack spacing={2}>
+                      {renderPersonCard(focusPerson, true)}
+                      {isPersonInLoop(focusPerson.personID) && (
+                        <Badge colorScheme="red" fontSize="xs">
+                          ⚠️ {t('familyTree.personInGenealogicalLoop')}
+                        </Badge>
+                      )}
+                    </VStack>
+                  </VStack>
+
+                  {/* Enfants des unions visibles — groupés par union */}
+                  {visibleUnions.some(u => u.children.length > 0) && (
+                    <VStack spacing={4} minW="180px">
+                      <Text fontSize="sm" color="gray.500" fontWeight="600">
+                        <ChevronRightIcon /> {t('familyTree.children')} ({children.length})
+                      </Text>
+                      {visibleUnions.filter(u => u.children.length > 0).map((u) => (
+                        <VStack key={u.spouse.personID} spacing={3} p={3} bg="gray.50" borderRadius="xl" borderWidth="1px">
+                          <HStack spacing={2}>
+                            <Badge colorScheme="purple" fontSize="xs">{u.unionNumber === 1 ? '1ère union' : `${u.unionNumber}ème union`}</Badge>
+                            <Text fontSize="xs" fontWeight="bold" color="purple.600">
+                              avec {u.spouse.firstName}
+                            </Text>
+                            {u.unionInfo && (
+                              <Tooltip label={t('familyTree.clickForUnionDetails')} placement="top">
+                                <Button size="xs" variant="ghost" colorScheme="purple"
+                                  onClick={() => showUnionDetails(u.spouse, focusPerson)}>
+                                  💍
+                                </Button>
+                              </Tooltip>
+                            )}
+                          </HStack>
+                          <VStack spacing={2}>
+                            {u.children.map((child, ci) => (
+                              <VStack key={child.personID} spacing={1}>
+                                <Badge colorScheme="gray" fontSize="xs" variant="outline">
+                                  {ci + 1}{ci === 0 ? 'er' : 'ème'} enfant
+                                </Badge>
+                                {renderPersonCard(child, false, t('familyTree.child'))}
+                              </VStack>
+                            ))}
+                          </VStack>
+                        </VStack>
+                      ))}
+                      {/* Enfants sans parent connu (fatherID ou motherID non renseigné) */}
+                      {(() => {
+                        const assignedChildren = new Set(visibleUnions.flatMap(u => u.children.map(c => c.personID)));
+                        const unassigned = children.filter(c => !assignedChildren.has(c.personID));
+                        if (unassigned.length === 0 || visibleUnions.length === 0) return null;
+                        return (
+                          <VStack spacing={2} p={3} bg="orange.50" borderRadius="xl" borderWidth="1px" borderColor="orange.200">
+                            <Text fontSize="xs" fontWeight="bold" color="orange.600">Autres enfants</Text>
+                            {unassigned.map(child => renderPersonCard(child, false, t('familyTree.child')))}
+                          </VStack>
+                        );
+                      })()}
+                    </VStack>
+                  )}
+
+                  {/* Pas de conjoint mais des enfants */}
+                  {allUnions.length === 0 && children.length > 0 && (
+                    <VStack spacing={4} minW="180px">
+                      <Text fontSize="sm" color="gray.500" fontWeight="600">
+                        <ChevronRightIcon /> {t('familyTree.children')} ({children.length})
+                      </Text>
+                      {children.map((child, ci) => (
+                        <VStack key={child.personID} spacing={1}>
+                          <Badge colorScheme="gray" fontSize="xs" variant="outline">{ci + 1}{ci === 0 ? 'er' : 'ème'} enfant</Badge>
+                          {renderPersonCard(child, false, t('familyTree.child'))}
+                        </VStack>
+                      ))}
+                    </VStack>
+                  )}
+                </HStack>
               </VStack>
-            )}
-          </HStack>
+            );
+          })()}
         </Box>
 
         {/* Search Results */}
