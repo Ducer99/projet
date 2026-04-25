@@ -1,6 +1,7 @@
 import { Box, Container, Heading, Text, VStack, Button, Grid, Code, HStack, Icon, useToast, Flex, Circle } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { FaCopy, FaKey, FaUsers, FaHeart, FaCalendar, FaMale, FaFemale, FaPlus, FaImage, FaLink } from 'react-icons/fa';
+import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
@@ -382,6 +383,49 @@ const DashboardV3 = () => {
                   Régénérer
                 </Button>
               </HStack>
+
+              {/* QR Code */}
+              <Box mt={5} pt={4} borderTop="1px solid" borderColor="purple.100">
+                <Text fontSize="sm" color="gray.500" mb={3} fontWeight="600">
+                  QR Code d'invitation — à partager ou imprimer
+                </Text>
+                <HStack spacing={6} align="flex-start">
+                  <Box id="family-qr-code" p={3} bg="white" border="1px solid" borderColor="purple.200" borderRadius="xl" shadow="sm">
+                    <QRCodeSVG
+                      value={`${window.location.origin}/register?code=${familyInfo.inviteCode}`}
+                      size={140}
+                      fgColor="#6B21A8"
+                      bgColor="#FFFFFF"
+                      level="M"
+                    />
+                  </Box>
+                  <VStack align="flex-start" spacing={2} justify="center">
+                    <Text fontSize="xs" color="gray.600" maxW="220px">
+                      Scannez ce QR code pour rejoindre la famille directement — sans avoir à saisir le code manuellement.
+                    </Text>
+                    <Button
+                      size="sm"
+                      colorScheme="purple"
+                      variant="outline"
+                      borderRadius="lg"
+                      onClick={() => {
+                        const svg = document.querySelector('#family-qr-code svg') as SVGSVGElement;
+                        if (!svg) return;
+                        const data = new XMLSerializer().serializeToString(svg);
+                        const blob = new Blob([data], { type: 'image/svg+xml' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `invitation-famille-${familyInfo.familyName}.svg`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                    >
+                      Télécharger le QR code
+                    </Button>
+                  </VStack>
+                </HStack>
+              </Box>
             </MotionBox>
           )}
 

@@ -9,10 +9,12 @@ import {
   AddIcon,
   MinusIcon,
   DownloadIcon,
+  AttachmentIcon,
 } from '@chakra-ui/icons';
 import { FaExpand, FaCompress } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import { useState } from 'react';
 
 interface FamilyTreeToolbarProps {
@@ -37,48 +39,53 @@ const FamilyTreeToolbar = ({ onZoomIn, onZoomOut, treeRef }: FamilyTreeToolbarPr
     }
   };
 
-  const handleExport = async () => {
-    if (!treeRef.current) return;
+  const captureCanvas = async () => {
+    if (!treeRef.current) return null;
+    return html2canvas(treeRef.current, {
+      backgroundColor: '#F7FAFC',
+      scale: 2,
+      logging: false,
+      useCORS: true,
+    });
+  };
 
+  const handleExportPNG = async () => {
     try {
-      toast({
-        title: t('familyTree.exportingImage'),
-        status: 'info',
-        duration: 2000,
-        isClosable: true,
-      });
-
-      // Capture du canvas
-      const canvas = await html2canvas(treeRef.current, {
-        backgroundColor: '#F7FAFC',
-        scale: 2, // Haute résolution
-        logging: false,
-        useCORS: true,
-      });
-
-      // Téléchargement
+      toast({ title: 'Export PNG en cours…', status: 'info', duration: 2000 });
+      const canvas = await captureCanvas();
+      if (!canvas) return;
       const link = document.createElement('a');
-      link.download = `arbre-genealogique-${Date.now()}.png`;
+      link.download = `arbre-genealogique-${new Date().toISOString().slice(0, 10)}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
-
-      toast({
-        title: t('familyTree.exportSuccess'),
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-    } catch (error) {
-      console.error('Export error:', error);
-      toast({
-        title: t('familyTree.exportError'),
-        description: t('common.unexpectedError'),
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
+      toast({ title: 'Image téléchargée', status: 'success', duration: 3000 });
+    } catch {
+      toast({ title: t('familyTree.exportError'), status: 'error', duration: 3000 });
     }
   };
+
+  const handleExportPDF = async () => {
+    try {
+      toast({ title: 'Export PDF en cours…', status: 'info', duration: 2000 });
+      const canvas = await captureCanvas();
+      if (!canvas) return;
+
+      const imgData = canvas.toDataURL('image/png');
+      const imgW = canvas.width;
+      const imgH = canvas.height;
+
+      // Format A4 paysage si l'arbre est plus large que haut, portrait sinon
+      const landscape = imgW > imgH;
+      const pdf = new jsPDF({ orientation: landscape ? 'landscape' : 'portrait', unit: 'px', format: [imgW / 2, imgH / 2] });
+      pdf.addImage(imgData, 'PNG', 0, 0, imgW / 2, imgH / 2);
+      pdf.save(`arbre-genealogique-${new Date().toISOString().slice(0, 10)}.pdf`);
+
+      toast({ title: 'PDF téléchargé', status: 'success', duration: 3000 });
+    } catch {
+      toast({ title: t('familyTree.exportError'), status: 'error', duration: 3000 });
+    }
+  };
+
 
   return (
     <Box
@@ -143,19 +150,29 @@ const FamilyTreeToolbar = ({ onZoomIn, onZoomOut, treeRef }: FamilyTreeToolbarPr
           />
         </Tooltip>
 
-        {/* Export */}
-        <Tooltip label={t('familyTree.exportImage')} placement="top">
+        {/* Export PNG */}
+        <Tooltip label="Exporter en image PNG" placement="top">
           <IconButton
-            aria-label="Export image"
+            aria-label="Export PNG"
             icon={<DownloadIcon />}
             size="md"
             colorScheme="green"
             variant="ghost"
-            onClick={handleExport}
-            _hover={{
-              bg: 'rgba(72, 187, 120, 0.1)',
-              transform: 'translateY(-2px)',
-            }}
+            onClick={handleExportPNG}
+            _hover={{ bg: 'rgba(72, 187, 120, 0.1)', transform: 'translateY(-2px)' }}
+          />
+        </Tooltip>
+
+        {/* Export PDF */}
+        <Tooltip label="Exporter en PDF" placement="top">
+          <IconButton
+            aria-label="Export PDF"
+            icon={<AttachmentIcon />}
+            size="md"
+            colorScheme="red"
+            variant="ghost"
+            onClick={handleExportPDF}
+            _hover={{ bg: 'rgba(229, 62, 62, 0.1)', transform: 'translateY(-2px)' }}
           />
         </Tooltip>
       </HStack>
