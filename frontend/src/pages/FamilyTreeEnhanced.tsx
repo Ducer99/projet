@@ -74,6 +74,47 @@ interface NavigationHistory {
   personName: string;
 }
 
+// Barre horizontale couple : ──💍── entre deux cartes avec tirets au milieu
+const CoupleRow = ({ left, right }: { left: React.ReactNode; right: React.ReactNode }) => {
+  const hasBoth = left && right;
+  return (
+    <Box position="relative" display="flex" alignItems="center" justifyContent="center">
+      {left}
+      {hasBoth && (
+        <Box
+          mx={2}
+          height="2px"
+          width="32px"
+          flexShrink={0}
+          position="relative"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+        >
+          {/* Ligne horizontale tiretée */}
+          <Box
+            position="absolute"
+            left={0} right={0}
+            height="2px"
+            bgGradient="repeating-linear(to-r, #9F7AEA 0px, #9F7AEA 6px, transparent 6px, transparent 12px)"
+          />
+          {/* Anneau central */}
+          <Box
+            position="relative"
+            zIndex={1}
+            fontSize="10px"
+            lineHeight="1"
+            userSelect="none"
+          >
+            💍
+          </Box>
+        </Box>
+      )}
+      {right}
+    </Box>
+  );
+};
+
 const FamilyTreeEnhanced: React.FC = () => {
   // Translation hook
   const { t } = useTranslation();
@@ -1109,10 +1150,10 @@ const FamilyTreeEnhanced: React.FC = () => {
                     <Text fontSize="xs" color="blue.400" fontWeight="600">
                       {t('familyTree.paternalLine') || 'Côté paternel'}
                     </Text>
-                    <HStack spacing={4}>
-                      {paternalGrandfather && renderPersonCard(paternalGrandfather, false, t('familyTree.grandfather') || 'Grand-père')}
-                      {paternalGrandmother && renderPersonCard(paternalGrandmother, false, t('familyTree.grandmother') || 'Grand-mère')}
-                    </HStack>
+                    <CoupleRow
+                      left={paternalGrandfather ? renderPersonCard(paternalGrandfather, false, t('familyTree.grandfather') || 'Grand-père') : null}
+                      right={paternalGrandmother ? renderPersonCard(paternalGrandmother, false, t('familyTree.grandmother') || 'Grand-mère') : null}
+                    />
                   </VStack>
                 )}
                 {/* Maternal side */}
@@ -1121,10 +1162,10 @@ const FamilyTreeEnhanced: React.FC = () => {
                     <Text fontSize="xs" color="pink.400" fontWeight="600">
                       {t('familyTree.maternalLine') || 'Côté maternel'}
                     </Text>
-                    <HStack spacing={4}>
-                      {maternalGrandfather && renderPersonCard(maternalGrandfather, false, t('familyTree.grandfather') || 'Grand-père')}
-                      {maternalGrandmother && renderPersonCard(maternalGrandmother, false, t('familyTree.grandmother') || 'Grand-mère')}
-                    </HStack>
+                    <CoupleRow
+                      left={maternalGrandfather ? renderPersonCard(maternalGrandfather, false, t('familyTree.grandfather') || 'Grand-père') : null}
+                      right={maternalGrandmother ? renderPersonCard(maternalGrandmother, false, t('familyTree.grandmother') || 'Grand-mère') : null}
+                    />
                   </VStack>
                 )}
               </HStack>
@@ -1139,10 +1180,10 @@ const FamilyTreeEnhanced: React.FC = () => {
               <Text fontSize="sm" color="gray.500" mb={2}>
                 <ChevronUpIcon /> {t('familyTree.parents')}
               </Text>
-              <HStack spacing={6}>
-                {father && renderPersonCard(father, false, t('familyTree.father'))}
-                {mother && renderPersonCard(mother, false, t('familyTree.mother'))}
-              </HStack>
+              <CoupleRow
+                left={father ? renderPersonCard(father, false, t('familyTree.father')) : null}
+                right={mother ? renderPersonCard(mother, false, t('familyTree.mother')) : null}
+              />
               {/* Connecteur vers focus */}
               <Box w="2px" h="32px" bg="gray.300" mt={2} />
             </VStack>
