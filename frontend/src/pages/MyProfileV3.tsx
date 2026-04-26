@@ -35,7 +35,8 @@ import {
   GridItem,
   Textarea,
   IconButton,
-  Tooltip
+  Tooltip,
+  Select,
 } from '@chakra-ui/react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
@@ -93,6 +94,9 @@ export default function MyProfileV3() {
   // Photo upload
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>('');
+  const [cities, setCities] = useState<{ cityID: number; name: string; countryName: string }[]>([]);
+  const [cityInput, setCityInput] = useState('');
+  const [cityInputCountry, setCityInputCountry] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const toast = useToast();
@@ -101,6 +105,7 @@ export default function MyProfileV3() {
   useEffect(() => {
     loadProfile();
     api.get('/auth/2fa-status').then(res => setTwoFactorEnabled(res.data.twoFactorEnabled)).catch(() => {});
+    api.get('/persons/cities').then(res => setCities(res.data || [])).catch(() => {});
   }, []);
 
   const calculateAge = (birthDate: string): number => {
@@ -219,6 +224,17 @@ export default function MyProfileV3() {
 
     setSaving(true);
     try {
+      // Créer la ville si "Autre ville" choisi
+      let finalCityID = profile.cityID;
+      if (profile.cityID === 0 && cityInput.trim()) {
+        const cityRes = await api.post('/persons/cities', { name: cityInput.trim(), countryName: cityInputCountry.trim() || null });
+        finalCityID = cityRes.data.cityID;
+        setCities(prev => [...prev.filter(c => c.cityID !== finalCityID), { cityID: finalCityID, name: cityInput.trim(), countryName: cityInputCountry.trim() }]);
+        setProfile(p => p ? { ...p, cityID: finalCityID, cityName: cityInput.trim() } : p);
+        setCityInput('');
+        setCityInputCountry('');
+      }
+
       // Use FormData for photo upload compatibility
       const formData = new FormData();
 
@@ -237,7 +253,7 @@ export default function MyProfileV3() {
       if (profile.email) formData.append('email', profile.email);
       if (profile.activity) formData.append('activity', profile.activity);
       if (profile.notes) formData.append('notes', profile.notes);
-      formData.append('cityID', String(profile.cityID));
+      formData.append('cityID', String(finalCityID));
       
       // Keep existing photoUrl if no new photo
       if (!photoFile && profile.photoUrl) {
@@ -706,17 +722,44 @@ export default function MyProfileV3() {
                               <FormLabel fontWeight="600" color="#374151">
                                 Ville de naissance
                               </FormLabel>
-                              <Input
-                                value={profile.cityName || ''}
-                                isReadOnly
+                              <Select
+                                value={profile.cityID || ''}
                                 h="48px"
                                 borderRadius="8px"
-                                bg="gray.50"
-                                cursor="not-allowed"
-                              />
-                              <FormHelperText fontSize="xs">
-                                🏙️ Modifiable par l'admin uniquement
-                              </FormHelperText>
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  if (val === '__new__') {
+                                    setProfile({ ...profile, cityID: 0 });
+                                  } else {
+                                    const city = cities.find(c => c.cityID === Number(val));
+                                    setProfile({ ...profile, cityID: Number(val), cityName: city?.name });
+                                  }
+                                }}
+                              >
+                                <option value="">— Choisir une ville —</option>
+                                {cities.map(c => (
+                                  <option key={c.cityID} value={c.cityID}>
+                                    {c.name}{c.countryName ? ` (${c.countryName})` : ''}
+                                  </option>
+                                ))}
+                                <option value="__new__">+ Autre ville…</option>
+                              </Select>
+                              {profile.cityID === 0 && (
+                                <HStack mt={2} spacing={2}>
+                                  <Input
+                                    placeholder="Nom de la ville"
+                                    size="sm" borderRadius="8px"
+                                    value={cityInput}
+                                    onChange={e => setCityInput(e.target.value)}
+                                  />
+                                  <Input
+                                    placeholder="Pays"
+                                    size="sm" borderRadius="8px"
+                                    value={cityInputCountry}
+                                    onChange={e => setCityInputCountry(e.target.value)}
+                                  />
+                                </HStack>
+                              )}
                             </FormControl>
                           </GridItem>
                         </Grid>

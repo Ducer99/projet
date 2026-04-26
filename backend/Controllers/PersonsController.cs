@@ -100,6 +100,35 @@ namespace FamilyTreeAPI.Controllers
             });
         }
 
+        // GET: api/Persons/cities - Liste de toutes les villes
+        [HttpGet("cities")]
+        [Authorize]
+        public async Task<ActionResult> GetCities()
+        {
+            var cities = await _context.Cities
+                .Where(c => c.Name != null && c.Name != "")
+                .OrderBy(c => c.CountryName)
+                .ThenBy(c => c.Name)
+                .Select(c => new { c.CityID, c.Name, c.CountryName })
+                .ToListAsync();
+            return Ok(cities);
+        }
+
+        // POST: api/Persons/cities - Créer une ville si elle n'existe pas
+        [HttpPost("cities")]
+        [Authorize]
+        public async Task<ActionResult> CreateCity([FromBody] CreateCityDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("Nom requis");
+            var existing = await _context.Cities
+                .FirstOrDefaultAsync(c => c.Name != null && c.Name.ToLower() == dto.Name.ToLower());
+            if (existing != null) return Ok(new { existing.CityID, existing.Name, existing.CountryName });
+            var city = new City { Name = dto.Name, CountryName = dto.CountryName ?? "" };
+            _context.Cities.Add(city);
+            await _context.SaveChangesAsync();
+            return Ok(new { city.CityID, city.Name, city.CountryName });
+        }
+
         // GET: api/Persons/me - Récupérer son propre profil
         [HttpGet("me")]
         [Authorize]
@@ -1154,6 +1183,12 @@ namespace FamilyTreeAPI.Controllers
         public int CityID { get; set; }
         public bool Alive { get; set; }
         public DateTime? DeathDate { get; set; }
+    }
+
+    public class CreateCityDto
+    {
+        public string Name { get; set; } = "";
+        public string? CountryName { get; set; }
     }
 }
 }
