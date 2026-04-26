@@ -203,9 +203,20 @@ const FamilyTreeV2: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
+        // Lire le user depuis localStorage directement (plus fiable qu'useAuth au montage)
+        let loggedInUser: any = {};
+        try { loggedInUser = JSON.parse(localStorage.getItem('user') || '{}'); } catch {}
+        const familyID = loggedInUser.familyID ?? user?.familyID;
+        const idPerson  = loggedInUser.idPerson  ?? user?.idPerson;
+
+        if (!familyID) {
+          setLoading(false);
+          return;
+        }
+
         const [pRes, mRes] = await Promise.all([
           api.get('/persons'),
-          api.get(`/marriages/family/${user?.familyID}`),
+          api.get(`/marriages/family/${familyID}`),
         ]);
         const ps: Person[] = pRes.data || [];
         const ms: Marriage[] = mRes.data || [];
@@ -219,7 +230,7 @@ const FamilyTreeV2: React.FC = () => {
         if (focusId) {
           setRootId(focusId);
         } else {
-          const me = ps.find(p => p.personID === user?.idPerson);
+          const me = ps.find(p => p.personID === idPerson);
           if (me) setRootId(String(me.personID));
           else if (ps.length > 0) setRootId(String(ps[0].personID));
         }
