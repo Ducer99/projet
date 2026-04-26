@@ -1174,16 +1174,80 @@ const FamilyTreeEnhanced: React.FC = () => {
             </VStack>
           )}
 
-          {/* Parents row */}
+          {/* Parents row — toutes les unions du père, mère du focus mise en évidence */}
           {(father || mother) && (
             <VStack spacing={0} mb={0}>
               <Text fontSize="sm" color="gray.500" mb={2}>
                 <ChevronUpIcon /> {t('familyTree.parents')}
               </Text>
-              <CoupleRow
-                left={father ? renderPersonCard(father, false, t('familyTree.father')) : null}
-                right={mother ? renderPersonCard(mother, false, t('familyTree.mother')) : null}
-              />
+              {(() => {
+                if (!father) {
+                  // Pas de père connu : afficher juste la mère
+                  return <CoupleRow left={null} right={renderPersonCard(mother!, false, t('familyTree.mother'))} />;
+                }
+
+                // Toutes les unions du père (via mariages + enfants partagés)
+                const fatherUnions = getChildrenByUnion(father);
+                // Ajouter les conjointes du père sans enfants communs
+                const fatherSpouses = getSpouses(father);
+                const coveredSpouseIDs = new Set(fatherUnions.map(u => u.mother?.personID).filter(Boolean));
+                const spousesWithoutChildren = fatherSpouses.filter(s => !coveredSpouseIDs.has(s.personID));
+
+                type ParentUnion = { wife: Person | null; children: Person[] };
+                const allFatherUnions: ParentUnion[] = [
+                  ...fatherUnions.map(u => ({ wife: u.mother, children: u.children })),
+                  ...spousesWithoutChildren.map(s => ({ wife: s, children: [] })),
+                ];
+
+                // Si le père n'a qu'une union et c'est la mère du focus → vue simple
+                if (allFatherUnions.length <= 1) {
+                  return <CoupleRow
+                    left={renderPersonCard(father, false, t('familyTree.father'))}
+                    right={mother ? renderPersonCard(mother, false, t('familyTree.mother')) : null}
+                  />;
+                }
+
+                // Père polygame : afficher chaque union côte à côte
+                return (
+                  <HStack spacing={6} align="flex-start" justify="center" wrap="wrap">
+                    {allFatherUnions.map((u, i) => {
+                      const isFocusUnion = u.wife?.personID === mother?.personID ||
+                        (!u.wife && !mother);
+                      return (
+                        <VStack
+                          key={u.wife?.personID ?? `no-wife-${i}`}
+                          spacing={2}
+                          p={3}
+                          borderRadius="xl"
+                          border="2px solid"
+                          borderColor={isFocusUnion ? 'purple.400' : 'gray.200'}
+                          bg={isFocusUnion ? 'purple.50' : 'gray.50'}
+                          position="relative"
+                        >
+                          {isFocusUnion && (
+                            <Badge colorScheme="purple" fontSize="2xs" position="absolute" top="-10px" left="50%" transform="translateX(-50%)">
+                              Ta lignée
+                            </Badge>
+                          )}
+                          <CoupleRow
+                            left={i === 0 ? renderPersonCard(father, false, t('familyTree.father')) : null}
+                            right={u.wife ? renderPersonCard(u.wife, false, i === 0 ? t('familyTree.mother') : `${i + 1}ème femme`) : null}
+                          />
+                          {u.children.length > 0 && (
+                            <HStack spacing={1} flexWrap="wrap" justify="center">
+                              {u.children.map(c => (
+                                <Box key={c.personID} fontSize="2xs" color="gray.500" textAlign="center">
+                                  {c.firstName}
+                                </Box>
+                              ))}
+                            </HStack>
+                          )}
+                        </VStack>
+                      );
+                    })}
+                  </HStack>
+                );
+              })()}
               {/* Connecteur vers focus */}
               <Box w="2px" h="32px" bg="gray.300" mt={2} />
             </VStack>
