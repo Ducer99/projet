@@ -1207,44 +1207,68 @@ const FamilyTreeEnhanced: React.FC = () => {
                   />;
                 }
 
-                // Père polygame : afficher chaque union côte à côte
+                // Père polygame :
+                //   Femmes gauche ←  tiret  — Père —  tiret  → Femmes droite
+                // On répartit les femmes : moitié gauche, moitié droite
+                const leftWives  = allFatherUnions.slice(0, Math.ceil(allFatherUnions.length / 2));
+                const rightWives = allFatherUnions.slice(Math.ceil(allFatherUnions.length / 2));
+
+                const renderWifeColumn = (u: { wife: Person | null; children: Person[] }, side: 'left' | 'right') => {
+                  const isFocusUnion = u.wife?.personID === mother?.personID;
+                  const label = isFocusUnion ? t('familyTree.mother') : 'Femme';
+                  return (
+                    <VStack key={u.wife?.personID ?? 'no-wife'} spacing={1} align="center">
+                      {isFocusUnion && (
+                        <Badge colorScheme="purple" fontSize="2xs">Ta lignée</Badge>
+                      )}
+                      {u.wife && renderPersonCard(u.wife, false, label)}
+                      {u.children.length > 0 && (
+                        <HStack spacing={1} flexWrap="wrap" justify="center" maxW="120px">
+                          {u.children.map(c => (
+                            <Text key={c.personID} fontSize="2xs" color="gray.500">{c.firstName}</Text>
+                          ))}
+                        </HStack>
+                      )}
+                    </VStack>
+                  );
+                };
+
+                // Lien tiret horizontal entre père et une femme
+                const Dash = () => (
+                  <Box
+                    w="28px" h="2px" flexShrink={0} alignSelf="center" mt="-20px"
+                    bgGradient="repeating-linear(to-r, #9F7AEA 0px, #9F7AEA 5px, transparent 5px, transparent 10px)"
+                  />
+                );
+
                 return (
-                  <HStack spacing={6} align="flex-start" justify="center" wrap="wrap">
-                    {allFatherUnions.map((u, i) => {
-                      const isFocusUnion = u.wife?.personID === mother?.personID ||
-                        (!u.wife && !mother);
-                      return (
-                        <VStack
-                          key={u.wife?.personID ?? `no-wife-${i}`}
-                          spacing={2}
-                          p={3}
-                          borderRadius="xl"
-                          border="2px solid"
-                          borderColor={isFocusUnion ? 'purple.400' : 'gray.200'}
-                          bg={isFocusUnion ? 'purple.50' : 'gray.50'}
-                          position="relative"
-                        >
-                          {isFocusUnion && (
-                            <Badge colorScheme="purple" fontSize="2xs" position="absolute" top="-10px" left="50%" transform="translateX(-50%)">
-                              Ta lignée
-                            </Badge>
-                          )}
-                          <CoupleRow
-                            left={i === 0 ? renderPersonCard(father, false, t('familyTree.father')) : null}
-                            right={u.wife ? renderPersonCard(u.wife, false, i === 0 ? t('familyTree.mother') : `${i + 1}ème femme`) : null}
-                          />
-                          {u.children.length > 0 && (
-                            <HStack spacing={1} flexWrap="wrap" justify="center">
-                              {u.children.map(c => (
-                                <Box key={c.personID} fontSize="2xs" color="gray.500" textAlign="center">
-                                  {c.firstName}
-                                </Box>
-                              ))}
-                            </HStack>
-                          )}
-                        </VStack>
-                      );
-                    })}
+                  <HStack spacing={0} align="flex-start" justify="center" wrap="wrap">
+                    {/* Femmes gauche + tirets */}
+                    {leftWives.length > 0 && (
+                      <HStack spacing={0} align="flex-start">
+                        {leftWives.map(u => (
+                          <HStack key={u.wife?.personID ?? 'left'} spacing={0} align="flex-start">
+                            {renderWifeColumn(u, 'left')}
+                            <Dash />
+                          </HStack>
+                        ))}
+                      </HStack>
+                    )}
+
+                    {/* Père — centre */}
+                    {renderPersonCard(father, false, t('familyTree.father'))}
+
+                    {/* Tirets + Femmes droite */}
+                    {rightWives.length > 0 && (
+                      <HStack spacing={0} align="flex-start">
+                        {rightWives.map(u => (
+                          <HStack key={u.wife?.personID ?? 'right'} spacing={0} align="flex-start">
+                            <Dash />
+                            {renderWifeColumn(u, 'right')}
+                          </HStack>
+                        ))}
+                      </HStack>
+                    )}
                   </HStack>
                 );
               })()}
