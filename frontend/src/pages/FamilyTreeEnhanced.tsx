@@ -1217,18 +1217,15 @@ const FamilyTreeEnhanced: React.FC = () => {
                   const isFocusUnion = u.wife?.personID === mother?.personID;
                   const label = isFocusUnion ? t('familyTree.mother') : 'Femme';
                   return (
-                    <VStack key={u.wife?.personID ?? 'no-wife'} spacing={1} align="center">
-                      {isFocusUnion && (
-                        <Badge colorScheme="purple" fontSize="2xs">Ta lignée</Badge>
-                      )}
+                    <VStack
+                      key={u.wife?.personID ?? 'no-wife'}
+                      spacing={1} align="center" p={1}
+                      borderRadius="xl"
+                      border="2px solid"
+                      borderColor={isFocusUnion ? 'purple.400' : 'transparent'}
+                      bg={isFocusUnion ? 'purple.50' : 'transparent'}
+                    >
                       {u.wife && renderPersonCard(u.wife, false, label)}
-                      {u.children.length > 0 && (
-                        <HStack spacing={1} flexWrap="wrap" justify="center" maxW="120px">
-                          {u.children.map(c => (
-                            <Text key={c.personID} fontSize="2xs" color="gray.500">{c.firstName}</Text>
-                          ))}
-                        </HStack>
-                      )}
                     </VStack>
                   );
                 };
