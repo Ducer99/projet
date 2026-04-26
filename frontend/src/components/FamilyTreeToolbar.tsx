@@ -41,16 +41,28 @@ const FamilyTreeToolbar = ({ onZoomIn, onZoomOut, treeRef }: FamilyTreeToolbarPr
 
   const captureCanvas = async () => {
     if (!treeRef.current) return null;
-    return html2canvas(treeRef.current, {
+    // Masquer temporairement les avatars ui-avatars.com (CORS double *) avant capture.
+    // Les vraies photos uploadées (src interne) restent visibles.
+    // Le cercle CSS avec initiales Chakra UI s'affiche en dessous pendant la capture.
+    const hiddenImgs: HTMLImageElement[] = [];
+    treeRef.current.querySelectorAll<HTMLImageElement>('img').forEach(img => {
+      if (img.src.includes('ui-avatars.com')) {
+        img.style.visibility = 'hidden';
+        hiddenImgs.push(img);
+      }
+    });
+
+    const canvas = await html2canvas(treeRef.current, {
       backgroundColor: '#F7FAFC',
       scale: 2,
       logging: false,
-      useCORS: false,
-      allowTaint: false,
-      // Ignorer les <img> externes (avatars ui-avatars.com) qui bloquent CORS
-      // Les cercles colorés avec initiales sont rendus en CSS — pas de perte visuelle
-      ignoreElements: (el) => el.tagName === 'IMG',
+      useCORS: true,
     });
+
+    // Restaurer les avatars après capture
+    hiddenImgs.forEach(img => { img.style.visibility = ''; });
+
+    return canvas;
   };
 
   const handleExportPNG = async () => {
