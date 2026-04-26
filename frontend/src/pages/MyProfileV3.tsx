@@ -36,7 +36,6 @@ import {
   Textarea,
   IconButton,
   Tooltip,
-  Select,
 } from '@chakra-ui/react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
@@ -94,9 +93,6 @@ export default function MyProfileV3() {
   // Photo upload
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>('');
-  const [cities, setCities] = useState<{ cityID: number; name: string; countryName: string }[]>([]);
-  const [cityInput, setCityInput] = useState('');
-  const [cityInputCountry, setCityInputCountry] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const toast = useToast();
@@ -105,7 +101,6 @@ export default function MyProfileV3() {
   useEffect(() => {
     loadProfile();
     api.get('/auth/2fa-status').then(res => setTwoFactorEnabled(res.data.twoFactorEnabled)).catch(() => {});
-    api.get('/persons/cities').then(res => setCities(res.data || [])).catch(() => {});
   }, []);
 
   const calculateAge = (birthDate: string): number => {
@@ -224,15 +219,11 @@ export default function MyProfileV3() {
 
     setSaving(true);
     try {
-      // Créer la ville si "Autre ville" choisi
+      // Résoudre le cityID depuis le nom tapé (find or create)
       let finalCityID = profile.cityID;
-      if (profile.cityID === 0 && cityInput.trim()) {
-        const cityRes = await api.post('/persons/cities', { name: cityInput.trim(), countryName: cityInputCountry.trim() || null });
+      if (profile.cityName?.trim()) {
+        const cityRes = await api.post('/persons/cities', { name: profile.cityName.trim() });
         finalCityID = cityRes.data.cityID;
-        setCities(prev => [...prev.filter(c => c.cityID !== finalCityID), { cityID: finalCityID, name: cityInput.trim(), countryName: cityInputCountry.trim() }]);
-        setProfile(p => p ? { ...p, cityID: finalCityID, cityName: cityInput.trim() } : p);
-        setCityInput('');
-        setCityInputCountry('');
       }
 
       // Use FormData for photo upload compatibility
@@ -722,44 +713,12 @@ export default function MyProfileV3() {
                               <FormLabel fontWeight="600" color="#374151">
                                 Ville de naissance
                               </FormLabel>
-                              <Select
-                                value={profile.cityID || ''}
+                              <Input
+                                value={profile.cityName || ''}
                                 h="48px"
                                 borderRadius="8px"
-                                onChange={e => {
-                                  const val = e.target.value;
-                                  if (val === '__new__') {
-                                    setProfile({ ...profile, cityID: 0 });
-                                  } else {
-                                    const city = cities.find(c => c.cityID === Number(val));
-                                    setProfile({ ...profile, cityID: Number(val), cityName: city?.name });
-                                  }
-                                }}
-                              >
-                                <option value="">— Choisir une ville —</option>
-                                {cities.map(c => (
-                                  <option key={c.cityID} value={c.cityID}>
-                                    {c.name}{c.countryName ? ` (${c.countryName})` : ''}
-                                  </option>
-                                ))}
-                                <option value="__new__">+ Autre ville…</option>
-                              </Select>
-                              {profile.cityID === 0 && (
-                                <HStack mt={2} spacing={2}>
-                                  <Input
-                                    placeholder="Nom de la ville"
-                                    size="sm" borderRadius="8px"
-                                    value={cityInput}
-                                    onChange={e => setCityInput(e.target.value)}
-                                  />
-                                  <Input
-                                    placeholder="Pays"
-                                    size="sm" borderRadius="8px"
-                                    value={cityInputCountry}
-                                    onChange={e => setCityInputCountry(e.target.value)}
-                                  />
-                                </HStack>
-                              )}
+                                onChange={e => setProfile({ ...profile, cityName: e.target.value })}
+                              />
                             </FormControl>
                           </GridItem>
                         </Grid>
