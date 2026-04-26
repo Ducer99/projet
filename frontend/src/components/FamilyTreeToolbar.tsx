@@ -45,7 +45,11 @@ const FamilyTreeToolbar = ({ onZoomIn, onZoomOut, treeRef }: FamilyTreeToolbarPr
       backgroundColor: '#F7FAFC',
       scale: 2,
       logging: false,
-      useCORS: true,
+      useCORS: false,
+      allowTaint: false,
+      // Ignorer les <img> externes (avatars ui-avatars.com) qui bloquent CORS
+      // Les cercles colorés avec initiales sont rendus en CSS — pas de perte visuelle
+      ignoreElements: (el) => el.tagName === 'IMG',
     });
   };
 
