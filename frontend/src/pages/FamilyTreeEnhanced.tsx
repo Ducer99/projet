@@ -817,7 +817,7 @@ const FamilyTreeEnhanced: React.FC = () => {
     );
 
     return (
-      <Tooltip label={tooltipLabel} placement="top" hasArrow openDelay={400} bg="gray.800" color="white" borderRadius="lg">
+      <Tooltip label={tooltipLabel} placement="auto" hasArrow openDelay={400} bg="gray.800" color="white" borderRadius="lg">
       <Card
         key={person.personID}
         bg="white"
@@ -1075,7 +1075,7 @@ const FamilyTreeEnhanced: React.FC = () => {
       minH="100vh"
       position="relative"
     >
-      <Container maxW="8xl" py={6}>
+      <Container maxW="8xl" py={6} pb={showMinimap ? "320px" : "80px"}>
         <VStack spacing={6}>
         {/* Header with navigation and search */}
         <HStack w="full" justify="space-between" wrap="wrap" spacing={4}>
