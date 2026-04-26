@@ -27,16 +27,18 @@ import {
   StatNumber,
   StatGroup,
 } from '@chakra-ui/react';
-import { 
-  SearchIcon, 
-  ChevronUpIcon, 
-  ChevronLeftIcon, 
+import {
+  SearchIcon,
+  ChevronUpIcon,
+  ChevronLeftIcon,
   ChevronRightIcon,
   ArrowBackIcon,
   ArrowForwardIcon,
   InfoIcon,
-  ViewIcon
+  ViewIcon,
+  CloseIcon,
 } from '@chakra-ui/icons';
+import { FaHome, FaMap } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -154,8 +156,13 @@ const FamilyTreeEnhanced: React.FC = () => {
     generations: 0
   });
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [unionPage, setUnionPage] = useState(0); // page courante pour la pagination des unions
+  const [unionPage, setUnionPage] = useState(0);
+  const [showMinimap, setShowMinimap] = useState(false);
   const treeRef = useRef<HTMLDivElement>(null);
+
+  const myPersonID: number | null = (() => {
+    try { return JSON.parse(localStorage.getItem('user') || '{}').idPerson ?? null; } catch { return null; }
+  })();
   
   const { isOpen: isUnionModalOpen, onOpen: onUnionModalOpen, onClose: onUnionModalClose } = useDisclosure();
   const { isOpen: isStatsModalOpen, onOpen: onStatsModalOpen, onClose: onStatsModalClose } = useDisclosure();
@@ -761,7 +768,26 @@ const FamilyTreeEnhanced: React.FC = () => {
     const genderColor = gender === 'M' ? '#3B82F6' : gender === 'F' ? '#EC4899' : '#9CA3AF';
     const genderColorLight = gender === 'M' ? '#DBEAFE' : gender === 'F' ? '#FCE7F3' : '#F3F4F6';
     
+    const tooltipLabel = (
+      <VStack spacing={0.5} p={1} align="start">
+        <Text fontWeight="700" fontSize="sm">{person.firstName} {person.lastName}</Text>
+        {birthDateStr && (
+          <Text fontSize="xs">🎂 {new Date(birthDateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
+        )}
+        {person.deathDate && (
+          <Text fontSize="xs">✝ {new Date(person.deathDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
+        )}
+        {age !== null && (
+          <Text fontSize="xs">{person.deathDate ? `Vécu ${age} ans` : `${age} ans`}</Text>
+        )}
+        {!birthDateStr && !person.deathDate && (
+          <Text fontSize="xs" color="gray.400">Aucune date renseignée</Text>
+        )}
+      </VStack>
+    );
+
     return (
+      <Tooltip label={tooltipLabel} placement="top" hasArrow openDelay={400} bg="gray.800" color="white" borderRadius="lg">
       <Card
         key={person.personID}
         bg="white"
@@ -933,6 +959,7 @@ const FamilyTreeEnhanced: React.FC = () => {
           </VStack>
         </CardBody>
       </Card>
+      </Tooltip>
     );
   };
 
@@ -1058,6 +1085,19 @@ const FamilyTreeEnhanced: React.FC = () => {
           </VStack>
 
           <HStack spacing={4}>
+            {myPersonID && (
+              <Tooltip label="Centrer sur moi" placement="bottom">
+                <IconButton
+                  aria-label="Centrer sur moi"
+                  icon={<FaHome />}
+                  size="sm"
+                  colorScheme="purple"
+                  variant="outline"
+                  onClick={() => navigateToFocus(myPersonID)}
+                  isDisabled={focusPersonID === myPersonID}
+                />
+              </Tooltip>
+            )}
             <HStack>
               <SearchIcon />
               <Input
@@ -1731,6 +1771,97 @@ const FamilyTreeEnhanced: React.FC = () => {
         onExport={handleExport}
         treeRef={treeRef}
       />
+
+      {/* Minimap toggle button */}
+      {!showMinimap && (
+        <Tooltip label="Vue d'ensemble" placement="right">
+          <IconButton
+            aria-label="Ouvrir la minimap"
+            icon={<FaMap />}
+            size="md"
+            colorScheme="purple"
+            variant="outline"
+            bg="white"
+            position="fixed"
+            bottom="20px"
+            left="20px"
+            zIndex={1000}
+            boxShadow="0 4px 12px rgba(139,92,246,0.15)"
+            onClick={() => setShowMinimap(true)}
+          />
+        </Tooltip>
+      )}
+
+      {/* Minimap panel */}
+      {showMinimap && (
+        <Box
+          position="fixed"
+          bottom="20px"
+          left="20px"
+          zIndex={1000}
+          bg="white"
+          borderRadius="xl"
+          border="1px solid"
+          borderColor="purple.200"
+          boxShadow="0 4px 20px rgba(139,92,246,0.2)"
+          p={3}
+          w="300px"
+          maxH="280px"
+          display="flex"
+          flexDirection="column"
+        >
+          <HStack justify="space-between" mb={2}>
+            <Text fontSize="xs" fontWeight="700" color="purple.700">
+              🗺️ Vue d'ensemble ({persons.length})
+            </Text>
+            <IconButton
+              aria-label="Fermer"
+              icon={<CloseIcon />}
+              size="xs"
+              variant="ghost"
+              colorScheme="gray"
+              onClick={() => setShowMinimap(false)}
+            />
+          </HStack>
+          <Box overflowY="auto" flex="1">
+            <Box display="flex" flexWrap="wrap" gap="6px">
+              {persons.map(p => {
+                const g = getGender(p);
+                const isFocus = p.personID === focusPersonID;
+                const isMe = p.personID === myPersonID;
+                return (
+                  <Tooltip key={p.personID} label={`${p.firstName} ${p.lastName}`} placement="top" hasArrow>
+                    <Box
+                      w="54px"
+                      cursor="pointer"
+                      onClick={() => navigateToFocus(p.personID)}
+                      borderRadius="lg"
+                      border="2px solid"
+                      borderColor={isFocus ? 'purple.500' : isMe ? 'green.400' : g === 'M' ? 'blue.200' : g === 'F' ? 'pink.200' : 'gray.200'}
+                      bg={isFocus ? 'purple.50' : isMe ? 'green.50' : 'white'}
+                      boxShadow={isFocus ? '0 0 0 2px rgba(159,122,234,0.4)' : 'none'}
+                      p={1}
+                      textAlign="center"
+                      transition="all 0.15s"
+                      _hover={{ transform: 'scale(1.1)', zIndex: 1 }}
+                    >
+                      <Avatar
+                        size="xs"
+                        name={`${p.firstName} ${p.lastName}`}
+                        src={p.photoUrl || undefined}
+                        bg={g === 'M' ? 'blue.400' : g === 'F' ? 'pink.400' : 'gray.400'}
+                      />
+                      <Text fontSize="2xs" noOfLines={1} color="gray.700" lineHeight="1.3" mt="1px">
+                        {p.firstName}
+                      </Text>
+                    </Box>
+                  </Tooltip>
+                );
+              })}
+            </Box>
+          </Box>
+        </Box>
+      )}
     </Container>
     </Box>
   );
