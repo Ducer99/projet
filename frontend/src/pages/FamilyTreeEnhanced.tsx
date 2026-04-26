@@ -26,6 +26,16 @@ import {
   StatLabel,
   StatNumber,
   StatGroup,
+  Drawer,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerCloseButton,
+  DrawerHeader,
+  DrawerBody,
+  Image,
+  Wrap,
+  WrapItem,
+  Spinner,
 } from '@chakra-ui/react';
 import {
   SearchIcon,
@@ -57,8 +67,9 @@ interface Person {
   photoUrl?: string;
   isDeceased?: boolean;
   alive?: boolean; // Ajout de la propriété alive de l'API
-  gender?: 'M' | 'F' | 'male' | 'female'; // Ajout du genre
-  sex?: 'M' | 'F'; // Ajout de la propriété sex de l'API
+  gender?: 'M' | 'F' | 'male' | 'female';
+  sex?: 'M' | 'F';
+  notes?: string;
 }
 
 interface Marriage {
@@ -158,11 +169,30 @@ const FamilyTreeEnhanced: React.FC = () => {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [unionPage, setUnionPage] = useState(0);
   const [showMinimap, setShowMinimap] = useState(false);
+  const [drawerPerson, setDrawerPerson] = useState<Person | null>(null);
+  const [drawerPhotos, setDrawerPhotos] = useState<any[]>([]);
+  const [drawerPhotosLoading, setDrawerPhotosLoading] = useState(false);
+  const { isOpen: isDrawerOpen, onOpen: onDrawerOpen, onClose: onDrawerClose } = useDisclosure();
   const treeRef = useRef<HTMLDivElement>(null);
 
   const myPersonID: number | null = (() => {
     try { return JSON.parse(localStorage.getItem('user') || '{}').idPerson ?? null; } catch { return null; }
   })();
+
+  const openDrawer = async (person: Person) => {
+    setDrawerPerson(person);
+    setDrawerPhotos([]);
+    onDrawerOpen();
+    setDrawerPhotosLoading(true);
+    try {
+      const res = await api.get(`/photos/person/${person.personID}`);
+      setDrawerPhotos(res.data || []);
+    } catch {
+      setDrawerPhotos([]);
+    } finally {
+      setDrawerPhotosLoading(false);
+    }
+  };
   
   const { isOpen: isUnionModalOpen, onOpen: onUnionModalOpen, onClose: onUnionModalClose } = useDisclosure();
   const { isOpen: isStatsModalOpen, onOpen: onStatsModalOpen, onClose: onStatsModalClose } = useDisclosure();
@@ -795,7 +825,7 @@ const FamilyTreeEnhanced: React.FC = () => {
         borderLeftWidth="4px"
         borderLeftColor={genderColor}
         cursor="pointer"
-        onClick={() => isMainFocus ? navigate(`/person/${person.personID}`) : navigateToFocus(person.personID)}
+        onClick={() => openDrawer(person)}
         transition="all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
         _hover={{ 
           transform: 'translateY(-2px)', 
@@ -1657,6 +1687,187 @@ const FamilyTreeEnhanced: React.FC = () => {
             </VStack>
           </Box>
         )}
+
+        {/* ── Panneau latéral personne ── */}
+        <Drawer isOpen={isDrawerOpen} placement="right" onClose={onDrawerClose} size="md">
+          <DrawerOverlay />
+          <DrawerContent>
+            <DrawerCloseButton />
+            {drawerPerson && (() => {
+              const p = drawerPerson;
+              const g = getGender(p);
+              const genderColor = g === 'M' ? '#3B82F6' : g === 'F' ? '#EC4899' : '#9CA3AF';
+              const birthStr = getBirthDate(p);
+              const age = calculateAge(p);
+              const father = getFather(p);
+              const mother = getMother(p);
+              const spouseList = getSpouses(p);
+              const childrenList = getChildren(p);
+              return (
+                <>
+                  <DrawerHeader borderBottomWidth="0" pb={0}>
+                    {/* Bandeau photo + nom */}
+                    <VStack spacing={3} align="center" pt={2} pb={4}
+                      bgGradient={`linear(to-b, ${g === 'M' ? 'blue.50' : g === 'F' ? 'pink.50' : 'gray.50'}, white)`}
+                    >
+                      <Avatar
+                        src={p.photoUrl || undefined}
+                        name={`${p.firstName} ${p.lastName}`}
+                        size="2xl"
+                        bg={g === 'M' ? 'blue.400' : g === 'F' ? 'pink.400' : 'gray.400'}
+                        border="4px solid white"
+                        boxShadow="lg"
+                      />
+                      <VStack spacing={0}>
+                        <Text fontWeight="800" fontSize="xl" color="gray.800" textAlign="center">
+                          {p.firstName} {p.lastName}
+                        </Text>
+                        {birthStr && (
+                          <Text fontSize="sm" color="gray.500">
+                            🎂 {new Date(birthStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            {age !== null && ` · ${age} ans`}
+                          </Text>
+                        )}
+                        {p.deathDate && (
+                          <Text fontSize="sm" color="gray.400">
+                            ✝ {new Date(p.deathDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          </Text>
+                        )}
+                      </VStack>
+                    </VStack>
+                  </DrawerHeader>
+
+                  <DrawerBody pt={0}>
+                    <VStack spacing={5} align="stretch">
+
+                      {/* Actions */}
+                      <HStack spacing={3}>
+                        <Button
+                          flex="1" size="sm" colorScheme="purple" variant="solid"
+                          onClick={() => { onDrawerClose(); navigateToFocus(p.personID); }}
+                        >
+                          Centrer l'arbre
+                        </Button>
+                        <Button
+                          flex="1" size="sm" colorScheme="gray" variant="outline"
+                          onClick={() => navigate(`/person/${p.personID}`)}
+                        >
+                          Profil complet →
+                        </Button>
+                      </HStack>
+
+                      <Divider />
+
+                      {/* Famille proche */}
+                      <Box>
+                        <Text fontSize="xs" fontWeight="700" color="gray.500" textTransform="uppercase" letterSpacing="wider" mb={2}>
+                          Famille proche
+                        </Text>
+                        <VStack spacing={1} align="stretch">
+                          {father && (
+                            <HStack justify="space-between" py={1}>
+                              <Text fontSize="sm" color="gray.500">Père</Text>
+                              <Text
+                                fontSize="sm" fontWeight="600" color="blue.600" cursor="pointer"
+                                _hover={{ textDecoration: 'underline' }}
+                                onClick={() => openDrawer(father)}
+                              >
+                                {father.firstName} {father.lastName}
+                              </Text>
+                            </HStack>
+                          )}
+                          {mother && (
+                            <HStack justify="space-between" py={1}>
+                              <Text fontSize="sm" color="gray.500">Mère</Text>
+                              <Text
+                                fontSize="sm" fontWeight="600" color="pink.600" cursor="pointer"
+                                _hover={{ textDecoration: 'underline' }}
+                                onClick={() => openDrawer(mother)}
+                              >
+                                {mother.firstName} {mother.lastName}
+                              </Text>
+                            </HStack>
+                          )}
+                          {spouseList.length > 0 && (
+                            <HStack justify="space-between" py={1} align="start">
+                              <Text fontSize="sm" color="gray.500">
+                                {spouseList.length > 1 ? 'Conjoints' : 'Conjoint(e)'}
+                              </Text>
+                              <VStack spacing={0} align="end">
+                                {spouseList.map(s => (
+                                  <Text
+                                    key={s.personID}
+                                    fontSize="sm" fontWeight="600"
+                                    color={getGender(s) === 'M' ? 'blue.600' : 'pink.600'}
+                                    cursor="pointer"
+                                    _hover={{ textDecoration: 'underline' }}
+                                    onClick={() => openDrawer(s)}
+                                  >
+                                    {s.firstName} {s.lastName}
+                                  </Text>
+                                ))}
+                              </VStack>
+                            </HStack>
+                          )}
+                          {childrenList.length > 0 && (
+                            <HStack justify="space-between" py={1}>
+                              <Text fontSize="sm" color="gray.500">Enfants</Text>
+                              <Badge colorScheme="green" fontSize="sm">{childrenList.length}</Badge>
+                            </HStack>
+                          )}
+                        </VStack>
+                      </Box>
+
+                      {/* Notes / biographie */}
+                      {p.notes && (
+                        <>
+                          <Divider />
+                          <Box>
+                            <Text fontSize="xs" fontWeight="700" color="gray.500" textTransform="uppercase" letterSpacing="wider" mb={2}>
+                              Notes
+                            </Text>
+                            <Text fontSize="sm" color="gray.700" whiteSpace="pre-wrap">{p.notes}</Text>
+                          </Box>
+                        </>
+                      )}
+
+                      {/* Photos de l'album */}
+                      <Divider />
+                      <Box>
+                        <Text fontSize="xs" fontWeight="700" color="gray.500" textTransform="uppercase" letterSpacing="wider" mb={2}>
+                          Photos
+                        </Text>
+                        {drawerPhotosLoading ? (
+                          <HStack justify="center" py={4}><Spinner size="sm" color="purple.400" /></HStack>
+                        ) : drawerPhotos.length === 0 ? (
+                          <Text fontSize="sm" color="gray.400" textAlign="center" py={2}>Aucune photo dans les albums</Text>
+                        ) : (
+                          <Wrap spacing={2}>
+                            {drawerPhotos.slice(0, 12).map(photo => (
+                              <WrapItem key={photo.photoID}>
+                                <Image
+                                  src={photo.thumbnailUrl || photo.url}
+                                  alt={photo.title || ''}
+                                  w="80px" h="80px"
+                                  objectFit="cover"
+                                  borderRadius="lg"
+                                  cursor="pointer"
+                                  onClick={() => navigate(`/albums/${photo.albumID}`)}
+                                  _hover={{ opacity: 0.85 }}
+                                />
+                              </WrapItem>
+                            ))}
+                          </Wrap>
+                        )}
+                      </Box>
+
+                    </VStack>
+                  </DrawerBody>
+                </>
+              );
+            })()}
+          </DrawerContent>
+        </Drawer>
 
         {/* Union Details Modal */}
         <Modal isOpen={isUnionModalOpen} onClose={onUnionModalClose}>
