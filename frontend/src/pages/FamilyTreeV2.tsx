@@ -38,8 +38,8 @@ interface Marriage {
 }
 
 // ─── Carte d'une personne dans l'arbre ────────────────────────────────────────
-const NODE_WIDTH  = 140;
-const NODE_HEIGHT = 90;
+const NODE_WIDTH  = 160;
+const NODE_HEIGHT = 120;
 
 const PersonCard = ({
   node, persons, isFocus, onClick,
@@ -51,46 +51,41 @@ const PersonCard = ({
 }) => {
   const person = persons.find(p => String(p.personID) === node.id);
 
-  if (node.placeholder || !person) {
-    return (
-      <Box
-        w={`${NODE_WIDTH}px`} h={`${NODE_HEIGHT}px`}
-        position="absolute"
-        left={`${node.left * (NODE_WIDTH + 20)}px`}
-        top={`${node.top * (NODE_HEIGHT + 40)}px`}
-        border="2px dashed" borderColor="gray.200"
-        borderRadius="xl" bg="gray.50"
-        display="flex" alignItems="center" justifyContent="center"
-      >
-        <Text fontSize="xs" color="gray.400">?</Text>
-      </Box>
-    );
-  }
+  if (node.placeholder || !person) return null;
 
   const isFemale = person.sex === 'F';
   const displayDate = person.birthday
     ? new Date(person.birthday).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
     : null;
 
+  const translateX = node.left * (NODE_WIDTH / 2);
+  const translateY = node.top * (NODE_HEIGHT / 2);
+
+
   return (
     <Box
       position="absolute"
-      left={`${node.left * (NODE_WIDTH + 20)}px`}
-      top={`${node.top * (NODE_HEIGHT + 40)}px`}
+      top={0}
+      left={0}
+      style={{ transform: `translate(${translateX}px, ${translateY}px)` }}
       w={`${NODE_WIDTH}px`}
+      h={`${NODE_HEIGHT}px`}
       cursor="pointer"
       onClick={() => onClick(node.id)}
-      transition="all 0.2s"
-      _hover={{ transform: 'translateY(-2px)', zIndex: 10 }}
+      transition="box-shadow 0.2s"
+      _hover={{ zIndex: 10 }}
     >
       <VStack
         spacing={1} p={2}
+        h="100%"
         bg={isFocus ? 'purple.50' : 'white'}
         border="2px solid"
         borderColor={isFocus ? 'purple.500' : isFemale ? 'pink.200' : 'blue.200'}
         borderRadius="xl"
         boxShadow={isFocus ? '0 0 0 3px rgba(159,122,234,0.3)' : 'sm'}
         align="center"
+        justify="center"
+        overflow="hidden"
       >
         <Avatar
           size="sm"
@@ -338,8 +333,8 @@ const FamilyTreeV2: React.FC = () => {
           <FamilyTree
             nodes={nodes}
             rootId={rootId}
-            width={NODE_WIDTH + 20}
-            height={NODE_HEIGHT + 40}
+            width={NODE_WIDTH}
+            height={NODE_HEIGHT}
             renderNode={renderNode}
           />
         </Box>
