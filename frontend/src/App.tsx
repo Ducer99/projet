@@ -13,6 +13,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import FamilySetup from './pages/FamilySetup';
 import Dashboard from './pages/DashboardV3';
 import FamilyTreeEnhanced from './pages/FamilyTreeEnhanced';
+import FamilyTreeV2 from './pages/FamilyTreeV2';
 import RelationsExplainer from './pages/RelationsExplainer';
 import PersonProfile from './pages/PersonProfileV2';
 import MembersManagementDashboard from './pages/MembersManagementDashboard';
@@ -63,6 +64,7 @@ function App() {
             {/* App protégée */}
             <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
             <Route path="/family-tree" element={<PrivateRoute><FamilyTreeEnhanced /></PrivateRoute>} />
+            <Route path="/family-tree-v2" element={<PrivateRoute><FamilyTreeV2 /></PrivateRoute>} />
             <Route path="/relations-explainer" element={<PrivateRoute><RelationsExplainer /></PrivateRoute>} />
             <Route path="/persons" element={<PrivateRoute><MembersManagementDashboard /></PrivateRoute>} />
             <Route path="/person/:id" element={<PrivateRoute><PersonProfile /></PrivateRoute>} />
