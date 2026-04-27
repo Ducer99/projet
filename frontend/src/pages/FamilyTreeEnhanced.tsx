@@ -167,6 +167,7 @@ const FamilyTreeEnhanced: React.FC = () => {
     generations: 0
   });
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [highlightYear, setHighlightYear] = useState<number | null>(null);
   const [unionPage, setUnionPage] = useState(0);
   const [showMinimap, setShowMinimap] = useState(false);
   const [drawerPerson, setDrawerPerson] = useState<Person | null>(null);
@@ -798,6 +799,9 @@ const FamilyTreeEnhanced: React.FC = () => {
     const genderColor = gender === 'M' ? '#3B82F6' : gender === 'F' ? '#EC4899' : '#9CA3AF';
     const genderColorLight = gender === 'M' ? '#DBEAFE' : gender === 'F' ? '#FCE7F3' : '#F3F4F6';
     
+    const birthYear = birthDateStr ? new Date(birthDateStr).getFullYear() : null;
+    const isHighlighted = highlightYear !== null && birthYear === highlightYear;
+
     const tooltipLabel = (
       <VStack spacing={0.5} p={1} align="start">
         <Text fontWeight="700" fontSize="sm">{person.firstName} {person.lastName}</Text>
@@ -827,17 +831,18 @@ const FamilyTreeEnhanced: React.FC = () => {
         cursor="pointer"
         onClick={() => openDrawer(person)}
         transition="all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
-        _hover={{ 
-          transform: 'translateY(-2px)', 
+        _hover={{
+          transform: 'translateY(-2px)',
           shadow: 'xl',
           borderLeftWidth: '6px',
         }}
-        shadow="lg"
+        shadow={isHighlighted ? '0 0 0 3px #F6E05E, 0 0 20px rgba(246,224,94,0.6)' : 'lg'}
         minW="180px"
         maxW="220px"
         borderRadius="xl"
         overflow="visible"
         position="relative"
+        opacity={highlightYear !== null && !isHighlighted ? 0.35 : 1}
         {...(isMainFocus && {
           shadow: '2xl',
           borderLeftWidth: '6px',
@@ -1982,6 +1987,99 @@ const FamilyTreeEnhanced: React.FC = () => {
         onExport={handleExport}
         treeRef={treeRef}
       />
+
+      {/* ── Barre chronologique ── */}
+      {(() => {
+        const years = Array.from(new Set(
+          persons
+            .map(p => getBirthDate(p))
+            .filter(Boolean)
+            .map(d => new Date(d!).getFullYear())
+        )).sort((a, b) => a - b);
+
+        if (years.length === 0) return null;
+
+        return (
+          <Box
+            position="fixed"
+            bottom={showMinimap ? '320px' : '80px'}
+            left="50%"
+            transform="translateX(-50%)"
+            zIndex={999}
+            bg="white"
+            borderRadius="2xl"
+            border="1px solid"
+            borderColor="purple.100"
+            boxShadow="0 4px 20px rgba(139,92,246,0.15)"
+            px={4} py={2}
+            maxW="90vw"
+            overflowX="auto"
+            transition="bottom 0.3s"
+          >
+            <HStack spacing={1} align="center">
+              <Text fontSize="2xs" fontWeight="700" color="purple.400" mr={2} whiteSpace="nowrap">
+                📅 Années
+              </Text>
+              {years.map(year => {
+                const count = persons.filter(p => {
+                  const d = getBirthDate(p);
+                  return d && new Date(d).getFullYear() === year;
+                }).length;
+                const isActive = highlightYear === year;
+                return (
+                  <Box
+                    key={year}
+                    as="button"
+                    onClick={() => setHighlightYear(isActive ? null : year)}
+                    px={2} py={1}
+                    borderRadius="lg"
+                    bg={isActive ? 'purple.500' : 'transparent'}
+                    color={isActive ? 'white' : 'gray.600'}
+                    fontWeight={isActive ? '700' : '400'}
+                    fontSize="xs"
+                    position="relative"
+                    _hover={{ bg: isActive ? 'purple.600' : 'purple.50', color: isActive ? 'white' : 'purple.700' }}
+                    transition="all 0.15s"
+                    whiteSpace="nowrap"
+                  >
+                    {year}
+                    {count > 1 && (
+                      <Box
+                        position="absolute"
+                        top="-4px" right="-4px"
+                        bg={isActive ? 'yellow.300' : 'purple.200'}
+                        color={isActive ? 'gray.800' : 'purple.800'}
+                        borderRadius="full"
+                        fontSize="2xs"
+                        fontWeight="700"
+                        w="14px" h="14px"
+                        display="flex" alignItems="center" justifyContent="center"
+                        lineHeight="1"
+                      >
+                        {count}
+                      </Box>
+                    )}
+                  </Box>
+                );
+              })}
+              {highlightYear && (
+                <Box
+                  as="button"
+                  onClick={() => setHighlightYear(null)}
+                  ml={2} px={2} py={1}
+                  borderRadius="lg"
+                  fontSize="xs"
+                  color="gray.400"
+                  _hover={{ color: 'red.400' }}
+                  transition="color 0.15s"
+                >
+                  ✕
+                </Box>
+              )}
+            </HStack>
+          </Box>
+        );
+      })()}
 
       {/* Minimap toggle button */}
       {!showMinimap && (
